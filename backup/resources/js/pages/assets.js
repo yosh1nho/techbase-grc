@@ -3,18 +3,6 @@
     // ========= helpers =========
     const $ = (s) => document.querySelector(s);
     const $$ = (s) => Array.from(document.querySelectorAll(s));
-    // ========= Definição de tipos de ativos que possuem IP =========
-    const TYPES_WITH_IP = new Set(["Servidor", "Firewall", "Router", "Switch", "Access Point", "VPN Gateway"]);
-    function shouldShowIp(type) {
-        return TYPES_WITH_IP.has(type);
-    }
-    function toggleIpFieldByType(type) {
-        const wrap = $("#ipFieldWrap");
-        if (!wrap) return;
-        const show = shouldShowIp(type);
-        wrap.style.display = show ? "" : "none";
-        if (!show && $("#fIp")) $("#fIp").value = "";
-    }
 
     // ========= RBAC (mock) =========
     const USER_ROLE = (window.APP_USER_ROLE || 'Viewer').trim();
@@ -70,9 +58,9 @@
         return (s || "").toLowerCase().trim();
     }
 
-    function updateDiffChip(declaredStatus, suggestedStatus, diffChipEl) {
+    function updateDiffChip(declaredStatus, confidence, diffChipEl) {
         if (!diffChipEl) return;
-        const suggested = suggestedStatus;
+        const suggested = iaStatusFromConfidence(Number(confidence));
         const diff = (declaredStatus && suggested && declaredStatus !== suggested);
         diffChipEl.style.display = diff ? 'inline-flex' : 'none';
         if (diff) {
@@ -101,49 +89,6 @@
             desc: "Gestão de acessos, mínimo privilégio, revisão periódica e evidências."
         }
     };
-
-    // ========= IA mock (sugestão de status + confiança + justificativa) =========
-    function mockAiSuggest(assetDesc, controlKey) {
-        const base = (assetDesc || '').toLowerCase();
-        const ctrl = CONTROL_CATALOG[controlKey] || { title: controlKey, desc: '' };
-        const text = (ctrl.title + ' ' + ctrl.desc).toLowerCase();
-
-        // palavras-chave simples por controlo (mock)
-        const keywords = {
-            "ID.GA-1": ["inventário", "inventario", "asset", "cmdb", "etiqueta", "dono", "responsável", "crit"],
-            "PR.IP-4": ["backup", "cópia", "copia", "restore", "restauro", "retenção", "retencao", "teste", "rto", "rpo"],
-            "ID.AR-1": ["risco", "matriz", "impacto", "probabilidade", "avaliação", "avaliacao", "ameaça", "ameaça"],
-            "PR.AC-1": ["acesso", "login", "mfa", "2fa", "permiss", "rbac", "least privilege", "privilégio", "privilegio"]
-        };
-
-        const k = keywords[controlKey] || [];
-        let hits = 0;
-        for (const w of k) if (base.includes(w)) hits++;
-
-        // sinalizadores de maturidade (mock)
-        const hasEvidenceWords = /(procedimento|política|politica|registo|registro|evidência|evidencia|relatório|relatorio|teste|auditoria)/.test(base);
-        const hasGapsWords = /(não existe|nao existe|informal|ad hoc|sem|falta|desatualizado|incompleto)/.test(base);
-
-        // confiança base por hits
-        let conf = 0.35 + Math.min(0.45, hits * 0.12);
-        if (hasEvidenceWords) conf += 0.12;
-        if (hasGapsWords) conf -= 0.10;
-        conf = Math.max(0.15, Math.min(0.95, Number(conf.toFixed(2))));
-
-        const suggestedStatus = iaStatusFromConfidence(conf);
-
-        const why = [];
-        if (hits) why.push(`detetou ${hits} palavra(s)-chave relacionadas com ${controlKey}`);
-        if (hasEvidenceWords) why.push('há indícios de evidência/processo formal');
-        if (hasGapsWords) why.push('existem sinais de lacunas ou informalidade');
-
-        return {
-            suggestedStatus,
-            confidence: conf,
-            justification: why.length ? why.join('; ') : 'heurística simples com base na descrição do ativo'
-        };
-    }
-
 
     function syncControlInfo(selectEl, infoEl, textEl) {
         if (!selectEl) return;
@@ -275,9 +220,9 @@
     // ========= computed summary =========
     function summarizeControls(asset) {
         const total = asset.controls.length || 0;
-        const gap = asset.controls.filter((c) => c.declaredStatus === "GAP").length;
-        const partial = asset.controls.filter((c) => c.declaredStatus === "PARTIAL").length;
-        const covered = asset.controls.filter((c) => c.declaredStatus === "COVERED").length;
+        const gap = asset.controls.filter((c) => c.status === "GAP").length;
+        const partial = asset.controls.filter((c) => c.status === "PARTIAL").length;
+        const covered = asset.controls.filter((c) => c.status === "COVERED").length;
         return { total, gap, partial, covered };
     }
 
@@ -337,7 +282,7 @@
 
             let matchesControl = true;
             if (st !== "all") {
-                matchesControl = a.controls.some((c) => c.declaredStatus === st);
+                matchesControl = a.controls.some((c) => c.status === st);
             }
 
             return matchesQ && matchesCrit && matchesType && matchesControl;
@@ -356,7 +301,7 @@
             tr.innerHTML = `
         <td>
           <b>${a.name}</b>
-          <div class="muted">${a.subtitle}${a.ip ? ` • ${a.ip}` : ""}</div>
+          <div class="muted">${a.subtitle}</div>
         </td>
         <td>${a.type}</td>
         <td>${criticityTag(a.criticity)}</td>
@@ -389,12 +334,12 @@
             const meta = CONTROL_CATALOG[c.key] || { title: "—", desc: "" };
 
             const statusClass =
-                c.declaredStatus === "GAP" ? "st-gap" :
-                    c.declaredStatus === "PARTIAL" ? "st-partial" :
+                c.status === "GAP" ? "st-gap" :
+                    c.status === "PARTIAL" ? "st-partial" :
                         "st-covered";
 
             const sug = iaStatusFromConfidence(Number(c.confidence ?? 0));
-            const diff = (c.declaredStatus !== sug);
+            const diff = (c.status !== sug);
             const sugClass = (sug === "COVERED" ? "ok" : (sug === "PARTIAL" ? "warn" : "bad"));
 
             const evidences = (c.evidences || []).map(e => `<span class="chip">${e}</span>`).join(" ");
@@ -405,7 +350,7 @@
         <div class="control-left">
           <div class="control-title">
             <span class="control-code">${c.key}</span>
-            <span class="status-pill ${statusClass}">${c.declaredStatus}</span>
+            <span class="status-pill ${statusClass}">${c.status}</span>
             <span class="chip">Confiança: <b>${(c.confidence ?? 0).toFixed(2)}</b></span>
             <span class="chip ${sugClass}">IA: <b>${sug}</b></span>
             ${diff ? `<span class="chip warn">Revisão</span>` : ``}
@@ -426,9 +371,9 @@
 
         <div class="control-actions">
           <select class="mini" data-set-status="${asset.id}:${idx}" ${canOverrideStatus() ? "" : "disabled title='Somente GRC/Admin pode alterar status'"}>
-            <option value="GAP" ${c.declaredStatus === "GAP" ? "selected" : ""}>GAP</option>
-            <option value="PARTIAL" ${c.declaredStatus === "PARTIAL" ? "selected" : ""}>PARTIAL</option>
-            <option value="COVERED" ${c.declaredStatus === "COVERED" ? "selected" : ""}>COVERED</option>
+            <option value="GAP" ${c.status === "GAP" ? "selected" : ""}>GAP</option>
+            <option value="PARTIAL" ${c.status === "PARTIAL" ? "selected" : ""}>PARTIAL</option>
+            <option value="COVERED" ${c.status === "COVERED" ? "selected" : ""}>COVERED</option>
           </select>
           <button class="btn mini" type="button" data-edit-control="${asset.id}:${idx}">Editar nota</button>
           <button class="btn mini" type="button" data-add-evidence="${asset.id}:${idx}">+ Evidência</button>
@@ -444,11 +389,7 @@
                 const [assetId, idxStr] = sel.dataset.setStatus.split(":");
                 const a = assets.find(x => x.id === assetId);
                 const idx = Number(idxStr);
-                a.controls[idx].declaredStatus = sel.value;
-                const ai = mockAiSuggest(a.notes || a.name, a.controls[idx].key);
-                a.controls[idx].aiSuggestedStatus = ai.suggestedStatus;
-                a.controls[idx].aiConfidence = ai.confidence;
-                a.controls[idx].aiJustification = ai.justification;
+                a.controls[idx].status = sel.value;
                 renderAssetsTable();         // update summary
                 renderControlsList(a);       // keep consistent
                 renderAiSuggestions(a);
@@ -512,10 +453,10 @@
 
             let badge = "OK";
             let text = "Parece alinhado com o controlo.";
-            if (c.declaredStatus === "GAP") {
+            if (c.status === "GAP") {
                 badge = "LACUNA";
                 text = "O ativo menciona o tema, mas não há evidência/procedimento suficiente. Sugestão: criar evidência e ligar documento.";
-            } else if (c.declaredStatus === "PARTIAL") {
+            } else if (c.status === "PARTIAL") {
                 badge = "MELHORAR";
                 text = "Há sinais de implementação, mas falta completar requisitos (ex.: periodicidade, dono, teste/relatório).";
             }
@@ -531,7 +472,7 @@
           <span class="badg">${badge}</span>
         </div>
         <div class="muted" style="margin-top:8px">
-          Confiança (mock): <b>${(c.confidence ?? 0).toFixed(2)}</b> • Status atual: <b>${c.declaredStatus}</b>
+          Confiança (mock): <b>${(c.confidence ?? 0).toFixed(2)}</b> • Status atual: <b>${c.status}</b>
         </div>
       `;
             box.appendChild(item);
@@ -551,7 +492,6 @@
         $("#assetModalTitle").textContent = asset.name;
         $("#mType").textContent = asset.type;
         $("#mOwner").textContent = asset.owner;
-        $("#mIp").textContent = asset.ip || "—";
         $("#mCrit").textContent = asset.criticity;
         $("#mCreatedBy").textContent = asset.createdBy || "—";
         $("#mNotes").textContent = asset.notes || "—";
@@ -584,14 +524,14 @@
             const meta = CONTROL_CATALOG[c.key] || { title: "—" };
             const row = document.createElement("div");
             const sug = iaStatusFromConfidence(Number(c.confidence ?? 0));
-            const diff = (c.declaredStatus !== sug);
+            const diff = (c.status !== sug);
             const sugClass = (sug === "COVERED" ? "ok" : (sug === "PARTIAL" ? "warn" : "bad"));
             row.className = "control-row";
             row.innerHTML = `
         <div class="control-left">
           <div class="control-title">
             <span class="control-code">${c.key}</span>
-            <span class="status-pill ${c.declaredStatus === "GAP" ? "st-gap" : c.declaredStatus === "PARTIAL" ? "st-partial" : "st-covered"}">${c.declaredStatus}</span>
+            <span class="status-pill ${c.status === "GAP" ? "st-gap" : c.status === "PARTIAL" ? "st-partial" : "st-covered"}">${c.status}</span>
             <span class="chip">Confiança: <b>${(c.confidence ?? 0).toFixed(2)}</b></span>
           </div>
           <div class="muted"><b>${meta.title}</b></div>
@@ -622,8 +562,6 @@
 
         $("#fName").value = "";
         $("#fType").value = "Servidor";
-        $("#fIp").value = "";
-        toggleIpFieldByType($("#fType").value);
         $("#fCrit").value = "Médio";
         $("#fOwner").value = "";
         $("#fProb").value = "3";
@@ -634,8 +572,9 @@
 
         // defaults do bloco de controlos
         $("#fControlPick").value = "ID.GA-1";
+        $("#fControlConfidence").value = "0.55";
         syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
-        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"), Number($("#fControlConfidence").value), $("#fAiSuggestChip"));
         $("#fControlNote").value = "";
 
         resetCreateControlsPreview();
@@ -655,8 +594,6 @@
 
         $("#fName").value = a.name;
         $("#fType").value = a.type;
-        $("#fIp").value = a.ip || "";
-        toggleIpFieldByType($("#fType").value);
         $("#fCrit").value = a.criticity;
         $("#fOwner").value = a.owner;
         $("#fProb").value = String(a.prob);
@@ -667,8 +604,9 @@
 
         // defaults do bloco de controlos
         $("#fControlPick").value = "ID.GA-1";
+        $("#fControlConfidence").value = "0.55";
         syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
-        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"), Number($("#fControlConfidence").value), $("#fAiSuggestChip"));
         $("#fControlNote").value = "";
 
         resetCreateControlsPreview();
@@ -686,7 +624,7 @@
         const prob = Number($("#fProb").value);
         const impact = Number($("#fImpact").value);
         const notes = $("#fNotes").value.trim();
-        const ip = ($("#fIp")?.value || "").trim();
+
         if (!editingAssetId) {
             const id = "A" + (Math.floor(Math.random() * 9000) + 1000);
             const subtitle = `${type} • (novo)`;
@@ -698,23 +636,17 @@
                 type,
                 criticity,
                 owner,
-                ip,
                 createdBy: "mock-user",
                 notes,
                 prob,
                 impact,
-                controls: createControlsWorking.map(c => {
-                    const ai = mockAiSuggest(notes || name, c.key);
-                    return {
-                        key: c.key,
-                        declaredStatus: c.declaredStatus,
-                        aiSuggestedStatus: ai.suggestedStatus,
-                        aiConfidence: ai.confidence,
-                        aiJustification: ai.justification,
-                        note: c.note || "",
-                        evidences: []
-                    };
-                })
+                controls: createControlsWorking.map(c => ({
+                    key: c.key,
+                    status: c.status,
+                    confidence: 0.55,
+                    note: c.note || "",
+                    evidences: []
+                }))
             };
 
             assets.unshift(newAsset);
@@ -724,7 +656,6 @@
             a.type = type;
             a.criticity = criticity;
             a.owner = owner;
-            a.ip = ip;
             a.notes = notes;
             a.prob = prob;
             a.impact = impact;
@@ -764,13 +695,13 @@
 
     function addControlToCreatePreview() {
         const key = $("#fControlPick").value;
-        if (!canOverrideStatus()) return alert('Somente GRC Manager/Admin podem associar controlos (RF19).');
-        const declaredStatus = $("#fControlStatus").value;
+        const confidence = Number($("#fControlConfidence").value || 0.55);
+        const status = canOverrideStatus() ? $("#fControlStatus").value : iaStatusFromConfidence(confidence);
         const note = $("#fControlNote").value.trim();
-        const exists = createControlsWorking.some(c => c.key === key);
+const exists = createControlsWorking.some(c => c.key === key);
         if (exists) return alert("Este controlo já foi adicionado (mock).");
 
-        createControlsWorking.unshift({ key, declaredStatus, note });
+        createControlsWorking.unshift({ key, status, confidence, note });
         $("#fControlNote").value = "";
         resetCreateControlsPreview();
     }
@@ -786,13 +717,14 @@
         $("#addControlTitle").textContent = a.name;
 
         $("#acControl").value = "ID.GA-1";
-        const ai0 = mockAiSuggest(a.notes || a.name, $("#acControl").value);
+        $("#acConfidence").value = "0.55";
         // default: status declarado começa igual à sugestão IA
-        $("#acStatus").value = ai0.suggestedStatus;
+        const s0 = iaStatusFromConfidence(Number($("#acConfidence").value));
+        $("#acStatus").value = s0;
         syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
         // status: IA sugere por confiança (somente GRC/Admin pode alterar)
-        applyStatusGuard($("#acStatus"), $("#acStatusHint"));
-        updateDiffChip($("#acStatus").value, ai0.suggestedStatus, $("#acAiDiffChip"));
+        applyStatusGuard($("#acStatus"), $("#acStatusHint"), Number($("#acConfidence").value), $("#acAiSuggestChip"));
+                updateDiffChip($("#acStatus").value, Number($("#acConfidence").value), $("#acAiDiffChip"));
 
         $("#acNote").value = "";
 
@@ -808,7 +740,7 @@
             return alert("Este controlo já está associado a este ativo (mock).");
         }
 
-        const confidence = 0.55;
+        const confidence = Number($("#acConfidence").value);
         const status = canOverrideStatus() ? $("#acStatus").value : iaStatusFromConfidence(confidence);
         const note = $("#acNote").value.trim();
 
@@ -859,10 +791,6 @@
                 closeModal("#addControlModal");
             }
         });
-        $("#fType").addEventListener("change", () => {
-            toggleIpFieldByType($("#fType").value);
-        });
-
 
         // edit button inside details modal
         $("#btnEditAsset").addEventListener("click", () => {
@@ -894,33 +822,37 @@
             });
         }
 
+        if ($("#fControlConfidence")) {
+            $("#fControlConfidence").addEventListener("change", () => {
+                applyStatusGuard($("#fControlStatus"), $("#fStatusHint"), Number($("#fControlConfidence").value), $("#fAiSuggestChip"));
+            });
+        }
+
         if ($("#fControlStatus")) {
             // aplicar guard na primeira carga (caso o modal já esteja aberto)
-            applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+            applyStatusGuard($("#fControlStatus"), $("#fStatusHint"), Number($("#fControlConfidence")?.value || 0.55), $("#fAiSuggestChip"));
         }
 
         if ($("#acControl")) {
             $("#acControl").addEventListener("change", () => {
                 syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
-                const a = assets.find(x => x.id === addControlAssetId);
-                if (!a) return;
-                const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-                if (!canOverrideStatus()) {
-                    $("#acStatus").value = ai.suggestedStatus;
-                }
-                updateDiffChip($("#acStatus").value, ai.suggestedStatus, $("#acAiDiffChip"));
+            });
+        }
+
+        if ($("#acConfidence")) {
+            $("#acConfidence").addEventListener("change", () => {
+                applyStatusGuard($("#acStatus"), $("#acStatusHint"), Number($("#acConfidence").value), $("#acAiSuggestChip"));
+                updateDiffChip($("#acStatus").value, Number($("#acConfidence").value), $("#acAiDiffChip"));
             });
         }
 
         if ($("#acStatus")) {
             $("#acStatus").addEventListener("change", () => {
-                const a = assets.find(x => x.id === addControlAssetId);
-                if (!a) return;
-                const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-                updateDiffChip($("#acStatus").value, ai.suggestedStatus, $("#acAiDiffChip"));
+                updateDiffChip($("#acStatus").value, Number($("#acConfidence")?.value || 0.55), $("#acAiDiffChip"));
             });
 
-            applyStatusGuard($("#acStatus"), $("#acStatusHint"));
+            applyStatusGuard($("#acStatus"), $("#acStatusHint"), Number($("#acConfidence")?.value || 0.55), $("#acAiSuggestChip"));
+            updateDiffChip($("#acStatus")?.value, Number($("#acConfidence")?.value || 0.55), $("#acAiDiffChip"));
         }
 
         // nav mock buttons

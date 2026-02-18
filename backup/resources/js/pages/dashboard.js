@@ -42,12 +42,11 @@ const MATURITY_ITEMS = [
 ];
 
 const ALERTS = [
-    { id: 'WZ-1001', ts: '2026-02-18 08:22', sev: 'critical', asset: 'SRV-DB-01', cat: 'EDR', msg: 'Possible credential dumping detected.' },
-    { id: 'WZ-1002', ts: '2026-02-18 07:58', sev: 'high', asset: 'APP-GRC', cat: 'Web', msg: 'Multiple failed logins from same IP.' },
-    { id: 'WZ-1003', ts: '2026-02-18 06:40', sev: 'medium', asset: 'FW-EDGE', cat: 'Network', msg: 'Port scan pattern detected.' },
-    { id: 'WZ-1004', ts: '2026-02-17 23:10', sev: 'low', asset: 'NAS-BKP', cat: 'Backup', msg: 'Backup finished with warnings.' },
+    { ts: '2026-02-18 08:22', sev: 'critical', asset: 'SRV-DB-01', cat: 'EDR', msg: 'Possible credential dumping detected.' },
+    { ts: '2026-02-18 07:58', sev: 'high', asset: 'APP-GRC', cat: 'Web', msg: 'Multiple failed logins from same IP.' },
+    { ts: '2026-02-18 06:40', sev: 'medium', asset: 'FW-EDGE', cat: 'Network', msg: 'Port scan pattern detected.' },
+    { ts: '2026-02-17 23:10', sev: 'low', asset: 'NAS-BKP', cat: 'Backup', msg: 'Backup finished with warnings.' },
 ];
-
 
 // ================== HELPERS ==================
 function normalize(s) { return (s || '').toLowerCase().trim(); }
@@ -200,19 +199,6 @@ function goToItemPage(itemId) {
     else window.location.href = ROUTES.docs || '/documentos';
 }
 
-// ================== Redirecionar para Riscos ==================
-function goToRiskFromAlert(alert) {
-    const params = new URLSearchParams({
-        from: 'wazuh',
-        alert_id: alert.id,
-    });
-
-    // usa rota se existir no window.__TB_ROUTES__ (padrão do teu código)
-    const risksUrl = ROUTES.risks || '/riscos';
-
-    window.location.href = `${risksUrl}?${params.toString()}#wazuh`;
-}
-
 // ================== ALERTS MODAL ==================
 function renderAlertsTable() {
     const tbody = $('#alertTbody');
@@ -235,21 +221,13 @@ function renderAlertsTable() {
 
     rows.forEach(a => {
         const tr = document.createElement('tr');
-        tr.setAttribute('data-alert-id', a.id);
-        tr.style.cursor = 'pointer';
-
         tr.innerHTML = `
-        <td class="muted">${a.ts}</td>
-        <td>${sevChip(a.sev)}</td>
-        <td><b>${a.asset}</b></td>
-        <td class="muted">${a.cat}</td>
-        <td class="muted">${a.msg}</td>
+      <td class="muted">${a.ts}</td>
+      <td>${sevChip(a.sev)}</td>
+      <td><b>${a.asset}</b></td>
+      <td class="muted">${a.cat}</td>
+      <td class="muted">${a.msg}</td>
     `;
-
-        tr.addEventListener('click', () => {
-            goToRiskFromAlert(a);
-        });
-
         tbody.appendChild(tr);
     });
 }

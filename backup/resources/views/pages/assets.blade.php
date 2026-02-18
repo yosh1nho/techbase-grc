@@ -120,11 +120,6 @@
                             <div class="muted">Criticidade</div>
                             <div id="mCrit">—</div>
                         </div>
-                        <div class="kv">
-                            <span class="muted">IP</span>
-                            <b id="mIp">—</b>
-                        </div>
-
                     </div>
 
                     <div style="height:10px"></div>
@@ -279,12 +274,6 @@
                                 <option>Baixo</option>
                             </select>
                         </div>
-                        <div id="ipFieldWrap" class="field" style="display:none;">
-                            <label>Endereço IP (opcional)</label>
-                            <input id="fIp" placeholder="ex.: 10.0.0.12" />
-                            <p class="hint">Para ativos de rede/infra (FW, Router, Switch, Servidor). Ajuda a correlacionar alertas (RF17).</p>
-                        </div>
-
                         <div class="field">
                             <label>Responsável</label>
                             <input id="fOwner" placeholder="Ex.: TI • João" />
@@ -349,44 +338,54 @@
                             </div>
                             <div class="muted" id="fControlInfoText" style="margin-top:6px"></div>
                         </div>
+                        
+<div class="field" style="min-width:210px">
+                            <label>Nível de confiança (IA)</label>
+                            <select id="fControlConfidence">
+                                <option value="0.30">0.30</option>
+                                <option value="0.55" selected>0.55</option>
+                                <option value="0.75">0.75</option>
+                                <option value="0.90">0.90</option>
+                            </select>
+                            <div class="hint" style="margin-top:6px">Mock: confiança gerada pelo RAG/IA (RF16).</div>
+                        </div>
+
+                        <div class="field" style="min-width:220px">
+                            <label>Status declarado <span class="muted">(utilizador)</span></label>
+                            <select id="fControlStatus">
+                                <option value="GAP">GAP</option>
+                                <option value="PARTIAL">PARTIAL</option>
+                                <option value="COVERED">COVERED</option>
+                            </select>
+                            <div class="hint" id="fStatusHint" style="margin-top:6px"></div>
+                        </div>
+
+                        <div class="field" style="min-width:220px">
+                            <label>Sugestão <span class="muted">(IA)</span></label>
+                            <div class="chip" id="fAiSuggestChip">—</div>
+                            <div class="hint" style="margin-top:6px">Mock: sugestão gerada pela IA ao validar descrição + evidências.</div>
+                        </div>
+
+                        <div class="field" style="min-width:160px">
+                            <label>&nbsp;</label>
+                            <button class="btn" type="button" id="btnAddControlInline">Adicionar</button>
+                        </div>
                     </div>
 
-                    <div class="field" style="min-width:220px">
-                        <label>Status declarado <span class="muted">(utilizador)</span></label>
-                        <select id="fControlStatus">
-                            <option value="GAP">GAP</option>
-                            <option value="PARTIAL">PARTIAL</option>
-                            <option value="COVERED">COVERED</option>
-                        </select>
-                        <div class="hint" id="fStatusHint" style="margin-top:6px"></div>
+                    <div class="field">
+                        <label>Nota/Justificação (opcional)</label>
+                        <textarea id="fControlNote"
+                            placeholder="Ex.: Inventário existe, mas sem periodicidade definida."></textarea>
                     </div>
 
-                    <div class="field" style="min-width:220px">
-                        <label>Sugestão <span class="muted">(IA)</span></label>
-                        <div class="chip" id="fAiSuggestChip">—</div>
-                        <div class="hint" style="margin-top:6px">Mock: sugestão gerada pela IA ao validar descrição +
-                            evidências.</div>
-                    </div>
+                    <div class="hint">Isto deixa o mockup “mais real”: o cliente consegue mexer e ver efeito imediato.</div>
 
-                    <div class="field" style="min-width:160px">
-                        <label>&nbsp;</label>
-                        <button class="btn" type="button" id="btnAddControlInline">Adicionar</button>
-                    </div>
+                    <div style="height:12px"></div>
+                    <h2>Pré-visualização</h2>
+                    <div id="createControlsPreview" class="controls-list"></div>
                 </div>
-
-                <div class="field">
-                    <label>Nota/Justificação (opcional)</label>
-                    <textarea id="fControlNote"
-                        placeholder="Ex.: Inventário existe, mas sem periodicidade definida."></textarea>
-                </div>
-
-
-                <div style="height:12px"></div>
-                <h2>Pré-visualização</h2>
-                <div id="createControlsPreview" class="controls-list"></div>
             </div>
         </div>
-    </div>
     </div>
 
     {{-- ================= MODAL: ASSOCIAR CONTROLO (DENTRO DO ATIVO) ================= --}}
@@ -446,8 +445,7 @@
                             <span class="chip" id="acAiSuggestChip">—</span>
                             <span class="chip" id="acAiDiffChip" style="display:none">Divergência</span>
                         </div>
-                        <div class="hint" style="margin-top:6px">Se a sugestão divergir do status declarado, fica marcado
-                            para revisão (RF16/RNF5).</div>
+                        <div class="hint" style="margin-top:6px">Se a sugestão divergir do status declarado, fica marcado para revisão (RF16/RNF5).</div>
                     </div>
 
                     <div class="field">
@@ -854,7 +852,7 @@
         // Mock RBAC (RF19): define a role do utilizador autenticado.
         // Para testar rapidamente:
         // localStorage.setItem('mock_role','Admin') | 'GRC Manager' | 'Auditor' | 'Viewer'
-        window.APP_USER_ROLE = localStorage.getItem('Admin') || 'GRC Manager';
+        window.APP_USER_ROLE = localStorage.getItem('mock_role') || 'Viewer';
     </script>
 
     @vite(['resources/js/pages/assets.js'])

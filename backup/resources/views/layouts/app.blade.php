@@ -596,100 +596,12 @@
         .cs-hidden {
             display: none;
         }
-
-        /* Modal overlay (Techbase) */
-    .modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(0,0,0,.55);
-    backdrop-filter: blur(2px);
-    }
-
-    .modal-overlay.is-hidden {
-    display: none !important;
-    }
-
-    .modal-card {
-    width: min(920px, 96vw);
-    max-height: 88vh;
-    overflow: auto;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(12, 18, 30, .98);
-    box-shadow: 0 20px 60px rgba(0,0,0,.55);
-    padding: 16px;
-    }
-
-    .modal-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    }
-
-    .kanban {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    }
-
-    .kanban-col {
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    background: rgba(255,255,255,.02);
-    overflow: hidden;
-    }
-
-    .kanban-col-head {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-
-    .kanban-drop {
-    min-height: 240px;
-    padding: 10px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    }
-
-    .kcard {
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: 14px;
-    padding: 10px;
-    background: rgba(10,15,25,.85);
-    cursor: grab;
-    }
-
-    .kcard:active { cursor: grabbing; }
-
-    .kcard:hover { background: rgba(10,15,25,.95); }
-
-    .kcard-top {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    }
-
-    .kmeta { font-size: 12px; opacity: .85; }
-    .kdesc { margin-top:8px; opacity:.9; }
-    .krow { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
-
     </style>
 </head>
 
 <body>
     @php
-        $org = $org ?? 'Exemplo';
+        $org = $org ?? 'Clínica Exemplo';
         $framework = $framework ?? 'QNRCS';
         $fwVersion = $fwVersion ?? '2.1';
 
