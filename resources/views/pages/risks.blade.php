@@ -5,59 +5,6 @@
 @section('content')
     <div class="card">
         <h3>Riscos (RF7, RF8, RF9, RF12)</h3>
-
-        <div class="two" style="margin-top:10px">
-            <div class="panel">
-                <h2>Calculadora (Prob × Impacto)</h2>
-
-                <div class="two">
-                    <div class="field">
-                        <label>Probabilidade</label>
-                        <select id="prob">
-                            @for($i = 1; $i <= 5; $i++)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endfor
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label>Impacto</label>
-                        <select id="impact">
-                            @for($i = 1; $i <= 5; $i++)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endfor
-                        </select>
-                    </div>
-                </div>
-
-                <div class="kpirow">
-                    <span class="chip">Score: <b id="scoreValue">1</b></span>
-                    <span class="chip" id="classChip">Classe: Baixo</span>
-                </div>
-
-                <p class="hint">Regra: score = prob × impacto. Classificação conforme escala definida.</p>
-            </div>
-
-            <div class="panel">
-                <h2>Aceitação formal de risco (RF12)</h2>
-                <div class="field">
-                    <label>Risco</label>
-                    <select>
-                        <option>R-003 — Falha de backup testado</option>
-                    </select>
-                </div>
-                <div class="two">
-                    <div class="field"><label>Aprovador</label><input placeholder="Nome / role" /></div>
-                    <div class="field"><label>Data</label><input placeholder="YYYY-MM-DD" /></div>
-                </div>
-                <div class="field">
-                    <label>Justificativa</label>
-                    <textarea placeholder="Motivo para aceitar o risco e condições."></textarea>
-                </div>
-                <button class="btn warn" type="button">Registar aceitação</button>
-            </div>
-        </div>
-
         <div style="height:12px"></div>
 
 <div class="panel" id="wazuh">
@@ -113,12 +60,57 @@
         Gerar notificação CNCS (24h)
       </button>
 
+      <button id="btnCreateRiskFromAlert" class="btn primary" type="button" disabled>Criar risco</button>
       <a id="btnGoTreatment" class="btn" href="{{ route('treatment') }}" style="text-decoration:none; display:none;">
         Ver em Tratamento
       </a>
     </div>
   </div>
 </div>
+
+<div style="height:12px"></div>
+
+{{-- Tabela: Riscos --}}
+<div class="panel" id="risksListPanel">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+    <div>
+      <h2 style="margin-bottom:6px">Riscos registados no sistema</h2>
+      <p class="muted">Criados a partir de alertas (mock). Guardado em localStorage.</p>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center">
+      <span class="chip">Total: <b id="risksCount">0</b></span>
+      <button id="btnClearRisks" class="btn" type="button">Limpar (mock)</button>
+      <button id="btnRemoveRisks" class="btn" type="button" disabled>Remover selecionados</button>
+    </div>
+  </div>
+
+  <table style="margin-top:10px">
+    <thead>
+      <tr>
+        <th>Sel.</th>
+        <th>ID</th>
+        <th>Ativo</th>
+        <th>Descrição</th>
+        <th>Prob.</th>
+        <th>Impacto</th>
+        <th>Nível</th>
+        <th>Estratégia</th>
+        <th>Estado</th>
+        <th>Fonte</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="risksTbody">
+      <tr><td class="muted" colspan="101">Sem riscos registados ainda.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="hint" style="margin-top:8px">
+    Depois ligamos isto ao backend e ao algoritmo de análise preditiva (score sugerido).
+  </p>
+</div>
+
 
 {{-- MODAL: Criar Plano a partir do Alerta --}}
 <div id="treatmentAlertModal" class="modal-overlay is-hidden" aria-hidden="true">
@@ -231,7 +223,163 @@
   </div>
 </div>
 
+{{-- MODAL: Criar/Ver Risco (a partir de alerta) --}}
+<div id="riskAlertModal" class="modal-overlay is-hidden" aria-hidden="true">
+  <input type="hidden" id="ra_alertId" value="">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="riskAlertTitle">
+    <div class="modal-header">
+      <div>
+        <div class="muted" style="margin-bottom:4px">Registo de risco (5×5)</div>
+        <div id="riskAlertTitle" style="font-size:18px;font-weight:800">—</div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center">
+        <button id="riskAlertClose" class="btn" type="button">Fechar</button>
+      </div>
     </div>
+
+    <div style="height:10px"></div>
+
+    <div class="two">
+      {{-- ESQ: formulário estilo CNCS --}}
+      <div class="panel">
+        <h2>Resumo do Risco</h2>
+
+        <div class="two">
+          <div class="field">
+            <label>ID</label>
+            <input id="ra_id" disabled />
+          </div>
+          <div class="field">
+            <label>Fonte (alerta)</label>
+            <input id="ra_alert" disabled />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Descrição do risco</label>
+          <input id="ra_desc" placeholder="ex.: Possibilidade de acesso indevido por brute force (SSH)" />
+        </div>
+
+        <div class="two">
+          <div class="field">
+            <label>Ativo</label>
+            <input id="ra_asset" disabled />
+          </div>
+          <div class="field">
+            <label>Responsável do risco</label>
+            <input id="ra_owner" placeholder="ex.: João — IT Ops" />
+          </div>
+        </div>
+
+        <div class="two">
+          <div class="field">
+            <label>Ameaça</label>
+            <input id="ra_threat" placeholder="ex.: Ataque de força bruta" />
+          </div>
+          <div class="field">
+            <label>Vulnerabilidade</label>
+            <input id="ra_vuln" placeholder="ex.: Política de passwords deficiente / sem MFA" />
+          </div>
+        </div>
+
+        <div class="row" style="gap:14px; margin-top:6px">
+          <label style="margin:0">Impactos (CIA)</label>
+          <label class="toggle"><input id="ra_c" type="checkbox" checked> <span>Confidencialidade</span></label>
+          <label class="toggle"><input id="ra_i" type="checkbox" checked> <span>Integridade</span></label>
+          <label class="toggle"><input id="ra_a" type="checkbox"> <span>Disponibilidade</span></label>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="two">
+          <div class="field">
+            <label>Probabilidade (1–5)</label>
+            <select id="ra_prob">
+              <option value="1">1 — Rara</option>
+              <option value="2">2 — Improvável</option>
+              <option value="3" selected>3 — Possível</option>
+              <option value="4">4 — Provável</option>
+              <option value="5">5 — Quase certa</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Impacto (1–5)</label>
+            <select id="ra_impact">
+              <option value="1">1 — Insignificante</option>
+              <option value="2">2 — Baixo</option>
+              <option value="3" selected>3 — Moderado</option>
+              <option value="4">4 — Alto</option>
+              <option value="5">5 — Catastrófico</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="kpirow" style="margin-top:10px">
+          <span class="chip">Score: <b id="ra_score">9</b></span>
+          <span class="chip" id="ra_level_chip">Nível: <b id="ra_level">Médio</b></span>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="two">
+          <div class="field">
+            <label>Estratégia</label>
+            <select id="ra_strategy">
+              <option>Mitigar/Tratar</option>
+              <option>Aceitar</option>
+              <option>Evitar</option>
+              <option>Transferir</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Estado</label>
+            <select id="ra_status">
+              <option selected>Aberto</option>
+              <option>Em tratamento</option>
+              <option>Mitigado</option>
+              <option>Aceito</option>
+              <option>Evitado</option>
+              <option>Transferido</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Ações (resumo)</label>
+          <textarea id="ra_actions" placeholder="ex.: Bloquear IPs, ativar MFA, rate-limit, auditar contas..."></textarea>
+        </div>
+
+        <div class="two">
+          <div class="field">
+            <label>Responsável pelo tratamento</label>
+            <input id="ra_action_owner" placeholder="ex.: Inês — Sistemas de Informação" />
+          </div>
+          <div class="field">
+            <label>Data alvo</label>
+            <input id="ra_due" placeholder="YYYY-MM-DD" />
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px">
+          <button id="ra_save" class="btn ok" type="button">Guardar risco (mock)</button>
+        </div>
+
+        <p class="hint">Este registo fica na tabela “Riscos registados no sistema”.</p>
+      </div>
+
+      {{-- DIR: contexto do alerta --}}
+      <div class="panel">
+        <h2>Contexto do alerta</h2>
+        <div id="ra_alertPreview" class="chunk-preview">—</div>
+        <div class="hint" style="margin-top:8px">
+          Depois podemos anexar evidências/documentos e ligar ao Tratamento.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
 @endsection
 
 @push('scripts')

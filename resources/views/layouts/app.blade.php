@@ -8,33 +8,83 @@
 
     {{-- Mock CSS inline (depois podes migrar para Vite/Tailwind) --}}
     <style>
-        :root {
-            --bg: #0b1220;
-            --panel: #121a2b;
-            --panel2: #0f1726;
-            --text: #e6eefc;
-            --muted: #9fb0d0;
-            --line: #22304a;
-            --ok: #2dd4bf;
-            --warn: #fbbf24;
-            --bad: #fb7185;
-            --info: #60a5fa;
-            --chip: #1b2742;
-            --radius: 14px;
-            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
-            --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        :root{
+        /* DARK (default) — mantém o que tu já tinha */
+        --bg: #0b1220;
+        --panel: #121a2b;
+        --panel2: #0f1726;
+        --text: #e6eefc;
+        --muted: #9fb0d0;
+        --line: #22304a;
+        --ok: #2dd4bf;
+        --warn: #fbbf24;
+        --bad: #fb7185;
+        --info: #60a5fa;
+        --chip: #1b2742;
+        --radius: 14px;
+        --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+        --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+
+        /* fundo por tema */
+        --bg-gradient: linear-gradient(180deg, #070c16, #0b1220 30%, #070c16);
         }
+
+        :root[data-theme="light"]{
+        /* LIGHT — mesmos nomes, só mudam os valores */
+        --bg: #f4f7ff;
+        --panel: #ffffff;
+        --panel2: #f2f5ff;
+        --text: #0b1220;
+        --muted: #53637a;
+        --line: #d6deef;
+        --ok: #0ea5a3;
+        --warn: #d97706;
+        --bad: #e11d48;
+        --info: #2563eb;
+        --chip: #eef2ff;
+        --shadow: 0 10px 30px rgba(255, 0, 0, 0);
+
+        --bg-gradient: linear-gradient(180deg, #ffffff, #f4f7ff 35%, #eef3ff);
+        }
+        :root[data-theme="light"]{
+        /* superfícies */
+        --sidebar-bg: linear-gradient(180deg, rgba(255,255,255,.92), rgba(244,247,255,.88));
+        --topbar-bg: rgba(255,255,255,.78);
+        --card-bg: rgba(255,255,255,.72);
+        --panel-bg: rgba(255,255,255,.70);
+
+        /* campos */
+        --field-bg: rgba(255,255,255,.78);
+        --field-border: rgba(15, 23, 42, .12);
+
+        /* hovers */
+        --hover-row: rgba(2, 6, 23, .03);
+        --hover-link: rgba(37, 99, 235, .08);
+        }
+
+
 
         * {
             box-sizing: border-box
         }
-
-        body {
-            margin: 0;
-            font-family: var(--font);
-            background: linear-gradient(180deg, #070c16, #0b1220 30%, #070c16);
-            color: var(--text)
+        body{
+        margin: 0;
+        font-family: var(--font);   
+        background: var(--bg-gradient); 
+        color: var(--text);
         }
+
+        .card,
+        .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        }
+
+
+        .muted {
+            color: var(--muted);
+        }
+
 
         a {
             color: inherit;
@@ -237,14 +287,14 @@
             border: 1px solid var(--line);
             border-radius: var(--radius);
             background: rgba(18, 26, 43, .70);
-            box-shadow: var(--shadow);
+            box-shadow: var(--panel);
             padding: 14px 14px 12px;
         }
 
         .card h3 {
             margin: 0 0 6px;
             font-size: 13px;
-            color: var(--muted);
+            color: var(--text);
             font-weight: 600
         }
 
@@ -684,6 +734,61 @@
     .kdesc { margin-top:8px; opacity:.9; }
     .krow { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
 
+    /* ===== Light theme overrides (sem quebrar o dark) ===== */
+    :root[data-theme="light"] .sidebar{
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--line);
+    }
+
+    :root[data-theme="light"] .topbar{
+    background: var(--topbar-bg);
+    border: 1px solid var(--line);
+    }
+
+    :root[data-theme="light"] .card{
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    }
+
+    :root[data-theme="light"] .panel{
+    background: var(--panel-bg);
+    border: 1px solid var(--line);
+    }
+
+    :root[data-theme="light"] .search{
+    background: rgba(255,255,255,.70);
+    border: 1px solid var(--field-border);
+    color: var(--muted);
+    }
+
+    :root[data-theme="light"] input,
+    :root[data-theme="light"] select,
+    :root[data-theme="light"] textarea{
+    background: var(--field-bg);
+    border: 1px solid var(--field-border);
+    color: var(--text);
+    }
+
+    :root[data-theme="light"] th,
+    :root[data-theme="light"] td{
+    border-bottom: 1px solid rgba(15,23,42,.08);
+    }
+
+    :root[data-theme="light"] tr:hover td{
+    background: var(--hover-row);
+    }
+
+    :root[data-theme="light"] .nav a:hover{
+    background: var(--hover-link);
+    border-color: rgba(37,99,235,.18);
+    }
+
+    :root[data-theme="light"] .btn{
+    background: rgba(255,255,255,.66);
+    border: 1px solid rgba(15,23,42,.12);
+    color: var(--text);
+    }
+
     </style>
 </head>
 
@@ -748,6 +853,10 @@
                     <button class="btn ok" type="button">+ Nova avaliação</button>
                     <button class="btn primary" type="button">Upload documento</button>
                     <button class="btn" type="button">Perfil</button>
+                    {{-- <button id="btnThemeToggle" class="btn" type="button" title="Alternar tema">
+                        🌙
+                    </button> --}}
+
                 </div>
             </header>
 
@@ -756,6 +865,10 @@
             </div>
         </main>
     </div>
+
+    @vite(['resources/js/theme.js'])
+    @stack('scripts')
+
     @stack('scripts')
     <script>
         (function () {

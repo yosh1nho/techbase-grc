@@ -1,117 +1,125 @@
 // resources/js/pages/risks.js
 
 const MOCK_ALERTS = [
-    {
-        id: "WZ-1001",
-        date: "2026-02-18 10:12",
-        severity: "critical",
-        asset: "SRV-DB-01",
-        category: "Malware",
-        summary: "Comportamento suspeito + execução não assinada",
-        raw: { rule: "100200", agent: "srv-db-01", ip: "10.0.2.15" }
-    },
-    {
-        id: "WZ-1002",
-        date: "2026-02-18 09:41",
-        severity: "high",
-        asset: "FW-EDGE-01",
-        category: "Brute force",
-        summary: "Múltiplas tentativas de login (SSH)",
-        raw: { rule: "5712", srcip: "185.111.x.x" }
-    }
+  {
+    id: "WZ-1001",
+    date: "2026-02-18 10:12",
+    severity: "critical",
+    asset: "SRV-DB-01",
+    category: "Malware",
+    summary: "Comportamento suspeito + execução não assinada",
+    raw: { rule: "100200", agent: "srv-db-01", ip: "10.0.2.15" }
+  },
+  {
+    id: "WZ-1002",
+    date: "2026-02-18 09:41",
+    severity: "high",
+    asset: "FW-EDGE-01",
+    category: "Brute force",
+    summary: "Múltiplas tentativas de login (SSH)",
+    raw: { rule: "5712", srcip: "185.111.x.x" }
+  }
 ];
 
 const MOCK_ASSETS = {
-    "SRV-DB-01": { criticality: "Crítico", owner: "IT Ops", notes: "Servidor de base de dados (PII)" },
-    "FW-EDGE-01": { criticality: "Alto", owner: "Network", notes: "Firewall perímetro" }
+  "SRV-DB-01": { criticality: "Crítico", owner: "IT Ops", notes: "Servidor de base de dados (PII)" },
+  "FW-EDGE-01": { criticality: "Alto", owner: "Network", notes: "Firewall perímetro" }
 };
 
 function severityChipClass(sev) {
-    if (sev === "critical") return "chip bad";
-    if (sev === "high") return "chip warn";
-    return "chip";
+  if (sev === "critical") return "chip bad";
+  if (sev === "high") return "chip warn";
+  return "chip";
 }
 
 function mockAIRecommendation(alert) {
-    const asset = MOCK_ASSETS[alert.asset] || { criticality: "—", owner: "—", notes: "" };
+  const asset = MOCK_ASSETS[alert.asset] || { criticality: "—", owner: "—", notes: "" };
 
-    // mock simples: decide risco e ações por categoria/severidade
-    let risk = "Risco operacional";
-    let actions = [];
-    let confidence = 0.72;
+  // mock simples: decide risco e ações por categoria/severidade
+  let risk = "Risco operacional";
+  let actions = [];
+  let confidence = 0.72;
 
-    if (alert.category.toLowerCase().includes("malware")) {
-        risk = "Comprometimento do ativo / execução maliciosa";
-        actions = [
-            "Isolar o host e recolher indicadores (hash/processos).",
-            "Executar varredura completa + confirmar integridade.",
-            "Rever controlos de execução (allowlist) e EDR.",
-            "Validar backups e preparar restauração se necessário."
-        ];
-        confidence = 0.82;
-    } else if (alert.category.toLowerCase().includes("brute")) {
-        risk = "Acesso não autorizado por força bruta";
-        actions = [
-            "Bloquear IPs e ajustar rate-limit / fail2ban.",
-            "Rever MFA e endurecer política de passwords.",
-            "Auditar contas com tentativas e logs de autenticação."
-        ];
-        confidence = 0.77;
-    }
+  if (alert.category.toLowerCase().includes("malware")) {
+    risk = "Comprometimento do ativo / execução maliciosa";
+    actions = [
+      "Isolar o host e recolher indicadores (hash/processos).",
+      "Executar varredura completa + confirmar integridade.",
+      "Rever controlos de execução (allowlist) e EDR.",
+      "Validar backups e preparar restauração se necessário."
+    ];
+    confidence = 0.82;
+  } else if (alert.category.toLowerCase().includes("brute")) {
+    risk = "Acesso não autorizado por força bruta";
+    actions = [
+      "Bloquear IPs e ajustar rate-limit / fail2ban.",
+      "Rever MFA e endurecer política de passwords.",
+      "Auditar contas com tentativas e logs de autenticação."
+    ];
+    confidence = 0.77;
+  }
 
-    // “classe risco” mock
-    const riskClass = alert.severity === "critical" ? "Alto" : (alert.severity === "high" ? "Médio" : "Baixo");
+  // “classe risco” mock
+  const riskClass = alert.severity === "critical" ? "Alto" : (alert.severity === "high" ? "Médio" : "Baixo");
 
-    return { risk, actions: actions.join("\n"), confidence, riskClass, asset };
+  return { risk, actions: actions.join("\n"), confidence, riskClass, asset };
 }
 
 function getQuery() {
-    const url = new URL(window.location.href);
-    return {
-        alertId: url.searchParams.get("alert_id"),
-        from: url.searchParams.get("from"),
-    };
+  const url = new URL(window.location.href);
+  return {
+    alertId: url.searchParams.get("alert_id"),
+    from: url.searchParams.get("from"),
+  };
 }
 
 function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function openModal(id) {
-    const el = document.getElementById(id);
-    el?.classList.remove("is-hidden");
-    el?.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
+  const el = document.getElementById(id);
+  el?.classList.remove("is-hidden");
+  el?.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
 }
 function closeModal(id) {
-    const el = document.getElementById(id);
-    el?.classList.add("is-hidden");
-    el?.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+  const el = document.getElementById(id);
+  el?.classList.add("is-hidden");
+  el?.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
 }
 
 
 function loadTreatments() {
-    try { return JSON.parse(localStorage.getItem("tb_mock_treatments") || "[]"); }
-    catch { return []; }
+  try { return JSON.parse(localStorage.getItem("tb_mock_treatments") || "[]"); }
+  catch { return []; }
 }
 function saveTreatment(plan) {
-    const arr = loadTreatments();
-    arr.unshift(plan);
-    localStorage.setItem("tb_mock_treatments", JSON.stringify(arr));
+  const arr = loadTreatments();
+  arr.unshift(plan);
+  localStorage.setItem("tb_mock_treatments", JSON.stringify(arr));
 }
+
+let selectedRiskIds = new Set();
+
+function setRemoveBtnState() {
+  const btn = document.getElementById("btnRemoveRisks");
+  if (btn) btn.disabled = selectedRiskIds.size === 0;
+}
+
 
 let selectedAlert = null;
 let selectedAI = null;
 
 function renderAlerts() {
-    const tbody = document.getElementById("wazuhRiskTbody");
-    if (!tbody) return;
+  const tbody = document.getElementById("wazuhRiskTbody");
+  if (!tbody) return;
 
-    tbody.innerHTML = MOCK_ALERTS.map(a => {
-        const ai = mockAIRecommendation(a);
-        return `
+  tbody.innerHTML = MOCK_ALERTS.map(a => {
+    const ai = mockAIRecommendation(a);
+    return `
       <tr class="row-click" data-alert-id="${a.id}">
         <td>${a.date}</td>
         <td><span class="${severityChipClass(a.severity)}">${a.severity}</span></td>
@@ -121,39 +129,44 @@ function renderAlerts() {
         <td><button class="btn" type="button" data-open-plan="${a.id}">Plano</button></td>
       </tr>
     `;
-    }).join("");
+  }).join("");
 
-    tbody.querySelectorAll("tr[data-alert-id]").forEach(tr => {
-        tr.addEventListener("click", (e) => {
-            // se clicou no botão, não duplicar
-            if (e.target && e.target.matches("[data-open-plan]")) return;
+  tbody.querySelectorAll("tr[data-alert-id]").forEach(tr => {
+    tr.addEventListener("click", (e) => {
+      // se clicou no botão, não duplicar
+      if (e.target && e.target.matches("[data-open-plan]")) return;
 
-            const id = tr.getAttribute("data-alert-id");
-            selectAlert(id);
-        });
+      const id = tr.getAttribute("data-alert-id");
+      selectAlert(id);
     });
+  });
 
-    tbody.querySelectorAll("[data-open-plan]").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            selectAlert(btn.getAttribute("data-open-plan"), true);
-        });
+  tbody.querySelectorAll("[data-open-plan]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectAlert(btn.getAttribute("data-open-plan"), true);
     });
+  });
 }
 
 function selectAlert(alertId, openPlan = false) {
-    selectedAlert = MOCK_ALERTS.find(x => x.id === alertId);
-    if (!selectedAlert) return;
+  selectedAlert = MOCK_ALERTS.find(x => x.id === alertId);
+  if (!selectedAlert) return;
 
-    selectedAI = mockAIRecommendation(selectedAlert);
+  selectedAI = mockAIRecommendation(selectedAlert);
+  const btnT = document.getElementById("btnCreateTreatmentFromAlert");
+  if (btnT) btnT.disabled = false;
 
-    // habilita CNCS só se critical
-    const btnCNCS = document.getElementById("btnCNCS24h");
-    if (btnCNCS) btnCNCS.disabled = !(selectedAlert.severity === "critical");
+  const btnR = document.getElementById("btnCreateRiskFromAlert");
+  if (btnR) btnR.disabled = false;
 
-    const ctx = document.getElementById("alertContextBox");
-    if (ctx) {
-        ctx.innerHTML = `
+  const btnCNCS = document.getElementById("btnCNCS24h");
+  if (btnCNCS) btnCNCS.disabled = false; // sempre disponível
+
+
+  const ctx = document.getElementById("alertContextBox");
+  if (ctx) {
+    ctx.innerHTML = `
       <div><b>${selectedAlert.id}</b> — ${selectedAlert.summary}</div>
       <div class="muted" style="margin-top:6px">
         Ativo: <b>${selectedAlert.asset}</b> • Criticidade: <b>${selectedAI.asset.criticality}</b> • Owner: <b>${selectedAI.asset.owner}</b>
@@ -162,154 +175,413 @@ function selectAlert(alertId, openPlan = false) {
         Contexto: ${selectedAI.asset.notes || "—"}
       </div>
     `;
-    }
+  }
 
-    const confChip = document.getElementById("aiConfidenceChip");
-    if (confChip) confChip.textContent = `Confiança IA: ${selectedAI.confidence.toFixed(2)}`;
+  const confChip = document.getElementById("aiConfidenceChip");
+  if (confChip) confChip.textContent = `Confiança IA: ${selectedAI.confidence.toFixed(2)}`;
 
-    const clsChip = document.getElementById("suggestedStatusChip");
-    if (clsChip) clsChip.textContent = `Classe risco: ${selectedAI.riskClass}`;
+  const clsChip = document.getElementById("suggestedStatusChip");
+  if (clsChip) clsChip.textContent = `Classe risco: ${selectedAI.riskClass}`;
 
-    const btn = document.getElementById("btnCreateTreatmentFromAlert");
-    if (btn) btn.disabled = false;
+  const btn = document.getElementById("btnCreateTreatmentFromAlert");
+  if (btn) btn.disabled = false;
 
-    if (openPlan) {
-        openTreatmentModalPrefilled();
-    }
+  if (openPlan) {
+    openTreatmentModalPrefilled();
+  }
 }
 
 function openTreatmentModalPrefilled() {
-    if (!selectedAlert || !selectedAI) return;
+  if (!selectedAlert || !selectedAI) return;
 
-    document.getElementById("ta_alert").value = `${selectedAlert.id} (${selectedAlert.severity})`;
-    document.getElementById("ta_asset").value = selectedAlert.asset;
-    document.getElementById("ta_risk").value = selectedAI.risk;
-    document.getElementById("ta_actions").value = selectedAI.actions;
+  document.getElementById("ta_alert").value = `${selectedAlert.id} (${selectedAlert.severity})`;
+  document.getElementById("ta_asset").value = selectedAlert.asset;
+  document.getElementById("ta_risk").value = selectedAI.risk;
+  document.getElementById("ta_actions").value = selectedAI.actions;
 
-    openModal("treatmentAlertModal");
+  openModal("treatmentAlertModal");
 }
 
+function loadRisks() {
+  try { return JSON.parse(localStorage.getItem("tb_mock_risks") || "[]"); }
+  catch { return []; }
+}
+function saveRisk(risk) {
+  const arr = loadRisks();
+  const idx = arr.findIndex(x => x.id === risk.id);
+
+  if (idx >= 0) {
+    arr[idx] = risk;              // ✅ update
+  } else {
+    arr.unshift(risk);            // ✅ create
+  }
+
+  localStorage.setItem("tb_mock_risks", JSON.stringify(arr));
+}
+
+function clearRisks() {
+  localStorage.removeItem("tb_mock_risks");
+}
+
+function riskLevelFromScore(score) {
+  // 5x5 => 1..25
+  if (score >= 17) return { label: "Muito Alta", chip: "chip bad" };
+  if (score >= 10) return { label: "Alta", chip: "chip warn" };
+  if (score >= 5) return { label: "Média", chip: "chip" };
+  return { label: "Baixa", chip: "chip ok" };
+}
+
+function renderRisks() {
+  const tbody = document.getElementById("risksTbody");
+  const count = document.getElementById("risksCount");
+  if (!tbody) return;
+
+  const risks = loadRisks();
+  if (count) count.textContent = String(risks.length);
+
+  if (!risks.length) {
+    tbody.innerHTML = `<tr><td class="muted" colspan="10">Sem riscos registados ainda.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = risks.map(r => {
+    const lvl = riskLevelFromScore(r.score);
+    const checked = selectedRiskIds.has(r.id) ? "checked" : "";
+    return `
+      <tr>
+        <td>
+          <input type="checkbox" data-risk-check="${r.id}" ${checked} />
+        </td>
+        <td><b>${r.id}</b></td>
+        <td>${r.asset}</td>
+        <td>${r.description}</td>
+        <td>${r.prob}</td>
+        <td>${r.impact}</td>
+        <td><span class="${lvl.chip}">${r.score} — ${lvl.label}</span></td>
+        <td class="muted">${r.strategy}</td>
+        <td>${r.status}</td>
+        <td class="muted">${r.sourceLabel}</td>
+        <td><button class="btn" type="button" data-view-risk="${r.id}">Ver</button></td>
+      </tr>
+    `;
+  }).join("");
+
+
+  tbody.querySelectorAll("[data-risk-check]").forEach(chk => {
+    chk.addEventListener("change", () => {
+      const id = chk.getAttribute("data-risk-check");
+      if (chk.checked) selectedRiskIds.add(id);
+      else selectedRiskIds.delete(id);
+      setRemoveBtnState();
+    });
+  });
+
+  setRemoveBtnState();
+
+}
+
+function updateRiskScoreUI() {
+  const prob = Number(document.getElementById("ra_prob")?.value || 1);
+  const impact = Number(document.getElementById("ra_impact")?.value || 1);
+  const score = prob * impact;
+
+  const scoreEl = document.getElementById("ra_score");
+  if (scoreEl) scoreEl.textContent = String(score);
+
+  const lvl = riskLevelFromScore(score);
+  const lvlText = document.getElementById("ra_level");
+  if (lvlText) lvlText.textContent = lvl.label;
+
+  const chip = document.getElementById("ra_level_chip");
+  if (chip) chip.className = lvl.chip;
+}
+
+function openRiskModalPrefilled() {
+  document.getElementById("ra_alertId").value = selectedAlert.id;
+  if (!selectedAlert || !selectedAI) return;
+
+  const id = `RK-${Date.now()}`;
+
+  document.getElementById("riskAlertTitle").textContent = `${selectedAlert.asset} • ${selectedAI.risk}`;
+
+  document.getElementById("ra_id").value = id;
+  document.getElementById("ra_alert").value = `${selectedAlert.id} (${selectedAlert.severity})`;
+  document.getElementById("ra_asset").value = selectedAlert.asset;
+
+  // sugestões (mock IA)
+  document.getElementById("ra_desc").value = selectedAI.risk;
+  document.getElementById("ra_actions").value = selectedAI.actions;
+
+  // ameaça/vuln (bem simples por enquanto)
+  document.getElementById("ra_threat").value = selectedAlert.category || "—";
+  document.getElementById("ra_vuln").value = "—";
+
+  // preview do alerta
+  const prev = document.getElementById("ra_alertPreview");
+  if (prev) {
+    prev.innerHTML = `
+      <div><b>${selectedAlert.id}</b> — ${selectedAlert.summary}</div>
+      <div class="muted" style="margin-top:6px">
+        Ativo: <b>${selectedAlert.asset}</b> • Categoria: <b>${selectedAlert.category}</b> • Severidade: <b>${selectedAlert.severity}</b>
+      </div>
+      <div class="muted" style="margin-top:6px">
+        Raw: <pre style="margin:6px 0 0; white-space:pre-wrap">${JSON.stringify(selectedAlert.raw || {}, null, 2)}</pre>
+      </div>
+    `;
+  }
+
+  // defaults
+  document.getElementById("ra_prob").value = "3";
+  document.getElementById("ra_impact").value = selectedAlert.severity === "critical" ? "4" : "3";
+  document.getElementById("ra_strategy").value = "Mitigar/Tratar";
+  document.getElementById("ra_status").value = "Aberto";
+
+  updateRiskScoreUI();
+  openModal("riskAlertModal");
+}
+
+function openRiskModalFromRisk(r) {
+  document.getElementById("riskAlertTitle").textContent = `${r.asset} • ${r.description}`;
+
+  document.getElementById("ra_id").value = r.id;
+  document.getElementById("ra_alertId").value = r.alertId || "";
+  document.getElementById("ra_asset").value = r.asset;
+
+  document.getElementById("ra_desc").value = r.description;
+  document.getElementById("ra_owner").value = r.riskOwner || "";
+  document.getElementById("ra_threat").value = r.threat || "";
+  document.getElementById("ra_vuln").value = r.vulnerability || "";
+
+  document.getElementById("ra_c").checked = !!r.cia?.c;
+  document.getElementById("ra_i").checked = !!r.cia?.i;
+  document.getElementById("ra_a").checked = !!r.cia?.a;
+
+  document.getElementById("ra_prob").value = String(r.prob);
+  document.getElementById("ra_impact").value = String(r.impact);
+
+  document.getElementById("ra_strategy").value = r.strategy;
+  document.getElementById("ra_status").value = r.status;
+
+  document.getElementById("ra_actions").value = r.actions || "";
+  document.getElementById("ra_action_owner").value = r.actionOwner || "";
+  document.getElementById("ra_due").value = r.due || "";
+
+  const prev = document.getElementById("ra_alertPreview");
+  if (prev) prev.textContent = r.context || "—";
+
+  updateRiskScoreUI();
+  openModal("riskAlertModal");
+}
+
+
 function wireUI() {
-    document.getElementById("btnCNCS24h")?.addEventListener("click", openCNCSModal);
-    document.getElementById("btnCloseCNCS")?.addEventListener("click", () => closeModal("cncs24hModal"));
-    document.getElementById("btnPrintCNCS")?.addEventListener("click", printCNCS);
+  document.getElementById("btnCNCS24h")?.addEventListener("click", openCNCSModal);
+  document.getElementById("btnCloseCNCS")?.addEventListener("click", () => closeModal("cncs24hModal"));
+  document.getElementById("btnPrintCNCS")?.addEventListener("click", printCNCS);
 
-    document.getElementById("btnCreateTreatmentFromAlert")?.addEventListener("click", () => {
-        openTreatmentModalPrefilled();
-    });
+  document.getElementById("btnCreateTreatmentFromAlert")?.addEventListener("click", () => {
+    openTreatmentModalPrefilled();
+  });
 
-    document.getElementById("treatmentAlertClose")?.addEventListener("click", () => closeModal("treatmentAlertModal"));
+  // ✅ abrir modal de risco (a partir do alerta selecionado)
+  document.getElementById("btnCreateRiskFromAlert")?.addEventListener("click", () => {
+    openRiskModalPrefilled();
+  });
 
-    document.getElementById("ta_save")?.addEventListener("click", () => {
-        if (!selectedAlert || !selectedAI) return;
+  // ✅ fechar modal de risco
+  document.getElementById("riskAlertClose")?.addEventListener("click", () => {
+    closeModal("riskAlertModal");
+  });
 
-        const plan = {
-            id: `TP-${Date.now()}`,
-            source: "wazuh",
-            alertId: selectedAlert.id,
-            asset: selectedAlert.asset,
+  // ✅ clique fora para fechar
+  document.getElementById("riskAlertModal")?.addEventListener("click", (e) => {
+    if (e.target?.id === "riskAlertModal") closeModal("riskAlertModal");
+  });
 
-            // imutáveis
-            risk: document.getElementById("ta_risk").value.trim(),
-            aiActions: document.getElementById("ta_actions").value.trim(),
+  // ✅ ESC para fechar
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal("riskAlertModal");
+  });
+  document.getElementById("ra_prob")?.addEventListener("change", updateRiskScoreUI);
+  document.getElementById("ra_impact")?.addEventListener("change", updateRiskScoreUI);
 
-            // input do user
-            planDescription: document.getElementById("ta_plan_desc").value.trim(),
+  // salvar risco
+  document.getElementById("ra_save")?.addEventListener("click", () => {
+    const prob = Number(document.getElementById("ra_prob").value);
+    const impact = Number(document.getElementById("ra_impact").value);
+    const score = prob * impact;
 
-            strategy: document.getElementById("ta_strategy").value,
-            due: document.getElementById("ta_due").value.trim(),
-            owner: document.getElementById("ta_owner").value.trim(),
-            priority: document.getElementById("ta_priority").value,
-            status: "Pendente",
-            createdAt: new Date().toISOString(),
-        };
+    const risk = {
+      id: document.getElementById("ra_id").value,
+      source: "wazuh",
+      sourceLabel: "Wazuh",
+      alertId: document.getElementById("ra_alertId").value || null,
+      alertLabel: document.getElementById("ra_alert").value,
+      asset: document.getElementById("ra_asset").value,
 
+      description: document.getElementById("ra_desc").value.trim(),
+      threat: document.getElementById("ra_threat").value.trim(),
+      vulnerability: document.getElementById("ra_vuln").value.trim(),
+      riskOwner: document.getElementById("ra_owner").value.trim(),
 
-        saveTreatment(plan);
+      cia: {
+        c: document.getElementById("ra_c").checked,
+        i: document.getElementById("ra_i").checked,
+        a: document.getElementById("ra_a").checked,
+      },
 
-        closeModal("treatmentAlertModal");
+      prob,
+      impact,
+      score,
 
-        const go = document.getElementById("btnGoTreatment");
-        if (go) go.style.display = "inline-flex";
-        alert("Plano criado (mock) e guardado em Tratamento.");
-    });
+      strategy: document.getElementById("ra_strategy").value,
+      status: document.getElementById("ra_status").value,
 
-    // auto-selecionar se veio do dashboard
-    const q = getQuery();
-    if (q.from === "wazuh" && q.alertId) {
-        // scroll até a secção
-        document.getElementById("wazuh")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        selectAlert(q.alertId);
+      actions: document.getElementById("ra_actions").value.trim(),
+      actionOwner: document.getElementById("ra_action_owner").value.trim(),
+      due: document.getElementById("ra_due").value.trim(),
+
+      context: document.getElementById("ra_alertPreview").innerText,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!risk.description) {
+      alert("Preenche pelo menos a descrição do risco.");
+      return;
     }
+
+    saveRisk(risk);
+    renderRisks();
+    closeModal("riskAlertModal");
+    alert("Risco criado (mock) e registado no sistema.");
+  });
+
+  document.getElementById("btnRemoveRisks")?.addEventListener("click", () => {
+    const arr = loadRisks();
+    const filtered = arr.filter(r => !selectedRiskIds.has(r.id));
+    localStorage.setItem("tb_mock_risks", JSON.stringify(filtered));
+    selectedRiskIds.clear();
+    renderRisks();
+    setRemoveBtnState();
+  });
+
+
+  document.getElementById("btnClearRisks")?.addEventListener("click", () => {
+    clearRisks();
+    renderRisks();
+  });
+  document.getElementById("treatmentAlertClose")?.addEventListener("click", () => closeModal("treatmentAlertModal"));
+
+  document.getElementById("ta_save")?.addEventListener("click", () => {
+    if (!selectedAlert || !selectedAI) return;
+
+    const plan = {
+      id: `TP-${Date.now()}`,
+      source: "wazuh",
+      alertId: selectedAlert.id,
+      asset: selectedAlert.asset,
+
+      // imutáveis
+      risk: document.getElementById("ta_risk").value.trim(),
+      aiActions: document.getElementById("ta_actions").value.trim(),
+
+      // input do user
+      planDescription: document.getElementById("ta_plan_desc").value.trim(),
+
+      strategy: document.getElementById("ta_strategy").value,
+      due: document.getElementById("ta_due").value.trim(),
+      owner: document.getElementById("ta_owner").value.trim(),
+      priority: document.getElementById("ta_priority").value,
+      status: "Pendente",
+      createdAt: new Date().toISOString(),
+    };
+
+
+    saveTreatment(plan);
+
+    closeModal("treatmentAlertModal");
+
+    const go = document.getElementById("btnGoTreatment");
+    if (go) go.style.display = "inline-flex";
+    alert("Plano criado (mock) e guardado em Tratamento.");
+  });
+
+  // auto-selecionar se veio do dashboard
+  const q = getQuery();
+  if (q.from === "wazuh" && q.alertId) {
+    // scroll até a secção
+    document.getElementById("wazuh")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    selectAlert(q.alertId);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    renderAlerts();
-    wireUI();
+  renderAlerts();
+  wireUI();
 });
 
 document.getElementById("treatmentAlertModal")?.addEventListener("click", (e) => {
-    if (e.target?.id === "treatmentAlertModal") {
-        closeModal("treatmentAlertModal");
-    }
+  if (e.target?.id === "treatmentAlertModal") {
+    closeModal("treatmentAlertModal");
+  }
 });
 
 document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal("treatmentAlertModal");
+  if (e.key === "Escape") closeModal("treatmentAlertModal");
 });
 
 
 function inferIncidentNature(alert) {
-    const cat = (alert.category || "").toLowerCase();
-    if (cat.includes("malware")) return "Malware";
-    if (cat.includes("brute")) return "Acesso Não Autorizado";
-    return "Outro";
+  const cat = (alert.category || "").toLowerCase();
+  if (cat.includes("malware")) return "Malware";
+  if (cat.includes("brute")) return "Acesso Não Autorizado";
+  return "Outro";
 }
 
 
 function inferAffectedSystems(alert, assetNotes) {
-    const out = [];
-    if ((assetNotes || "").toLowerCase().includes("base de dados")) out.push("Bases de dados");
-    if ((alert.category || "").toLowerCase().includes("brute")) out.push("Redes de comunicação");
-    if (!out.length) out.push("Sistemas de informação essenciais");
-    return out;
+  const out = [];
+  if ((assetNotes || "").toLowerCase().includes("base de dados")) out.push("Bases de dados");
+  if ((alert.category || "").toLowerCase().includes("brute")) out.push("Redes de comunicação");
+  if (!out.length) out.push("Sistemas de informação essenciais");
+  return out;
 }
 
 function inferImpactLevel(alert, assetCrit) {
-    if (alert.severity === "critical") return "Muito Alto";
-    if (alert.severity === "high") return "Alto";
-    if (assetCrit && assetCrit.toLowerCase().includes("crít")) return "Alto";
-    return "Médio";
+  if (alert.severity === "critical") return "Muito Alto";
+  if (alert.severity === "high") return "Alto";
+  if (assetCrit && assetCrit.toLowerCase().includes("crít")) return "Alto";
+  return "Médio";
 }
 
 function buildCNCS24hDraftHtml(alert, ai) {
-    const org = {
-        name: "Clínica Exemplo",
-        type: "Importante (Anexo II)",
-        sector: "Saúde",
-        nif: "—",
-        phone: "",
-        contact: "",
-        email: "",
-        address: "",
-    };
+  const org = {
+    name: "Clínica Exemplo",
+    type: "Importante (Anexo II)",
+    sector: "Saúde",
+    nif: "—",
+    phone: "",
+    contact: "",
+    email: "",
+    address: "",
+  };
 
-    const detection = alert.date;
-    const nature = inferIncidentNature(alert);
-    const impact = inferImpactLevel(alert, ai.asset.criticality);
-    const systems = inferAffectedSystems(alert, ai.asset.notes);
-    const pii = (ai.asset.notes || "").toLowerCase().includes("pii") ? "Sim" : "Ainda desconhecido";
+  const detection = alert.date;
+  const nature = inferIncidentNature(alert);
+  const impact = inferImpactLevel(alert, ai.asset.criticality);
+  const systems = inferAffectedSystems(alert, ai.asset.notes);
+  const pii = (ai.asset.notes || "").toLowerCase().includes("pii") ? "Sim" : "Ainda desconhecido";
 
-    const immediate = ai.actions.split("\n").slice(0, 3);
+  const immediate = ai.actions.split("\n").slice(0, 3);
 
-    const ioc = [];
-    if (alert.raw?.ip) ioc.push(`IP interno/agent: ${alert.raw.ip}`);
-    if (alert.raw?.srcip) ioc.push(`IP origem: ${alert.raw.srcip}`);
-    if (alert.raw?.rule) ioc.push(`Regra: ${alert.raw.rule}`);
+  const ioc = [];
+  if (alert.raw?.ip) ioc.push(`IP interno/agent: ${alert.raw.ip}`);
+  if (alert.raw?.srcip) ioc.push(`IP origem: ${alert.raw.srcip}`);
+  if (alert.raw?.rule) ioc.push(`Regra: ${alert.raw.rule}`);
 
-    const summary = `${alert.summary} (Ativo: ${alert.asset})`.slice(0, 500);
+  const summary = `${alert.summary} (Ativo: ${alert.asset})`.slice(0, 500);
 
-    return `
+  return `
     <div class="panel">
       <div style="font-weight:900; margin-bottom:8px">1) Informações da Entidade</div>
 
@@ -490,71 +762,71 @@ function buildCNCS24hDraftHtml(alert, ai) {
 
 
 function openCNCSModal() {
-    if (!selectedAlert || !selectedAI) return;
-    const body = document.getElementById("cncs24hBody");
-    if (body) body.innerHTML = buildCNCS24hDraftHtml(selectedAlert, selectedAI);
-    openModal("cncs24hModal");
+  if (!selectedAlert || !selectedAI) return;
+  const body = document.getElementById("cncs24hBody");
+  if (body) body.innerHTML = buildCNCS24hDraftHtml(selectedAlert, selectedAI);
+  openModal("cncs24hModal");
 }
 
 function val(id) {
-    const el = document.getElementById(id);
-    if (!el) return "";
-    return (el.value ?? "").trim();
+  const el = document.getElementById(id);
+  if (!el) return "";
+  return (el.value ?? "").trim();
 }
 
 function printCNCS() {
-    if (!selectedAlert || !selectedAI) return;
+  if (!selectedAlert || !selectedAI) return;
 
-    // pega valores editáveis
-    const payload = {
-        phone: val("cncs_phone"),
-        email: val("cncs_email"),
-        contact: val("cncs_contact"),
-        address: val("cncs_address"),
+  // pega valores editáveis
+  const payload = {
+    phone: val("cncs_phone"),
+    email: val("cncs_email"),
+    contact: val("cncs_contact"),
+    address: val("cncs_address"),
 
-        status: val("cncs_status"),
-        active: val("cncs_active"),
+    status: val("cncs_status"),
+    active: val("cncs_active"),
 
-        users: val("cncs_users"),
-        geo: val("cncs_geo"),
-        countries: val("cncs_countries"),
+    users: val("cncs_users"),
+    geo: val("cncs_geo"),
+    countries: val("cncs_countries"),
 
-        records: val("cncs_records"),
-        duration: val("cncs_duration"),
+    records: val("cncs_records"),
+    duration: val("cncs_duration"),
 
-        extra: val("cncs_extra_measures"),
-        iocs: val("cncs_iocs"),
-        notes: val("cncs_notes"),
+    extra: val("cncs_extra_measures"),
+    iocs: val("cncs_iocs"),
+    notes: val("cncs_notes"),
 
-        declName: val("cncs_decl_name"),
-        declRole: val("cncs_decl_role"),
-    };
+    declName: val("cncs_decl_name"),
+    declRole: val("cncs_decl_role"),
+  };
 
-    const html = buildCNCS24hPdfHtml(selectedAlert, selectedAI, payload);
+  const html = buildCNCS24hPdfHtml(selectedAlert, selectedAI, payload);
 
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 function esc(s) {
-    return String(s || "")
-        .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  return String(s || "")
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 function buildCNCS24hPdfHtml(alert, ai, p) {
-    const detection = alert.date;
-    const nature = inferIncidentNature(alert);
-    const impact = inferImpactLevel(alert, ai.asset.criticality);
-    const systems = inferAffectedSystems(alert, ai.asset.notes);
-    const pii = (ai.asset.notes || "").toLowerCase().includes("pii") ? "Sim" : "Ainda desconhecido";
-    const immediate = ai.actions.split("\n").slice(0, 3);
-    const summary = `${alert.summary} (Ativo: ${alert.asset})`.slice(0, 500);
+  const detection = alert.date;
+  const nature = inferIncidentNature(alert);
+  const impact = inferImpactLevel(alert, ai.asset.criticality);
+  const systems = inferAffectedSystems(alert, ai.asset.notes);
+  const pii = (ai.asset.notes || "").toLowerCase().includes("pii") ? "Sim" : "Ainda desconhecido";
+  const immediate = ai.actions.split("\n").slice(0, 3);
+  const summary = `${alert.summary} (Ativo: ${alert.asset})`.slice(0, 500);
 
-    return `
+  return `
   <html><head><meta charset="utf-8"><title>Notificação CNCS 24h (Draft)</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 22px; }
