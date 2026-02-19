@@ -697,7 +697,6 @@
             ['route' => 'dashboard', 'label' => 'Dashboard', 'badge' => 'RF18'],
             ['route' => 'assets', 'label' => 'Ativos', 'badge' => 'RF1'],
             ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3'],
-            ['route' => 'frameworks', 'label' => 'Frameworks', 'badge' => 'RF4'],
             ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6'],
             ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9'],
             ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11'],

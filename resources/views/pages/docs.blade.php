@@ -4,7 +4,17 @@
 @section('content')
     <section id="page-docs" class="page">
         <div class="card">
-            <h3>Documentos & Evidências (RF2, RF3, RF16, RF14)</h3>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div>
+                <h3>Documentos & Evidências (RF2, RF3, RF16) + Frameworks (RF4)</h3>
+                <div class="muted">Upload, versionamento, associações com controlos e normas oficiais.</div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+                <button id="btnOpenUploadDoc" class="btn ok" type="button">+ Upload documento</button>
+            </div>
+            </div>
+
 
             <div class="two" style="margin-top:10px">
                 <div class="panel">
@@ -18,6 +28,7 @@
                                 <option>Relatório</option>
                                 <option>Imagem</option>
                                 <option>PDF</option>
+                                <option value="framework">Framework / Norma oficial</option>
                             </select>
                         </div>
                         <div class="field">
@@ -69,6 +80,35 @@
 
             <div style="height:12px"></div>
 
+        <div class="panel" id="frameworkPanel">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
+            <div>
+            <h2 style="margin-bottom:6px">Frameworks & Normas oficiais (RF4)</h2>
+            <p class="hint">Fontes normativas (CNCS/QNRCS/NIS2). Não são “julgadas” pela IA — guiam as associações e relatórios.</p>
+            </div>
+            <div class="kpirow">
+            <span class="chip">Total: <b id="fwCount">0</b></span>
+            </div>
+        </div>
+
+        <table style="margin-top:10px">
+            <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Origem</th>
+                <th>Versão</th>
+                <th>Atualizado</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody id="fwTbody">
+            <tr><td class="muted" colspan="6">—</td></tr>
+            </tbody>
+        </table>
+        </div>
+        </div>
+
             <div class="panel">
                 <h2>Documentos no sistema</h2>
                 <p class="muted">Lista de evidências e políticas carregadas. Gerir status e associações a controlos.</p>
@@ -95,10 +135,15 @@
                             <td><span class="tag ok"><span class="s"></span> Ativo</span></td>
                             <td class="muted">2026-02-16</td>
                             <td>
-                                <button class="btn" type="button" data-open-doc-modal
-                                    data-doc-name="Procedimento Inventário v1.0" data-doc-type="Política"
-                                    data-doc-version="v1.0" data-doc-status="Ativo"
-                                    data-doc-updated="2026-02-16">Detalhes</button>
+                            <button class="btn" type="button" data-open-doc-modal
+                            data-doc-name="Procedimento Inventário v1.0"
+                            data-doc-type="Política"
+                            data-doc-version="v1.0"
+                            data-doc-status="Ativo"
+                            data-doc-updated="2026-02-16"
+                            data-doc-url="/mock/docs/procedimento-inventario-v1.pdf"
+                            >Detalhes</button>
+
                             </td>
                         </tr>
 
@@ -112,10 +157,15 @@
                             <td><span class="tag warn"><span class="s"></span> Pendente</span></td>
                             <td class="muted">2026-02-15</td>
                             <td>
-                                <button class="btn" type="button" data-open-doc-modal
-                                    data-doc-name="Relatório Backups (Jan)" data-doc-type="Relatório"
-                                    data-doc-version="v1.2" data-doc-status="Pendente"
-                                    data-doc-updated="2026-02-15">Detalhes</button>
+                            <button class="btn" type="button" data-open-doc-modal
+                            data-doc-name="Relatório Backups (Jan)"
+                            data-doc-type="Relatório"
+                            data-doc-version="v1.2"
+                            data-doc-status="Pendente"
+                            data-doc-updated="2026-02-15"
+                            data-doc-url="/mock/docs/relatorio-backups-jan.pdf"
+                            >Detalhes</button>
+
                             </td>
                         </tr>
                     </tbody>
@@ -237,6 +287,29 @@
                                         </label>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="panel">
+                            <h2>Pré-visualização</h2>
+                            <p class="muted">Preview do ficheiro (PDF/Imagem). Mock: ficheiros em /public/mock/docs/</p>
+
+                            <div id="docPreviewEmpty" class="chunk-preview">Sem ficheiro associado.</div>
+
+                            <iframe
+                                id="docPreviewPdf"
+                                src=""
+                                style="width:100%; height:340px; border:1px solid rgba(255,255,255,.10); border-radius:12px; background:rgba(0,0,0,.12); display:none">
+                            </iframe>
+
+                            <img
+                                id="docPreviewImg"
+                                src=""
+                                alt="Pré-visualização"
+                                style="width:100%; max-height:340px; object-fit:contain; border:1px solid rgba(255,255,255,.10); border-radius:12px; background:rgba(0,0,0,.12); display:none" />
+
+                            <div style="height:12px"></div>
+
+                            <h2>Chunks / Trechos analisados</h2>
+                            ...
                             </div>
 
                             <div class="hint">
@@ -466,6 +539,124 @@
             </style>
         </div>
     </section>
+
+    {{-- MODAL: Upload documento --}}
+<div id="uploadDocModal" class="modal-overlay is-hidden" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="uploadDocTitle">
+    <div class="modal-header">
+      <div>
+        <div class="muted" style="margin-bottom:4px">Novo documento</div>
+        <div id="uploadDocTitle" style="font-size:18px;font-weight:800">Upload documento</div>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center">
+        <button id="uploadDocClose" class="btn" type="button">Fechar</button>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="panel">
+      <div class="two">
+        <div class="field">
+          <label>Nome</label>
+          <input id="u_name" placeholder="ex.: QNRCS 2019 / Política de Backups v1.0" />
+        </div>
+
+        <div class="field">
+          <label>Tipo</label>
+          <select id="u_type">
+            <option value="evidence">Evidência</option>
+            <option value="policy">Política</option>
+            <option value="procedure">Procedimento</option>
+            <option value="framework">Framework / Norma oficial</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="two">
+        <div class="field">
+          <label>Versão</label>
+          <input id="u_version" placeholder="ex.: v2.1 / 2019" />
+        </div>
+        <div class="field">
+          <label>Atualizado</label>
+          <input id="u_updated" placeholder="YYYY-MM-DD" />
+        </div>
+      </div>
+
+      {{-- Bloco extra só para Framework --}}
+      <div id="u_frameworkBlock" class="panel" style="margin-top:10px; display:none">
+        <h2 style="margin-bottom:6px">Dados normativos (RF4)</h2>
+        <div class="two">
+          <div class="field">
+            <label>Origem</label>
+            <select id="u_source">
+              <option>CNCS</option>
+              <option>QNRCS</option>
+              <option>NIS2</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Notas</label>
+            <input id="u_fwNotes" placeholder="ex.: Base normativa para avaliações e relatórios CNCS" />
+          </div>
+        </div>
+        <div class="hint">Frameworks não geram “chunks” e não recebem sugestões de cobertura por IA.</div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px">
+        <button id="u_save" class="btn ok" type="button">Guardar (mock)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- MODAL: Detalhes do Framework --}}
+<div id="fwModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="fwModalTitle">
+    <div class="modal-header">
+      <div>
+        <div class="muted" style="margin-bottom:4px">Framework / Norma oficial</div>
+        <div id="fwModalTitle" style="font-size:18px;font-weight:800">—</div>
+      </div>
+      <button id="fwModalClose" class="btn" type="button">Fechar</button>
+    </div>
+
+    <div class="two" style="margin-top:12px">
+      <div class="panel">
+        <h2>Informações</h2>
+        <div class="two">
+          <div><div class="muted">Origem</div><div id="fwM_source">—</div></div>
+          <div><div class="muted">Versão</div><div id="fwM_version">—</div></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="two">
+          <div><div class="muted">Atualizado</div><div id="fwM_updated">—</div></div>
+          <div><div class="muted">Status</div><div id="fwM_status">—</div></div>
+        </div>
+        <div style="height:10px"></div>
+        <div class="muted" style="margin-bottom:6px">Notas</div>
+        <div id="fwM_notes" class="chunk-preview">—</div>
+
+        <div style="height:12px"></div>
+        <button class="btn" type="button">Atualizar versão (mock)</button>
+      </div>
+
+      <div class="panel">
+        <h2>Pré-visualização (PDF)</h2>
+        <iframe id="fwM_pdf" src=""
+          style="width:100%; height:520px; border:1px solid rgba(255,255,255,.10); border-radius:12px; background:rgba(0,0,0,.12)">
+        </iframe>
+        <div class="hint" style="margin-top:8px">
+          Se não abrir, confirma que o PDF está em <b>public/mock/frameworks/</b>.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
     @push('scripts')
 

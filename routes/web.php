@@ -7,7 +7,6 @@ Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/dashboard', fn () => view('pages.dashboard'))->name('dashboard');
 Route::get('/ativos', fn () => view('pages.assets'))->name('assets');
 Route::get('/documentos', fn () => view('pages.docs'))->name('docs');
-Route::get('/frameworks', fn () => view('pages.frameworks'))->name('frameworks');
 Route::get('/avaliacoes', fn () => view('pages.assessments'))->name('assessments');
 Route::get('/riscos', fn () => view('pages.risks'))->name('risks');
 Route::get('/tratamento', fn () => view('pages.treatment'))->name('treatment');
