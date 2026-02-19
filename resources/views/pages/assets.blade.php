@@ -228,6 +228,19 @@
                         {{-- render via JS --}}
                     </div>
 
+                    {{-- RISCOS + PLANOS (novo) --}}
+                    <div class="panel">
+                    <h2>Riscos &amp; Planos de tratamento</h2>
+                    <div class="muted">Riscos associados a este ativo e os planos de tratamento já criados.</div>
+
+                    <div style="height:10px"></div>
+
+                    <div id="assetRiskTreatList">
+                        {{-- render via JS --}}
+                    </div>
+                    </div>
+
+
                     <div class="hint">Ideia: isto seria gerado por embeddings + regras (ex.: “diz ter inventário, mas sem
                         evidência”).</div>
                 </div>

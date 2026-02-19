@@ -16,6 +16,9 @@
         if (!show && $("#fIp")) $("#fIp").value = "";
     }
 
+
+
+
     // ========= RBAC (mock) =========
     const USER_ROLE = (window.APP_USER_ROLE || 'Viewer').trim();
     const CAN_OVERRIDE_STATUS = (USER_ROLE === 'Admin' || USER_ROLE === 'GRC Manager');
@@ -170,8 +173,15 @@
             controls: [
                 { key: "ID.GA-1", status: "PARTIAL", confidence: 0.72, note: "Inventário existe, mas sem periodicidade formal.", evidences: ["Procedimento Inventário v1.0"] },
                 { key: "PR.IP-4", status: "GAP", confidence: 0.55, note: "Backups sem evidência de testes.", evidences: ["Relatório Backups (Jan)"] }
+            ],
+            risks: [
+                { id: "R-12", title: "Servidor exposto sem hardening", severity: "Alto", status: "Aberto", lastSeen: "2026-02-18" }
+            ],
+            treatments: [
+                { id: "TP-7", riskId: "R-12", title: "Aplicar CIS baseline + validar portas", status: "Em progresso", owner: "SecOps • Ana", due: "2026-03-10" }
             ]
         },
+
         {
             id: "A2",
             name: "APP-GRC",
@@ -186,9 +196,12 @@
             controls: [
                 { key: "PR.AC-1", status: "PARTIAL", confidence: 0.61, note: "Existe login, mas falta revisão periódica.", evidences: [] },
                 { key: "ID.AR-1", status: "COVERED", confidence: 0.82, note: "Há processo de risco e registos.", evidences: ["Matriz de Risco v2026"] }
-            ]
+            ],
+            risks: [],
+            treatments: []
         }
     ];
+
 
     // Create/edit modal working state
     let editingAssetId = null;
@@ -353,20 +366,32 @@
 
         filtered.forEach((a) => {
             const tr = document.createElement("tr");
+
+            // ✅ 1) calcula score e nível (usa tua função classify(score))
+            const score = (a.prob || 0) * (a.impact || 0);
+            const cls = classify(score); // cls.label -> "Baixo/Médio/Alto/Muito Alto"
+
             tr.innerHTML = `
-        <td>
-          <b>${a.name}</b>
-          <div class="muted">${a.subtitle}${a.ip ? ` • ${a.ip}` : ""}</div>
-        </td>
-        <td>${a.type}</td>
-        <td>${criticityTag(a.criticity)}</td>
-        <td>${a.owner}</td>
-        <td class="muted">P=${a.prob} • I=${a.impact}</td>
-        <td>${complianceTag(a)}</td>
-        <td>
-          <button class="btn" type="button" data-open-asset="${a.id}">Ver detalhes</button>
-        </td>
-      `;
+      <td>
+        <b>${a.name}</b>
+        <div class="muted">${a.subtitle}${a.ip ? ` • ${a.ip}` : ""}</div>
+      </td>
+      <td>${a.type}</td>
+      <td>${criticityTag(a.criticity)}</td>
+      <td>${a.owner}</td>
+
+      <!-- ✅ 2) troca esta coluna -->
+      <td>
+        <b>${cls.label}</b>
+        <div class="muted" style="margin-top:4px">P=${a.prob} • I=${a.impact}</div>
+      </td>
+
+      <td>${complianceTag(a)}</td>
+      <td>
+        <button class="btn" type="button" data-open-asset="${a.id}">Ver detalhes</button>
+      </td>
+    `;
+
             tbody.appendChild(tr);
         });
 
@@ -374,6 +399,7 @@
             b.addEventListener("click", () => openAssetModal(b.dataset.openAsset))
         );
     }
+
 
     // ========= details modal =========
     function renderControlsList(asset) {
@@ -541,6 +567,79 @@
             box.innerHTML = `<div class="muted">Sem controlos associados — a IA ainda não tem base para sugerir melhorias.</div>`;
         }
     }
+    function renderRiskTreat(asset) {
+        const wrap = $("#assetRiskTreatList");
+        if (!wrap) return;
+        const risks = asset.risks || [];
+        const tps = asset.treatments || [];
+
+        if (!risks.length && !tps.length) {
+            wrap.innerHTML = `<div class="muted">Sem riscos/planos ligados a este ativo.</div>`;
+            return;
+        }
+
+        const riskRows = risks.map(r => `
+        <div class="control-row">
+        <div class="control-left">
+            <div class="control-title">
+            <span class="control-code">${r.id}</span>
+            <span class="chip ${r.severity === "Crítico" ? "bad" : r.severity === "Alto" ? "warn" : ""}">
+                Severidade: <b>${r.severity}</b>
+            </span>
+            <span class="chip">Status: <b>${r.status}</b></span>
+            <span class="chip">Último: <b>${r.lastSeen || "—"}</b></span>
+            </div>
+            <div class="muted">${r.title}</div>
+        </div>
+        <div class="control-actions">
+            <button class="btn mini" type="button" data-open-risk="${r.id}">Ver</button>
+        </div>
+        </div>
+    `).join("");
+
+        const tpRows = tps.map(t => `
+        <div class="control-row">
+        <div class="control-left">
+            <div class="control-title">
+            <span class="control-code">${t.id}</span>
+            <span class="chip">Status: <b>${t.status}</b></span>
+            <span class="chip">Resp.: <b>${t.owner || "—"}</b></span>
+            <span class="chip">Prazo: <b>${t.due || "—"}</b></span>
+            ${t.riskId ? `<span class="chip">Risco: <b>${t.riskId}</b></span>` : ""}
+            </div>
+            <div class="muted">${t.title}</div>
+        </div>
+        <div class="control-actions">
+            <button class="btn mini" type="button" data-open-treatment="${t.id}">Ver</button>
+        </div>
+        </div>
+    `).join("");
+
+        wrap.innerHTML = `
+        <div style="margin-bottom:10px">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+            <h3 style="margin:0">Riscos associados (${risks.length})</h3>
+            <button class="btn mini" type="button" id="btnGoRisksForAsset">Abrir módulo de riscos</button>
+        </div>
+        <div style="height:8px"></div>
+        ${riskRows || `<div class="muted">Nenhum risco ligado.</div>`}
+        </div>
+
+        <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+            <h3 style="margin:0">Planos de tratamento (${tps.length})</h3>
+        </div>
+        <div style="height:8px"></div>
+        ${tpRows || `<div class="muted">Nenhum plano de tratamento ligado.</div>`}
+        </div>
+    `;
+
+        // handlers mock
+        $$("[data-open-risk]").forEach(b => b.addEventListener("click", () => alert("Abrir risco: " + b.dataset.openRisk)));
+        $$("[data-open-treatment]").forEach(b => b.addEventListener("click", () => alert("Abrir plano: " + b.dataset.openTreatment)));
+        const goBtn = $("#btnGoRisksForAsset");
+        if (goBtn) goBtn.addEventListener("click", () => goTo(`/riscos?asset=${asset.id}`));
+    }
 
     function openAssetModal(assetId) {
         const asset = assets.find((a) => a.id === assetId);
@@ -566,6 +665,7 @@
         buildMatrix(asset.prob, asset.impact);
         renderControlsList(asset);
         renderAiSuggestions(asset);
+        renderRiskTreat(asset);
 
         openModal("#assetModal");
     }

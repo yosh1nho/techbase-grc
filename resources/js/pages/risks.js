@@ -231,18 +231,52 @@ function riskLevelFromScore(score) {
   return { label: "Baixa", chip: "chip ok" };
 }
 
+let riskSearch = { q: "", field: "all" };
+let riskSearchTimer = null;
+
+function norm(s) {
+  return String(s ?? "").toLowerCase();
+}
+
+function filterRisks(risks) {
+  const q = norm(riskSearch.q).trim();
+  if (!q) return risks;
+
+  return risks.filter(r => {
+    const fields = {
+      id: r.id,
+      asset: r.asset,
+      description: r.description,
+      status: r.status,
+      strategy: r.strategy,
+      sourceLabel: r.sourceLabel
+    };
+
+    if (riskSearch.field === "all") {
+      return Object.values(fields).some(v => norm(v).includes(q));
+    }
+    return norm(fields[riskSearch.field]).includes(q);
+  });
+}
+
+
 function renderRisks() {
   const tbody = document.getElementById("risksTbody");
   const count = document.getElementById("risksCount");
   if (!tbody) return;
 
-  const risks = loadRisks();
-  if (count) count.textContent = String(risks.length);
+  const allRisks = loadRisks();
+  const risks = filterRisks(allRisks);
+
+  // se quiser manter o "Total" como total geral:
+  if (count) count.textContent = String(allRisks.length);
 
   if (!risks.length) {
-    tbody.innerHTML = `<tr><td class="muted" colspan="10">Sem riscos registados ainda.</td></tr>`;
+    // ⚠️ teu header tem 11 colunas (inclui botão "Ver"), então colspan deveria ser 11
+    tbody.innerHTML = `<tr><td class="muted" colspan="11">Sem riscos (para este filtro).</td></tr>`;
     return;
-  }
+  };
+
 
   tbody.innerHTML = risks.map(r => {
     const lvl = riskLevelFromScore(r.score);
@@ -265,6 +299,21 @@ function renderRisks() {
       </tr>
     `;
   }).join("");
+
+  tbody.querySelectorAll("[data-view-risk]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+
+      const id = btn.getAttribute("data-view-risk");
+
+      // usa a lista completa (não filtrada), pra achar o risco certo
+      const r = loadRisks().find(x => x.id === id);
+      if (!r) return;
+
+      openRiskModalFromRisk(r);
+    });
+  });
+
 
 
   tbody.querySelectorAll("[data-risk-check]").forEach(chk => {
@@ -464,6 +513,31 @@ function wireUI() {
     renderRisks();
     setRemoveBtnState();
   });
+  //Pesquisar riscos
+  const input = document.getElementById("riskSearchInput");
+  const field = document.getElementById("riskSearchField");
+  const clear = document.getElementById("btnClearRiskSearch");
+
+  input?.addEventListener("input", () => {
+    clearTimeout(riskSearchTimer);
+    riskSearchTimer = setTimeout(() => {
+      riskSearch.q = input.value;
+      renderRisks();
+    }, 150);
+  });
+
+  field?.addEventListener("change", () => {
+    riskSearch.field = field.value;
+    renderRisks();
+  });
+
+  clear?.addEventListener("click", () => {
+    riskSearch = { q: "", field: "all" };
+    if (input) input.value = "";
+    if (field) field.value = "all";
+    renderRisks();
+  });
+
 
 
   document.getElementById("btnClearRisks")?.addEventListener("click", () => {
@@ -517,6 +591,7 @@ function wireUI() {
 
 document.addEventListener("DOMContentLoaded", () => {
   renderAlerts();
+  renderRisks();
   wireUI();
 });
 

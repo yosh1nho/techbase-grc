@@ -1,9 +1,15 @@
 @extends('layouts.app')
 @section('title', 'Auditoria • Techbase GRC')
 @section('content')
-    <section id="page-audit" class="page hide">
+    <section id="page-audit" class="page">
         <div class="card">
             <h3>Auditoria / Logs (RNF5)</h3>
+            <div style="display:flex; gap:10px; align-items:center; margin:10px 0 12px; flex-wrap:wrap;">
+                <input id="auditSearch" placeholder="Pesquisar por data, utilizador, ação, entidade, detalhe..."
+                    style="min-width:320px;" />
+                <span class="muted" id="auditCount"></span>
+            </div>
+
             <div class="panel" style="margin-top:10px">
                 <h2>Registos recentes</h2>
                 <table>
@@ -43,4 +49,34 @@
             </div>
         </div>
     </section>
+
+<script>
+  (function () {
+    const input = document.getElementById('auditSearch');
+    const tbody = document.querySelector('#page-audit tbody');
+    const count = document.getElementById('auditCount');
+    if (!input || !tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    function apply() {
+      const q = (input.value || '').toLowerCase().trim();
+      let visible = 0;
+
+      rows.forEach(tr => {
+        const text = tr.innerText.toLowerCase();
+        const ok = !q || text.includes(q);
+        tr.style.display = ok ? '' : 'none';
+        if (ok) visible++;
+      });
+
+      if (count) count.textContent = `Mostrando ${visible} de ${rows.length}`;
+    }
+
+    input.addEventListener('input', apply);
+    apply();
+  })();
+</script>
+
+
 @endsection

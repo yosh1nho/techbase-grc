@@ -79,6 +79,23 @@
     </div>
 
     <div style="display:flex; gap:10px; align-items:center">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+  <input id="riskSearchInput" class="input" style="min-width:260px"
+         placeholder="Pesquisar por ID, Ativo, Descrição..." />
+
+    <select id="riskSearchField" class="select">
+      <option value="all">Tudo</option>
+      <option value="id">ID</option>
+      <option value="asset">Ativo</option>
+      <option value="description">Descrição</option>
+      <option value="status">Estado</option>
+      <option value="strategy">Estratégia</option>
+      <option value="sourceLabel">Fonte</option>
+    </select>
+
+    <button id="btnClearRiskSearch" class="btn" type="button">Limpar pesquisa</button>
+  </div>
+
       <span class="chip">Total: <b id="risksCount">0</b></span>
       <button id="btnClearRisks" class="btn" type="button">Limpar (mock)</button>
       <button id="btnRemoveRisks" class="btn" type="button" disabled>Remover selecionados</button>
