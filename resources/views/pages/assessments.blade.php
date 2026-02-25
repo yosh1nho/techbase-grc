@@ -15,19 +15,48 @@
                         </select>
                     </div>
                     <div class="field">
-                        <label>Ativo (se aplicável)</label>
-                        <select>
-                            <option>—</option>
-                            <option>SRV-DB-01</option>
-                            <option>NAS-BKP</option>
-                        </select>
+                    <label>Ativo</label>
+
+                    <div style="position:relative;">
+                        <input id="assetSearch"
+                            placeholder="Pesquisar ativo por nome, tipo, responsável..."
+                            autocomplete="off" />
+
+                        <div id="assetDropdown"
+                            class="panel"
+                            style="position:absolute; left:0; right:0; top:calc(100% + 6px);
+                                    z-index:50; display:none; max-height:240px; overflow:auto; padding:6px;">
+                        <!-- opções via JS -->
+                        </div>
                     </div>
+
+                    <input type="hidden" id="assetSelectedId" value="" />
+                    </div>
+
                 </div>
                 <div class="two">
                     <div class="field"><label>Framework</label><select>
                             <option>QNRCS v2.1</option>
                         </select></div>
-                    <div class="field"><label>Período</label><input placeholder="Ex.: Q1 2026" /></div>
+                    <div class="field">
+                <label>Período</label>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <select id="periodYear" style="min-width:140px;">
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                    </select>
+
+                    <select id="periodQuarter" style="min-width:140px;">
+                    <option value="Q1" selected>Q1</option>
+                    <option value="Q2">Q2</option>
+                    <option value="Q3">Q3</option>
+                    <option value="Q4">Q4</option>
+                    </select>
+                </div>
+                <div class="muted" style="margin-top:6px;">Ex.: Q1 2026</div>
+                </div>
+
                 </div>
                 <button class="btn ok">Iniciar</button>
             </div>
@@ -74,4 +103,9 @@
             </div>
         </div>
     </section>
+
+    @push('scripts')
+        @vite(['resources/js/pages/assessments.js'])
+    @endpush
+
 @endsection
