@@ -2,6 +2,10 @@
 #script de exclusão de documento por ID
 import os, argparse
 from pinecone import Pinecone
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 def must_env(name: str) -> str:
     v = os.environ.get(name)

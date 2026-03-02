@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+        'embed_model' => env('GEMINI_EMBED_MODEL', 'text-embedding-004'),
+    ],
+
+    'pinecone' => [
+        'key' => env('PINECONE_API_KEY'),
+        'host' => env('PINECONE_HOST'),
+        'ns_default' => env('PINECONE_NAMESPACE', 'default'), 
+    ],
 ];

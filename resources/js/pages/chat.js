@@ -69,6 +69,32 @@
         return "agora";
     }
 
+    //===== Helpers RAG ======
+    function escapeHtml(str) {
+        return (str || "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function renderBotMarkdown(text) {
+        // Se marked não existir, cai para texto simples
+        if (!window.marked || typeof window.marked.parse !== "function") {
+            return `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text)}</pre>`;
+        }
+
+        // Markdown -> HTML
+        const html = window.marked.parse(text || "");
+
+        // Sanitiza HTML (evita XSS)
+        if (window.DOMPurify) return window.DOMPurify.sanitize(html);
+
+        // fallback sem sanitize (não recomendado)
+        return html;
+    }
+
     // ====== RAG mock: escolhe fontes por keywords ======
     function pickSources(question) {
         const q = (question || "").toLowerCase();
@@ -180,10 +206,23 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
         const wrap = document.createElement("div");
         wrap.className = `chat-msg ${who === "user" ? "user" : "bot"}`;
 
-        wrap.innerHTML = `
-      <div class="chat-meta muted"><b>${who === "user" ? "Utilizador" : "Sistema"}</b> • ${nowLabel()}</div>
-      <div class="chat-bubble">${escapeHtml(text).replace(/\n/g, "<br>")}</div>
-    `;
+        const meta = document.createElement("div");
+        meta.className = "chat-meta muted";
+        meta.innerHTML = `<b>${who === "user" ? "Utilizador" : "Sistema"}</b> • ${nowLabel()}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "chat-bubble";
+
+        if (who === "user") {
+            // utilizador: texto puro
+            bubble.textContent = text || "";
+        } else {
+            // bot/sistema: markdown bonito
+            bubble.innerHTML = renderBotMarkdown(text || "");
+        }
+
+        wrap.appendChild(meta);
+        wrap.appendChild(bubble);
 
         thread.appendChild(wrap);
         thread.scrollTop = thread.scrollHeight;
@@ -248,6 +287,43 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
         });
     }
 
+    function openSourceModalDynamic(doc) {
+        const pdf = $("#sourcePdf");
+        if (pdf) {
+            // importante: força refresh mesmo com mesmo URL
+            pdf.src = doc.fileUrl ? (doc.fileUrl + `#toolbar=1&navpanes=0`) : "";
+        }
+
+        const chunkList = $("#sourceChunksList");
+        const full = $("#chunkFullText");
+        if (chunkList) chunkList.innerHTML = "";
+
+        const usedChunks = (doc.chunks || []).filter(c => chunkIds.includes(c.id));
+        if (!usedChunks.length) {
+            chunkList.innerHTML = `<div class="muted">Sem chunks ligados (mock).</div>`;
+            full.textContent = "—";
+        } else {
+            usedChunks.forEach((c, idx) => {
+                const row = document.createElement("div");
+                row.className = "chunkrow" + (idx === 0 ? " active" : "");
+                row.innerHTML = `
+          <div style="font-weight:900">${c.label}</div>
+          <div class="muted" style="margin-top:4px">${c.text.slice(0, 120)}${c.text.length > 120 ? "…" : ""}</div>
+        `;
+                row.addEventListener("click", () => {
+                    chunkList.querySelectorAll(".chunkrow").forEach(x => x.classList.remove("active"));
+                    row.classList.add("active");
+                    full.textContent = c.text;
+                });
+                chunkList.appendChild(row);
+
+                if (idx === 0 && full) full.textContent = c.text;
+            });
+        }
+
+        openModal("sourceModal");
+    }
+
     // ====== Modal: PDF + chunks ======
     function openSourceModal(docId, chunkIds) {
         const doc = DOCS.find(d => d.id === docId);
@@ -291,28 +367,152 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
         openModal("sourceModal");
     }
 
+    function openPdfModal(title, url) {
+        const modal = document.querySelector("#pdfModal");
+        const frame = document.querySelector("#pdfFrame");
+        const t = document.querySelector("#pdfTitle");
+        if (!modal || !frame) return;
+
+        if (t) t.textContent = title || "Documento";
+        frame.src = url;
+        modal.style.display = "block";
+    }
+
+    function closePdfModal() {
+        const modal = document.querySelector("#pdfModal");
+        const frame = document.querySelector("#pdfFrame");
+        if (frame) frame.src = "";
+        if (modal) modal.style.display = "none";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelector("#pdfClose")?.addEventListener("click", closePdfModal);
+        document.querySelector("#pdfModal")?.addEventListener("click", (e) => {
+            if (e.target?.id === "pdfModal") closePdfModal();
+        });
+    });
+
+    function pdfUrlForDocTitle(title) {
+        const t = (title || "").toLowerCase();
+        if (t.includes("nis2")) return "/mock/frameworks/NIS2.pdf";
+        if (t.includes("qnrcs") || t.includes("cncs")) return "/mock/frameworks/cncs-qnrcs-2019.pdf";
+        return null;
+    }
+
+    function renderDocsPanelFromSources(sources) {
+        const list = $("#sourcesList");
+        const empty = $("#sourcesEmpty");
+        const chip = $("#chatSourcesChip");
+        if (!list || !empty) return;
+
+        // agrupa por doc_title (ou doc_id)
+        const map = new Map();
+        for (const s of (sources || [])) {
+            const docKey = s.doc_title || s.doc_id;
+            if (!docKey) continue;
+
+            if (!map.has(docKey)) {
+                map.set(docKey, {
+                    title: s.doc_title || s.doc_id || "Documento",
+                    fileUrl: s.doc_url || pdfUrlForDocTitle(s.doc_title),
+                    refs: new Set(),
+                });
+            }
+            // guardar refs bonitas
+            if (s.ref_label) map.get(docKey).refs.add(s.ref_label);
+            else if (s.chunk_index != null) map.get(docKey).refs.add(`chunk ${s.chunk_index}`);
+            else if (s.chunk_id) map.get(docKey).refs.add(s.chunk_id);
+        }
+
+        const docs = Array.from(map.values());
+
+        if (!docs.length) {
+            empty.style.display = "block";
+            list.style.display = "none";
+            chip && (chip.textContent = "0");
+            return;
+        }
+
+        chip && (chip.textContent = String(docs.length));
+        empty.style.display = "none";
+        list.style.display = "flex";
+        list.innerHTML = "";
+
+        docs.forEach((doc) => {
+            const item = document.createElement("div");
+            item.className = "source-item";
+
+            item.innerHTML = `
+            <div class="source-left">
+                <div class="source-title">${escapeHtml(doc.title)}</div>
+                <div class="source-sub">Norma oficial • chunks: ${doc.refs.size}</div>
+            </div>
+            <div class="source-chips">
+                <span class="chip">Norma oficial</span>
+                <span class="chip">Abrir</span>
+            </div>
+            `;
+
+            item.addEventListener("click", () => openSourceModalDynamic(doc));
+            list.appendChild(item);
+        });
+    }
     // ====== Main send ======
-    function handleSend() {
+    async function handleSend() {
         const input = $("#chatInput");
         const q = (input?.value || "").trim();
         if (!q) return;
 
         appendMessage({ who: "user", text: q });
-
-        const sources = pickSources(q);
-        const answer = buildAnswer(q, sources);
-
-        appendMessage({ who: "bot", text: answer });
-
-        // render sources on right
-        renderSources(sources);
-
-        // mock audit
-        const auditChip = $("#chatAuditChip");
-        auditChip && (auditChip.textContent = "OK");
-
         input.value = "";
-        input.focus();
+
+        // (opcional) loading message
+        appendMessage({ who: "bot", text: "A analisar evidências..." });
+
+        try {
+            const res = await fetch("/chat/ask", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                },
+                body: JSON.stringify({ question: q }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.message || "Erro no chat");
+            window.__RAG_SOURCES__ = data.sources || [];
+            // Pega as fontes e renderiza o PDF
+            renderDocsPanelFromSources(data.sources || []);
+            // remove a msg "A analisar..." (simples: re-render/ajusta como preferir)
+            // MVP: só adiciona resposta final
+            appendMessage({ who: "bot", text: data.answer || "Sem resposta." });
+
+
+            $("#chatAuditChip") && ($("#chatAuditChip").textContent = "OK");
+        } catch (e) {
+            console.error("CHAT ERROR:", e);
+            appendMessage({ who: "bot", text: "Erro ao obter resposta. Verifica configuração do Gemini/Pinecone." });
+            $("#chatAuditChip") && ($("#chatAuditChip").textContent = "ERRO");
+        }
+    }
+
+    // transforma sources (lista) em [{docId, chunkIds}] como teu renderSources espera
+    function groupSourcesForPanel(sources) {
+        const map = new Map();
+        for (const s of sources) {
+            if (!s.doc_id) continue;
+            const chunkId = s.chunk_id;
+            const prev = map.get(s.doc_id) || new Set();
+            if (chunkId) prev.add(chunkId);
+            map.set(s.doc_id, prev);
+        }
+        return Array.from(map.entries()).map(([docId, set]) => ({
+            docId,
+            chunkIds: Array.from(set),
+        }));
     }
 
     document.addEventListener("DOMContentLoaded", () => {

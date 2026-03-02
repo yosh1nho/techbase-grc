@@ -1,22 +1,25 @@
 import re
 from typing import List, Dict, Any
 
-ARTICLE_RE = re.compile(r'(?m)^\s*Artigo\s+(?P<num>\d+)\.o\s*$')
-CHAPTER_RE = re.compile(r'(?m)^\s*CAP[IÍ]TULO\s+(?P<roman>[IVXLCDM]+)\s*$')
-RECITAL_RE = re.compile(r'(?m)^\s*\((?P<num>\d+)\)\s+')
+# Casa "Artigo" mesmo quando vem quebrado tipo "Ar tigo", "Ar t i g o", etc.
+ARTIGO_WORD = r"A\s*r\s*t\s*i\s*g\s*o"
+
+# Casa linhas tipo:
+# "Artigo 23.o", "Artigo 23.º", "Ar tigo 23.\no", etc.
+ARTICLE_RE = re.compile(
+    rf"(?mi)^\s*{ARTIGO_WORD}\s+(?P<num>\d+)\s*(?:\.\s*)?(?:[ºo]\s*)?$"
+)
+
+# Também tolerante a "CAPÍTULO" com acento ou sem
+CHAPTER_RE = re.compile(r"(?mi)^\s*CAP[IÍ]TULO\s+(?P<roman>[IVXLCDM]+)\s*$")
+
 
 def split_nis2_by_articles(text: str) -> List[Dict[str, Any]]:
-    """
-    1 chunk = 1 Artigo (com metadata: chapter_roman, article_num, section_type="article")
-    """
-    # Vamos guardar o capítulo mais recente antes de cada artigo (se existir)
     chapters = list(CHAPTER_RE.finditer(text))
     articles = list(ARTICLE_RE.finditer(text))
-
     if not articles:
         return []
 
-    # helper: capítulo vigente para uma posição
     chapter_idx = 0
     def current_chapter(pos: int):
         nonlocal chapter_idx
@@ -43,28 +46,9 @@ def split_nis2_by_articles(text: str) -> List[Dict[str, Any]]:
                 "chapter": chapter_roman,
                 "article_num": art_num,
                 "article_code": f"Artigo {art_num}.o",
+                "control_family": "NIS2-ART",
+                "control_code": f"NIS2-ART-{art_num}",
             }
         })
 
     return chunks
-
-def split_nis2_recitals(text: str) -> List[Dict[str, Any]]:
-    """
-    (Opcional) Chunk por Considerando (n)
-    """
-    matches = list(RECITAL_RE.finditer(text))
-    if not matches:
-        return []
-
-    out = []
-    for i, m in enumerate(matches):
-        start = m.start()
-        end = matches[i+1].start() if i+1 < len(matches) else len(text)
-        n = int(m.group("num"))
-        chunk_text = text[start:end].strip()
-        if chunk_text:
-            out.append({
-                "text": chunk_text,
-                "meta": {"section_type": "recital", "recital_num": n}
-            })
-    return out

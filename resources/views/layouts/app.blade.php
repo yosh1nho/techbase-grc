@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>@yield('title', 'Techbase GRC')</title>
-
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Mock CSS inline (depois podes migrar para Vite/Tailwind) --}}
     <style>
         :root{

@@ -12,6 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+
+        $middleware->validateCsrfTokens(except: [
+            'chat/ask',
+        ]);
+
         $middleware->alias([
             'mock.auth' => MockAuth::class,
         ]);

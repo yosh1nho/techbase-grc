@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\ChatController;
 
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
@@ -68,6 +69,20 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/admin/rbac', fn () => view('pages.rbac'))->name('rbac');
     Route::get('/relatorios-cncs', fn () => view('pages.reports-cncs'))->name('relatorios-cncs');
 
+
+    // ========= CHAT =========
+    Route::post('/chat/ask', [ChatController::class, 'ask'])
+    ->middleware(['throttle:60,1']);
+});
+
+Route::get('/_debug/php', function () {
+    return response()->json([
+        'php_binary' => PHP_BINARY,
+        'php_version' => PHP_VERSION,
+        'loaded_ini' => php_ini_loaded_file(),
+        'curl_cainfo' => ini_get('curl.cainfo'),
+        'openssl_cafile' => ini_get('openssl.cafile'),
+    ]);
 });
 
 

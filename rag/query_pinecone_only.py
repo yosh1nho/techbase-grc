@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 import os, json, argparse
 from pinecone import Pinecone
+from dotenv import load_dotenv
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]  # sai de /rag para a raiz do projeto
+load_dotenv(ROOT / ".env")
 #script de consulta de documentos em Pinecone
 def must_env(name: str) -> str:
     v = os.environ.get(name)
@@ -41,14 +46,11 @@ def main():
         query=query,
         fields=[
             "text",
-            "doc_id",
-            "doc_name",
-            "version",
-            "chunk_index",
-            "source_file",
-            "tenant",
-            "ingested_at",
-        ],
+            "doc_id","doc_name","version","chunk_index","source_file",
+            "section_type",
+            "control_code","control_family",
+            "article_num","article_code","chapter"
+],
     )
 
     if args.debug:
@@ -74,6 +76,12 @@ def main():
             "version": get_field("version"),
             "chunk_index": get_field("chunk_index"),
             "source_file": get_field("source_file"),
+            "section_type": get_field("section_type"),
+            "control_code": get_field("control_code"),
+            "control_family": get_field("control_family"),
+            "article_num": get_field("article_num"),
+            "article_code": get_field("article_code"),
+            "chapter": get_field("chapter"),
             "text": get_field("text"),
         })
 

@@ -113,8 +113,21 @@
         </div>
       </div>
     </div>
+
+    <div id="pdfModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999;">
+      <div style="background:#0b1220; width:min(1100px,95vw); height:min(85vh,95vh); margin:5vh auto; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.12);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.12);">
+          <div id="pdfTitle" style="color:#e5e7eb; font-weight:600;">Documento</div>
+          <button id="pdfClose" style="padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.08); color:#e5e7eb; border:0; cursor:pointer;">Fechar</button>
+        </div>
+        <iframe id="pdfFrame" style="width:100%; height:calc(100% - 48px); border:0;"></iframe>
+      </div>
+    </div>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 
 <style>
   /* reutiliza teu padrão modal */
