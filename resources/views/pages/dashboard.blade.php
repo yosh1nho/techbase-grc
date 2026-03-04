@@ -4,17 +4,17 @@
 
 @section('content')
     <div class="grid cards">
-        {{-- MATURIDADE --}}
-        <div class="card dash-card" role="button" tabindex="0" data-open-maturity>
-            <h3>Maturidade (QNRCS)</h3>
-            <p class="big">62%</p>
-            <p class="sub">Evolução: +6% vs. última avaliação</p>
+
+        {{-- ALERTAS RECENTES --}}
+        <div class="card dash-card" role="button" tabindex="0" data-open-alerts>
+            <h3>Alertas recentes (Wazuh)</h3>
+            <p class="big">9</p>
+            <p class="sub">Últimas 24h (correlacionados)</p>
             <div class="kpirow">
-                <span class="chip ok">Covered: 41</span>
-                <span class="chip warn">Partial: 18</span>
-                <span class="chip bad">GAP: 12</span>
+                <span class="chip">Sync: OK</span>
+                <span class="chip warn">2 críticos</span>
             </div>
-            <div class="hint">Clique para detalhar por Ativo / Política.</div>
+            <div class="hint">Clique para ver detalhes dos alertas.</div>
         </div>
 
         {{-- RISCOS --}}
@@ -41,17 +41,19 @@
             <div class="hint">Clique para abrir Tratamento de Risco.</div>
         </a>
 
-        {{-- ALERTAS RECENTES --}}
-        <div class="card dash-card" role="button" tabindex="0" data-open-alerts>
-            <h3>Alertas recentes (Wazuh)</h3>
-            <p class="big">9</p>
-            <p class="sub">Últimas 24h (correlacionados)</p>
+        {{-- MATURIDADE --}}
+        <div class="card dash-card" role="button" tabindex="0" data-open-maturity>
+            <h3>Maturidade (QNRCS)</h3>
+            <p class="big">62%</p>
+            <p class="sub">Evolução: +6% vs. última avaliação</p>
             <div class="kpirow">
-                <span class="chip">Sync: OK</span>
-                <span class="chip warn">2 críticos</span>
+                <span class="chip ok">Covered: 41</span>
+                <span class="chip warn">Partial: 18</span>
+                <span class="chip bad">GAP: 12</span>
             </div>
-            <div class="hint">Clique para ver detalhes dos alertas.</div>
+            <div class="hint">Clique para detalhar por Ativo / Política.</div>
         </div>
+
     </div>
 
     <div class="section-title">Visão rápida</div>
@@ -115,7 +117,83 @@
         </div>
     </div>
 
-    {{-- MODAL 1: MATURIDADE (lista de Ativos/Políticas) --}}
+
+
+    
+
+    {{-- MODAL: ALERTAS RECENTES --}}
+    <div id="alertsModal" class="modal-overlay is-hidden" aria-hidden="true">
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="alertsModalTitle">
+            <div class="modal-header">
+                <div>
+                    <div class="muted" style="margin-bottom:4px">Alertas recentes</div>
+                    <div id="alertsModalTitle" style="font-size:18px;font-weight:800">Wazuh (mock)</div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center">
+                    <button id="alertsModalClose" class="btn" type="button">Fechar</button>
+                </div>
+            </div>
+
+            <div style="height:10px"></div>
+
+            <div class="row">
+                <div class="field" style="flex:1; min-width:280px">
+                    <label>Pesquisar</label>
+                    <input id="alertSearch" placeholder="ex.: malware, SRV-DB-01, critical..." />
+                </div>
+                <div class="field" style="min-width:220px">
+                    <label>Severidade</label>
+                    <select id="alertSeverity">
+                        <option value="all">Todas</option>
+                        <option value="critical">Crítica</option>
+                        <option value="high">Alta</option>
+                        <option value="medium">Média</option>
+                        <option value="low">Baixa</option>
+                    </select>
+                </div>
+                <div class="field" style="min-width:180px">
+                    <label>De</label>
+                    <input id="alertDateFrom" type="date" />
+                </div>
+                <div class="field" style="min-width:180px">
+                    <label>Até</label>
+                    <input id="alertDateTo" type="date" />
+                </div>
+            </div>
+
+            <div style="height:10px"></div>
+
+            <div class="panel">
+                <h2 style="margin-bottom:6px">Lista</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Severidade</th>
+                            <th>Ativo</th>
+                            <th>Categoria</th>
+                            <th>Resumo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertTbody">
+                        <tr>
+                            <td class="muted">—</td>
+                            <td class="muted">—</td>
+                            <td class="muted">—</td>
+                            <td class="muted">—</td>
+                            <td class="muted">—</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="hint" style="margin-top:10px">
+                    Mock: depois ligamos isto à integração (RF17) e abrimos “detalhe do alerta/incidente”.
+                </div>
+            </div>
+        </div>
+    </div>
+
+{{-- MODAL 1: MATURIDADE (lista de Ativos/Políticas) --}}
     <div id="maturityModal" class="modal-overlay is-hidden" aria-hidden="true">
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="maturityModalTitle">
             <div class="modal-header">
@@ -234,70 +312,6 @@
                         </tr>
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    {{-- MODAL: ALERTAS RECENTES --}}
-    <div id="alertsModal" class="modal-overlay is-hidden" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="alertsModalTitle">
-            <div class="modal-header">
-                <div>
-                    <div class="muted" style="margin-bottom:4px">Alertas recentes</div>
-                    <div id="alertsModalTitle" style="font-size:18px;font-weight:800">Wazuh (mock)</div>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center">
-                    <button id="alertsModalClose" class="btn" type="button">Fechar</button>
-                </div>
-            </div>
-
-            <div style="height:10px"></div>
-
-            <div class="row">
-                <div class="field" style="flex:1">
-                    <label>Pesquisar</label>
-                    <input id="alertSearch" placeholder="ex.: malware, SRV-DB-01, critical..." />
-                </div>
-                <div class="field" style="min-width:220px">
-                    <label>Severidade</label>
-                    <select id="alertSeverity">
-                        <option value="all">Todas</option>
-                        <option value="critical">Crítica</option>
-                        <option value="high">Alta</option>
-                        <option value="medium">Média</option>
-                        <option value="low">Baixa</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="height:10px"></div>
-
-            <div class="panel">
-                <h2 style="margin-bottom:6px">Lista</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Severidade</th>
-                            <th>Ativo</th>
-                            <th>Categoria</th>
-                            <th>Resumo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="alertTbody">
-                        <tr>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="hint" style="margin-top:10px">
-                    Mock: depois ligamos isto à integração (RF17) e abrimos “detalhe do alerta/incidente”.
-                </div>
             </div>
         </div>
     </div>

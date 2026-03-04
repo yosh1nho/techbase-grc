@@ -157,13 +157,183 @@ function renderPreview() {
     setText('#pvExtraText', $('#cncsExtra')?.value || '—');
 }
 
-function exportMock() {
-    const format = $('#cncsFormat')?.value ?? 'pdf';
-    const saveAsDoc = $('#cncsSaveAsDoc')?.value ?? 'yes';
+// ===== PDF Export (CNCS Relatório Anual) =====
+function riskLabelPT(x) {
+    if (x == null) return "—";
+    return String(x);
+}
 
-    // Aqui depois vira: POST /reports/cncs/export (e backend gera PDF/ODT)
-    // Por enquanto, mock:
-    alert(`Mock: exportado em ${format.toUpperCase()}${saveAsDoc === 'yes' ? ' e guardado como Documento' : ''}.`);
+function safe(v, dash = "—") {
+    const s = (v ?? "").toString().trim();
+    return s ? s : dash;
+}
+
+function buildCncsPdfDefinition(form, data) {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+
+    // 4 — tabela trimestral
+    const quarterRows = (data.quarters || []).map(r => [r.q, String(r.total), r.types || "—"]);
+
+    // 5.3 — distribuição geográfica
+    const geoLines = (data.aggregate?.geo || []).map(g => `• ${g.label}: ${g.value}`);
+
+    // 7 — medidas (problemas + medidas)
+    const measures = (data.measures || []).map(m => ({
+        title: m.title,
+        detail: m.detail,
+        status: m.status
+    }));
+
+    return {
+        pageSize: "A4",
+        pageMargins: [44, 54, 44, 54],
+        footer: (currentPage, pageCount) => ({
+            text: `Relatório anual CNCS (mock) • Página ${currentPage} de ${pageCount}`,
+            alignment: "center",
+            fontSize: 9,
+            margin: [0, 12, 0, 0],
+        }),
+        styles: {
+            h0: { fontSize: 18, bold: true, alignment: "center" },
+            h1: { fontSize: 13, bold: true, margin: [0, 14, 0, 6] },
+            p: { fontSize: 10, lineHeight: 1.25 },
+            muted: { fontSize: 9, color: "#444" },
+            label: { fontSize: 10, bold: true },
+            small: { fontSize: 9 },
+            tableHeader: { bold: true, fontSize: 10 },
+            boxTitle: { fontSize: 10, bold: true },
+        },
+        defaultStyle: { font: "Roboto" },
+        content: [
+            { text: "Relatório anual", style: "h0" },
+            { text: "Modelo CNCS (mock funcional)", style: "muted", alignment: "center", margin: [0, 6, 0, 0] },
+            { text: `Gerado em: ${dateStr}`, style: "muted", alignment: "center", margin: [0, 2, 0, 0] },
+
+            // 1
+            { text: "1 — Designação da entidade", style: "h1" },
+            { text: safe(form.entityName), style: "p" },
+
+            // 2
+            { text: "2 — Ano civil e período de tempo do relatório", style: "h1" },
+            {
+                table: {
+                    widths: ["*", "*"],
+                    body: [
+                        [{ text: "Ano civil", style: "tableHeader" }, safe(form.year)],
+                        [{ text: "Período", style: "tableHeader" }, safe(form.period, "01-01 a 31-12")],
+                    ],
+                },
+                layout: "lightHorizontalLines",
+                fontSize: 10,
+            },
+
+            // 3
+            { text: "3 — Descrição sumária das principais atividades desenvolvidas em matéria de segurança das redes e dos serviços de informação", style: "h1" },
+            { text: safe(form.activitiesText), style: "p" },
+
+            // 4
+            { text: "4 — Estatística trimestral de todos os incidentes, com indicação do número e do tipo dos incidentes", style: "h1" },
+            {
+                table: {
+                    headerRows: 1,
+                    widths: [50, 60, "*"],
+                    body: [
+                        [{ text: "Trimestre", style: "tableHeader" }, { text: "N.º", style: "tableHeader" }, { text: "Tipo(s)", style: "tableHeader" }],
+                        ...quarterRows,
+                    ],
+                },
+                layout: "lightHorizontalLines",
+                fontSize: 10,
+            },
+            { text: `Nota (escopo): ${form.scope === "relevant" ? "relevante/substancial (com análise agregada na secção 5)" : "todos os incidentes"}`, style: "muted", margin: [0, 6, 0, 0] },
+
+            // 5
+            { text: "5 — Análise agregada dos incidentes de segurança com impacto relevante ou substancial", style: "h1" },
+            { text: "5.1 — Número de utilizadores afetados pela perturbação do serviço", style: "label" },
+            { text: `${safe(data.aggregate?.usersAffected)}\n${safe(data.aggregate?.usersHint, "")}`, style: "p", margin: [0, 4, 0, 8] },
+
+            { text: "5.2 — Duração dos incidentes", style: "label" },
+            { text: `${safe(data.aggregate?.durationHours)} h\n${safe(data.aggregate?.durationHint, "")}`, style: "p", margin: [0, 4, 0, 8] },
+
+            { text: "5.3 — Distribuição geográfica e impacto transfronteiriço", style: "label" },
+            {
+                text: [
+                    geoLines.length ? geoLines.join("\n") : "—",
+                    `\nImpacto transfronteiriço: ${data.aggregate?.crossBorder ? "Sim (potencial)" : "Não"}`,
+                ].join("\n"),
+                style: "p",
+                margin: [0, 4, 0, 0],
+            },
+
+            // 6
+            { text: "6 — Recomendações de atividades, de medidas ou de práticas que promovam a melhoria da segurança das redes e dos sistemas de informação", style: "h1" },
+            { text: safe(form.recsText), style: "p" },
+
+            // 7
+            { text: "7 — Problemas identificados e medidas implementadas na sequência dos incidentes", style: "h1" },
+            measures.length
+                ? {
+                    ul: measures.map(m => `${m.title} — ${m.detail} (${m.status})`),
+                    fontSize: 10,
+                }
+                : { text: "—", style: "p" },
+
+            // 8
+            { text: "8 — Qualquer outra informação relevante", style: "h1" },
+            { text: safe(form.extraText), style: "p" },
+
+            // Fecho / assinatura (do template)
+            { text: " ", margin: [0, 10, 0, 0] },
+            {
+                table: {
+                    widths: ["*", "*"],
+                    body: [
+                        [{ text: "Data:", style: "tableHeader" }, safe(form.reportDate, dateStr)],
+                        [{ text: "Responsável de segurança:", style: "tableHeader" }, safe(form.securityOfficer)],
+                        [{ text: "Assinatura do Responsável de segurança:", style: "tableHeader" }, safe(form.signature, "____________________________")],
+                    ],
+                },
+                layout: "lightHorizontalLines",
+                fontSize: 10,
+            },
+        ],
+    };
+}
+
+function exportPdfCNCS() {
+    const ready = window.pdfMake && window.pdfMake.createPdf;
+    if (!ready) {
+        alert("pdfmake ainda não carregou. Tenta novamente em 2s.");
+        return;
+    }
+
+    const year = $('#cncsYear')?.value ?? '—';
+    const scope = $('#cncsIncidentScope')?.value ?? 'relevant';
+
+    // Reusa o mesmo builder do preview (mock)
+    const data = buildMockData({ year, scope });
+
+    // Campos do formulário (alguns podem não existir ainda no blade — nesse caso ficam "—")
+    const form = {
+        year,
+        scope,
+        entityName: $('#cncsEntityName')?.value || '—',
+        period: $('#cncsPeriod')?.value || '',
+
+        // textos manuais (já existem no teu JS) :contentReference[oaicite:5]{index=5}
+        activitiesText: $('#cncsManualActivities')?.value || data.activitiesAuto,
+        recsText: $('#cncsManualRecs')?.value || data.recsAuto,
+        extraText: $('#cncsExtra')?.value || '—',
+
+        reportDate: $('#cncsReportDate')?.value || '',
+        securityOfficer: $('#cncsSecurityOfficer')?.value || '',
+        signature: $('#cncsSignature')?.value || '',
+    };
+
+    const def = buildCncsPdfDefinition(form, data);
+    const filename = `cncs_relatorio_anual_${year}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    window.pdfMake.createPdf(def).download(filename);
 }
 
 function wireLivePreviewTextSync() {
@@ -182,7 +352,14 @@ function wireLivePreviewTextSync() {
 function init() {
     // botões
     $('#btnPreviewCNCS')?.addEventListener('click', renderPreview);
-    $('#btnExportCNCS')?.addEventListener('click', exportMock);
+    $('#btnExportCNCS')?.addEventListener('click', () => {
+        const format = $('#cncsFormat')?.value ?? 'pdf';
+        if (format !== 'pdf') {
+            alert('Mock: por agora só exporta PDF. ODT fica para o backend.');
+            return;
+        }
+        exportPdfCNCS();
+    });
 
     // auto-preview ao mudar ano/escopo (fica “inteligente”)
     $('#cncsYear')?.addEventListener('change', renderPreview);

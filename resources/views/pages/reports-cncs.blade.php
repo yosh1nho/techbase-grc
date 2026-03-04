@@ -249,6 +249,10 @@
         }
     </style>
 
+    {{-- pdfmake para exportar PDF --}}
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.min.js"></script>
+
     {{-- JS separado --}}
     @vite(['resources/js/pages/reports-cncs.js'])
 @endsection

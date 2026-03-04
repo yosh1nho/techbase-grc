@@ -52,6 +52,14 @@ const ALERTS = [
 // ================== HELPERS ==================
 function normalize(s) { return (s || '').toLowerCase().trim(); }
 
+function parseAlertTs(ts) {
+    // expected: 'YYYY-MM-DD HH:MM'
+    if (!ts) return null;
+    const iso = ts.replace(' ', 'T') + ':00';
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function statusChip(status) {
     if (status === 'COVERED') return `<span class="tag ok"><span class="s"></span> COVERED</span>`;
     if (status === 'PARTIAL') return `<span class="tag warn"><span class="s"></span> PARTIAL</span>`;
@@ -219,13 +227,26 @@ function renderAlertsTable() {
     if (!tbody) return;
 
     const q = normalize($('#alertSearch')?.value);
-    const sev = $('#alertSeverity')?.value || 'all';
+const sev = $('#alertSeverity')?.value || 'all';
 
-    const rows = ALERTS.filter(a => {
-        const matchesQ = !q || normalize(a.msg).includes(q) || normalize(a.asset).includes(q) || normalize(a.cat).includes(q);
-        const matchesSev = sev === 'all' || a.sev === sev;
-        return matchesQ && matchesSev;
-    });
+const fromRaw = $('#alertDateFrom')?.value; // YYYY-MM-DD
+const toRaw = $('#alertDateTo')?.value;     // YYYY-MM-DD
+
+const from = fromRaw ? new Date(`${fromRaw}T00:00:00`) : null;
+const to = toRaw ? new Date(`${toRaw}T23:59:59`) : null;
+
+const rows = ALERTS.filter(a => {
+    const aDate = parseAlertTs(a.ts);
+            const matchesQ = !q || normalize(a.msg).includes(q) || normalize(a.asset).includes(q) || normalize(a.cat).includes(q);
+    const matchesSev = sev === 'all' || a.sev === sev;
+
+    const matchesFrom = !from || (aDate && aDate >= from);
+    const matchesTo = !to || (aDate && aDate <= to);
+    const matchesDate = matchesFrom && matchesTo;
+
+    return matchesQ && matchesSev && matchesDate;
+});
+
 
     tbody.innerHTML = '';
     if (!rows.length) {
@@ -289,8 +310,10 @@ function init() {
     $('#matStatus')?.addEventListener('change', renderMaturityTable);
 
     // Filters (alerts)
-    $('#alertSearch')?.addEventListener('input', renderAlertsTable);
-    $('#alertSeverity')?.addEventListener('change', renderAlertsTable);
+$('#alertSearch')?.addEventListener('input', renderAlertsTable);
+$('#alertSeverity')?.addEventListener('change', renderAlertsTable);
+$('#alertDateFrom')?.addEventListener('change', renderAlertsTable);
+$('#alertDateTo')?.addEventListener('change', renderAlertsTable);
 
     // Click outside closes
     $('#maturityModal')?.addEventListener('click', (e) => { if (e.target.id === 'maturityModal') closeModal('#maturityModal'); });

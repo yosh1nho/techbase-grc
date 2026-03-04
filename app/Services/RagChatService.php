@@ -128,8 +128,8 @@ Regras:
 Formatação obrigatória:
 - Começa com um resumo de 2–3 linhas.
 - Depois dá um Checklist com 6–10 bullets curtos.
-- Depois dá uma tabela Campos mínimos por ativo (colunas: Campo | Exemplo | Obrigatório).
-- Depois Evidências (3–6 bullets).
+- Depois, se necessário, dá uma tabela Campos mínimos por ativo (colunas: Campo | Exemplo | Obrigatório).
+- Depois, se necessário e se disponível, dá uma lista de Evidências (3–6 bullets).
 - No final, Fontes usadas listando apenas as fontes (sem repetir [Fonte...] em cada bullet).
 - Evita repetir texto; agrupa e simplifica.
 

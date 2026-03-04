@@ -100,8 +100,6 @@ function isOverdue(due) {
 
 function normalizePlan(p) {
     const status = p.status || "To do";
-    // auto “Em atraso” se vencido e não concluído
-    if (status !== "Concluído" && isOverdue(p.due)) return { ...p, status: "Em atraso" };
     return { ...p, status };
 }
 
@@ -183,21 +181,27 @@ function render() {
 function wireDnD() {
     document.querySelectorAll(".kanban-col").forEach(col => {
         const status = col.dataset.status;
-        const drop = col.querySelector(".kanban-drop");
 
-        drop.addEventListener("dragover", (e) => {
+        col.addEventListener("dragover", (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
-            drop.style.background = "rgba(255,255,255,.03)";
+
+            const drop = col.querySelector(".kanban-drop");
+            if (drop) drop.style.background = "rgba(255,255,255,.03)";
         });
 
-        drop.addEventListener("dragleave", () => {
-            drop.style.background = "";
+        col.addEventListener("dragleave", (e) => {
+            // só limpa quando realmente sai da coluna
+            if (!col.contains(e.relatedTarget)) {
+                const drop = col.querySelector(".kanban-drop");
+                if (drop) drop.style.background = "";
+            }
         });
 
-        drop.addEventListener("drop", (e) => {
+        col.addEventListener("drop", (e) => {
             e.preventDefault();
-            drop.style.background = "";
+            const drop = col.querySelector(".kanban-drop");
+            if (drop) drop.style.background = "";
 
             const id = e.dataTransfer.getData("text/plain");
             const plans = loadPlans().map(normalizePlan);
