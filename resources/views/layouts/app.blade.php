@@ -218,12 +218,19 @@
             max-width: 0;
             padding: 0;
         }
-        .nav-icon {
-            flex-shrink: 0;
-            width: 16px;
-            text-align: center;
-            font-size: 14px;
-            transition: margin .22s;
+        .nav-icon{
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        }
+
+        .nav-icon svg{
+        width: 18px;
+        height: 18px;
+        stroke-width: 1.8;
         }
         .app.sidebar-collapsed .nav-icon { margin: 0; }
 
@@ -1063,6 +1070,39 @@
         border-color: rgba(15,23,42,.12);
     }
 
+    .search-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    }
+    .search-icon svg{
+    width: 18px;
+    height: 18px;
+    stroke-width: 1.8;
+    opacity: .9;
+    }
+
+    .theme-icon-light{ display:none; }
+    :root[data-theme="light"] .theme-icon-dark{ display:none; }
+    :root[data-theme="light"] .theme-icon-light{ display:inline-flex; }
+
+    .btn-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    }
+    .btn-icon svg{
+    width: 18px;
+    height: 18px;
+    stroke-width: 1.8;
+    }
+
     </style>
 </head>
 
@@ -1099,26 +1139,28 @@
 
             <nav class="nav"> @foreach($navItems as $item)
                 @php
-                    $navIcons = [
-                        'dashboard'       => '◈',
-                        'assets'          => '⬡',
-                        'docs'            => '⊟',
-                        'assessments'     => '⚖',
-                        'risks'           => '◬',
-                        'treatment'       => '⊕',
-                        'questionnaire'   => '≡',
-                        'chat'            => '⊙',
-                        'audit'           => '⊞',
-                        'rbac'            => '⊛',
-                        'relatorios-cncs' => '⊠',
-                    ];
+                $navIcons = [
+                'dashboard'       => 'layout-dashboard',
+                'assets'          => 'server',
+                'docs'            => 'file-text',
+                'assessments'     => 'clipboard-check',
+                'risks'           => 'alert-triangle',
+                'treatment'      => 'list-checks',
+                'questionnaire'   => 'file-pen-line',
+                'chat'            => 'messages-square',
+                'audit'           => 'scroll-text',
+                'rbac'            => 'shield-check',
+                'relatorios-cncs'            => 'file-output',
+                ];
                     $icon = $navIcons[$item['route']] ?? '·';
                 @endphp
                 <a href="{{ route($item['route']) }}"
                     class="{{ request()->routeIs($item['route']) ? 'active' : '' }}"
                     title="{{ $item['label'] }}">
                     <span style="display:flex;align-items:center;gap:9px;overflow:hidden;">
-                        <span class="nav-icon">{{ $icon }}</span>
+                        <span class="nav-icon">
+                            <i data-lucide="{{ $icon }}"></i>
+                        </span>
                         <span class="nav-label">{{ $item['label'] }}</span>
                     </span>
                     <span class="badge nav-badge">{{ $item['badge'] }}</span>
@@ -1146,7 +1188,10 @@
                 </div>
 
                 <div class="search" title="Pesquisa global (mock)">
-                    🔎 <input placeholder="Pesquisar ativos, controlos, evidências, riscos..." />
+                    <span class="search-icon">
+                        <i data-lucide="search"></i>
+                    </span>
+                    <input placeholder="Pesquisar ativos, controlos, evidências, riscos..." />
                 </div>
 
                 <div class="actions">
@@ -1159,8 +1204,12 @@
                     </form>
 
                     <button id="btnThemeToggle" class="btn btn-theme-toggle" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
-                        <span class="theme-icon-dark">🌙</span>
-                        <span class="theme-icon-light" style="display:none;">☀️</span>
+                        <span class="theme-icon theme-icon-dark">
+                            <i data-lucide="moon"></i>
+                        </span>
+                        <span class="theme-icon theme-icon-light">
+                            <i data-lucide="sun"></i>
+                        </span>
                     </button>
 
                 </div>
@@ -1199,7 +1248,7 @@
         });
     })();
     </script>
-    @vite(['resources/js/theme.js'])
+    @vite(['resources/js/app.js', 'resources/js/theme.js', 'resources/js/audit-store.js'])
     @stack('scripts')
     <script>
         (function () {
@@ -1355,6 +1404,22 @@
             // expõe pra caso tu crie dinamicamente
             window.initCustomSelect = initCustomSelect;
         })();
+
+
+        function renderLucideIcons() {
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', renderLucideIcons);
+        window.addEventListener('load', renderLucideIcons);
+
+        // Se o teu mock muda páginas sem reload, isto ajuda muito:
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.sidebar a, .nav-item, [data-page], [data-nav]')) {
+            setTimeout(renderLucideIcons, 0);
+            }
+        });
+
     </script>
     @vite(['resources/js/audit-store.js'])
 </body>

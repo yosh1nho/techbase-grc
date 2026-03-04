@@ -144,7 +144,7 @@
                             <div style="height:10px"></div>
 
                             <div class="two">
-                                <div class="panel" style="background: rgba(0,0,0,.10)">
+                                <div class="panel" style="background: var(--surface2)">
                                     <h2 style="font-size:14px">Atalhos</h2>
                                     <div style="display:flex; gap:10px; flex-wrap:wrap">
                                         <button class="btn" type="button" id="btnSelectAllPerms">Selecionar tudo</button>
@@ -153,7 +153,7 @@
                                     </div>
                                 </div>
 
-                                <div class="panel" style="background: rgba(0,0,0,.10)">
+                                <div class="panel" style="background: var(--surface2)">
                                     <h2 style="font-size:14px">Auditoria (RNF5)</h2>
                                     <div class="mini-note">
                                         Este mock não grava BD, mas regista logs visuais aqui:
@@ -547,6 +547,159 @@
                 font-size: 13px;
                 line-height: 1.35;
                 white-space: pre-wrap;
+            }
+
+
+            .role-row,
+            .perm-card,
+            .perm-group,
+            .perm-item,
+            .audit-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            }
+
+            .perm-item { background: var(--surface); }
+
+            .pill{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            }
+
+            .audit-box{
+            color: var(--text);
+            }
+            .mini-note,
+            .role-row .desc,
+            .perm-item .d { color: var(--muted); }
+
+
+            /* Base da página RBAC */
+            .rbac-wrap, .rbac-page, .page-rbac {
+            color: var(--text);
+            }
+
+            /* Grupos/Seções (Ativos, Documentos, etc.) */
+            .perm-group {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: 0 10px 28px rgba(0,0,0,.08);
+            }
+
+            /* Cabeçalho do grupo (título + contador + Tudo/Nada) */
+            .perm-group > .perm-group-head,
+            .perm-group > .perm-group-header,
+            .perm-group .perm-group-head,
+            .perm-group .perm-group-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+            }
+
+            /* Linha de cada permissão */
+            .perm-item {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            }
+
+            /* Espaço entre permissões */
+            .perm-item + .perm-item { margin-top: 10px; }
+
+            /* Texto secundário */
+            .perm-item .desc,
+            .perm-item .d,
+            .perm-item small {
+            color: var(--muted);
+            }
+
+            /* Coluna direita (checkbox / on-off) */
+            .perm-item .right,
+            .perm-item .state {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            }
+
+            /* Painel lateral (Resumo do papel / Atalhos / Auditoria) */
+            .role-summary,
+            .rbac-side,
+            .rbac-aside {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            height: fit-content;
+            }
+
+            /* Cards dentro do resumo */
+            .role-summary .card,
+            .rbac-side .card,
+            .rbac-aside .card,
+            .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            }
+
+            .role-summary .card + .card,
+            .rbac-side .card + .card,
+            .rbac-aside .card + .card { margin-top: 12px; }
+
+            /* Badges/chips */
+            .pill, .badge {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 999px;
+            }
+
+            /* Inputs coerentes */
+            .rbac-wrap input[type="text"],
+            .rbac-wrap select {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 12px;
+            }
+
+            #page-rbac{
+            /* fallback caso o tema não defina bem */
+            --rbac-border-light: rgba(15, 23, 42, .14);
+            }
+
+            /* cobre os 3 jeitos mais comuns de tema: data-theme, class no body, ou só prefers-color-scheme */
+            :root[data-theme="light"] #page-rbac,
+            body.theme-light #page-rbac,
+            body.light #page-rbac,
+            @media (prefers-color-scheme: light) {
+            #page-rbac { }
+            }
+
+            /* aplica borda mais forte no light */
+            :root[data-theme="light"] #page-rbac,
+            body.theme-light #page-rbac,
+            body.light #page-rbac{
+            --border: var(--rbac-border-light);
+            }
+
+            /* se o teu app NÃO usa data-theme/class, isto ainda ajuda via preferências do browser */
+            @media (prefers-color-scheme: light){
+            #page-rbac{
+                --border: var(--rbac-border-light);
+            }
             }
         </style>
     </section>
