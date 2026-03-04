@@ -348,7 +348,7 @@
             }
 
             .role-row {
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .14);
                 border-radius: 14px;
                 padding: 12px;
@@ -393,14 +393,14 @@
             }
 
             .perm-card {
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .12);
                 border-radius: 14px;
                 padding: 12px;
             }
 
             .perm-group {
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .12);
                 border-radius: 14px;
                 padding: 12px;
@@ -433,7 +433,7 @@
                 gap: 10px;
                 padding: 10px;
                 border-radius: 12px;
-                border: 1px solid rgba(255, 255, 255, .08);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .10);
             }
 
@@ -468,7 +468,7 @@
                 gap: 8px;
                 padding: 6px 10px;
                 border-radius: 999px;
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(255, 255, 255, .06);
                 color: rgba(255, 255, 255, .90);
                 font-weight: 800;
@@ -477,7 +477,7 @@
             }
 
             .audit-box {
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .14);
                 border-radius: 12px;
                 padding: 10px;
@@ -505,7 +505,7 @@
             .modal-overlay {
                 position: fixed;
                 inset: 0;
-                background: rgba(0, 0, 0, .62);
+                background: var(--modal-overlay);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -521,9 +521,10 @@
                 width: min(1100px, 96vw);
                 max-height: 90vh;
                 overflow: auto;
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 border-radius: 16px;
-                background: rgba(18, 26, 43, .96);
+                background: var(--modal-bg);
+                color: var(--text);
                 box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
                 padding: 14px;
             }
@@ -538,7 +539,7 @@
             }
 
             .chunk-preview {
-                border: 1px solid rgba(255, 255, 255, .10);
+                border: 1px solid var(--modal-border);
                 background: rgba(0, 0, 0, .14);
                 border-radius: 12px;
                 padding: 10px;

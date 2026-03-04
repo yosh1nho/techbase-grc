@@ -6,27 +6,35 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>@yield('title', 'Techbase GRC')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {{-- Mock CSS inline (depois podes migrar para Vite/Tailwind) --}}
     <style>
         :root{
-        /* DARK (default) — mantém o que tu já tinha */
-        --bg: #0b1220;
-        --panel: #121a2b;
-        --panel2: #0f1726;
-        --text: #e6eefc;
-        --muted: #9fb0d0;
-        --line: #22304a;
+        /* DARK (default) */
+        --bg: #080e1a;
+        --panel: #0e1625;
+        --panel2: #0b1220;
+        --text: #dde8f8;
+        --muted: #8097bb;
+        --line: #1c2c45;
         --ok: #2dd4bf;
         --warn: #fbbf24;
         --bad: #fb7185;
         --info: #60a5fa;
-        --chip: #1b2742;
+        --chip: #132040;
         --radius: 14px;
-        --shadow: 0 10px 30px rgba(0, 0, 0, .35);
-        --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        --shadow: 0 10px 30px rgba(0, 0, 0, .45);
+        --font: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+        --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
         /* fundo por tema */
-        --bg-gradient: linear-gradient(180deg, #070c16, #0b1220 30%, #070c16);
+        --bg-gradient: linear-gradient(180deg, #060b14, #080e1a 30%, #060b14);
+        --modal-bg: rgba(12, 18, 30, .98);
+        --modal-border: rgba(255,255,255,.08);
+        --modal-overlay: rgba(0,0,0,.55);
+        --modal-panel: rgba(255,255,255,.04);
         }
 
         :root[data-theme="light"]{
@@ -60,6 +68,10 @@
         /* hovers */
         --hover-row: rgba(2, 6, 23, .03);
         --hover-link: rgba(37, 99, 235, .08);
+        --modal-bg: rgba(255,255,255,.99);
+        --modal-border: rgba(15,23,42,.12);
+        --modal-overlay: rgba(15,23,42,.45);
+        --modal-panel: rgba(15,23,42,.04);
         }
 
 
@@ -69,9 +81,12 @@
         }
         body{
         margin: 0;
-        font-family: var(--font);   
-        background: var(--bg-gradient); 
+        font-family: var(--font);
+        font-size: 14px;
+        line-height: 1.6;
+        background: var(--bg-gradient);
         color: var(--text);
+        -webkit-font-smoothing: antialiased;
         }
 
         .card,
@@ -94,7 +109,11 @@
         .app {
             display: grid;
             grid-template-columns: 290px 1fr;
-            min-height: 100vh
+            min-height: 100vh;
+            transition: grid-template-columns .22s cubic-bezier(.4,0,.2,1);
+        }
+        .app.sidebar-collapsed {
+            grid-template-columns: 52px 1fr;
         }
 
         .sidebar {
@@ -104,13 +123,39 @@
             position: sticky;
             top: 0;
             height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: padding .22s cubic-bezier(.4,0,.2,1);
+        }
+        .app.sidebar-collapsed .sidebar {
+            padding: 18px 7px;
+            align-items: center;
         }
 
         .brand {
             display: flex;
             gap: 10px;
             align-items: center;
-            padding: 10px 10px 18px
+            padding: 10px 10px 18px;
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            transition: padding .22s;
+        }
+        .app.sidebar-collapsed .brand {
+            padding: 10px 0 14px;
+            justify-content: center;
+        }
+        .brand-text {
+            overflow: hidden;
+            opacity: 1;
+            max-width: 200px;
+            transition: opacity .15s, max-width .22s cubic-bezier(.4,0,.2,1);
+        }
+        .app.sidebar-collapsed .brand-text {
+            opacity: 0;
+            max-width: 0;
         }
 
         .logo {
@@ -141,34 +186,70 @@
         }
 
         .nav a {
-            padding: 10px 12px;
-            border-radius: 12px;
+            padding: 9px 12px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border: 1px solid transparent;
             color: var(--muted);
             font-size: 13px;
+            font-weight: 400;
+            letter-spacing: .01em;
+            transition: background .12s, color .12s, border-color .12s, padding .22s;
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
         }
+        .app.sidebar-collapsed .nav a {
+            padding: 9px 0;
+            justify-content: center;
+            width: 34px;
+            border-radius: 8px;
+        }
+        .nav-label, .nav-badge {
+            transition: opacity .12s, max-width .22s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .nav-badge { max-width: 80px; }
+        .app.sidebar-collapsed .nav-label,
+        .app.sidebar-collapsed .nav-badge {
+            opacity: 0;
+            max-width: 0;
+            padding: 0;
+        }
+        .nav-icon {
+            flex-shrink: 0;
+            width: 16px;
+            text-align: center;
+            font-size: 14px;
+            transition: margin .22s;
+        }
+        .app.sidebar-collapsed .nav-icon { margin: 0; }
 
         .nav a:hover {
-            background: rgba(96, 165, 250, .08);
-            border-color: rgba(96, 165, 250, .18);
+            background: rgba(96, 165, 250, .07);
+            border-color: rgba(96, 165, 250, .15);
             color: var(--text)
         }
 
         .nav a.active {
-            background: rgba(45, 212, 191, .10);
-            border-color: rgba(45, 212, 191, .25);
-            color: var(--text)
+            background: rgba(45, 212, 191, .09);
+            border-color: rgba(45, 212, 191, .22);
+            color: var(--text);
+            font-weight: 500;
         }
 
         .badge {
-            font-size: 11px;
-            padding: 3px 8px;
+            font-size: 10px;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            padding: 2px 7px;
             border-radius: 999px;
-            background: rgba(255, 255, 255, .07);
-            border: 1px solid rgba(255, 255, 255, .08)
+            background: rgba(255, 255, 255, .05);
+            border: 1px solid rgba(255, 255, 255, .07);
+            letter-spacing: .03em;
+            color: var(--muted);
         }
 
         .sidebar .foot {
@@ -178,8 +259,34 @@
             color: var(--muted);
             font-size: 12px;
             display: flex;
-            justify-content: space-between
+            justify-content: space-between;
+            width: 100%;
+            overflow: hidden;
         }
+        .foot-text {
+            transition: opacity .15s, max-width .22s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+            max-width: 200px;
+            white-space: nowrap;
+        }
+        .app.sidebar-collapsed .foot-text { opacity: 0; max-width: 0; }
+        .app.sidebar-collapsed .sidebar .foot { justify-content: center; padding: 14px 0; }
+
+        /* ── Toggle button ── */
+        .sidebar-toggle {
+            display: flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+            border: 1px solid var(--line); background: rgba(255,255,255,.04);
+            cursor: pointer; color: var(--muted); font-size: 13px;
+            transition: background .12s, color .12s, transform .22s;
+        }
+        .sidebar-toggle:hover { background: rgba(255,255,255,.08); color: var(--text); }
+        .app.sidebar-collapsed .sidebar-toggle { transform: rotate(180deg); }
+        .sidebar-toggle-wrap {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 0 4px 0; width: 100%;
+        }
+        .app.sidebar-collapsed .sidebar-toggle-wrap { justify-content: center; }
 
         .main {
             padding: 18px 22px 28px
@@ -207,12 +314,13 @@
             display: flex;
             gap: 8px;
             align-items: center;
-            padding: 8px 10px;
-            border: 1px solid rgba(255, 255, 255, .08);
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, .07);
             border-radius: 999px;
             background: rgba(15, 23, 38, .65);
             color: var(--muted);
             font-size: 12px;
+            font-family: var(--font-mono);
         }
 
         .dot {
@@ -251,12 +359,16 @@
 
         .btn {
             cursor: pointer;
-            padding: 10px 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, .10);
-            background: rgba(255, 255, 255, .06);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, .09);
+            background: rgba(255, 255, 255, .05);
             color: var(--text);
             font-size: 13px;
+            font-family: var(--font);
+            font-weight: 500;
+            letter-spacing: .01em;
+            transition: background .12s, border-color .12s, filter .1s;
         }
 
         .btn.primary {
@@ -292,23 +404,26 @@
         }
 
         .card h3 {
-            margin: 0 0 6px;
+            margin: 0 0 5px;
             font-size: 13px;
             color: var(--text);
-            font-weight: 600
+            font-weight: 600;
+            letter-spacing: .01em;
         }
 
         .big {
-            font-size: 22px;
-            margin: 0 0 6px;
-            font-weight: 750;
-            letter-spacing: .2px
+            font-size: 28px;
+            margin: 4px 0 6px;
+            font-weight: 700;
+            letter-spacing: -.5px;
+            font-family: var(--font-mono);
         }
 
         .sub {
             margin: 0;
             color: var(--muted);
-            font-size: 12px
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         .kpirow {
@@ -346,9 +461,12 @@
         }
 
         .section-title {
-            margin: 18px 2px 8px;
-            font-size: 13px;
-            color: var(--muted)
+            margin: 20px 2px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
         }
 
         .split {
@@ -372,7 +490,10 @@
 
         th {
             color: var(--muted);
-            font-weight: 600;
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
             text-align: left
         }
 
@@ -383,12 +504,15 @@
         .tag {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 8px;
+            gap: 5px;
+            padding: 3px 9px;
             border-radius: 999px;
             background: var(--chip);
-            border: 1px solid rgba(255, 255, 255, .08);
-            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, .07);
+            font-size: 11px;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            letter-spacing: .04em;
             color: var(--muted)
         }
 
@@ -413,7 +537,8 @@
 
         .muted {
             color: var(--muted);
-            font-size: 12px
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         .panel {
@@ -425,7 +550,9 @@
 
         .panel h2 {
             margin: 0 0 10px;
-            font-size: 14px
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: .01em;
         }
 
         .row {
@@ -656,7 +783,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(0,0,0,.55);
+    background: var(--modal-overlay);
     backdrop-filter: blur(2px);
     }
 
@@ -669,8 +796,9 @@
     max-height: 88vh;
     overflow: auto;
     border-radius: 16px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(12, 18, 30, .98);
+    border: 1px solid var(--modal-border);
+    background: var(--modal-bg);
+    color: var(--text);
     box-shadow: 0 20px 60px rgba(0,0,0,.55);
     padding: 16px;
     }
@@ -784,9 +912,155 @@
     }
 
     :root[data-theme="light"] .btn{
-    background: rgba(255,255,255,.66);
+    background: rgba(255,255,255,.80);
     border: 1px solid rgba(15,23,42,.12);
     color: var(--text);
+    }
+
+    /* ── Overrides de padrões hardcoded nas pages ── */
+
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.62)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .62)"] {
+        background: rgba(15,23,42,.45) !important;
+    }
+    :root[data-theme="light"] [style*="background:rgba(18,26,43,.96)"],
+    :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .96)"],
+    :root[data-theme="light"] [style*="background:rgba(18,26,43,.98)"],
+    :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .98)"] {
+        background: rgba(255,255,255,.98) !important;
+        border-color: rgba(15,23,42,.12) !important;
+    }
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.1"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .1"],
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.12)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .12)"],
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.14)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .14)"],
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.16)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .16)"],
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.18)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .18)"],
+    :root[data-theme="light"] [style*="background:rgba(0,0,0,.22)"],
+    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .22)"] {
+        background: rgba(15,23,42,.04) !important;
+        border-color: rgba(15,23,42,.10) !important;
+    }
+    :root[data-theme="light"] [style*="background:rgba(255,255,255,.06)"],
+    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .06)"],
+    :root[data-theme="light"] [style*="background:rgba(255,255,255,.08)"],
+    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .08)"],
+    :root[data-theme="light"] [style*="background:rgba(255,255,255,.14)"],
+    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .14)"] {
+        background: rgba(15,23,42,.05) !important;
+        border-color: rgba(15,23,42,.10) !important;
+    }
+    :root[data-theme="light"] [style*="background:#0b1220"] {
+        background: #f8faff !important;
+        border-color: rgba(15,23,42,.12) !important;
+    }
+    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.10)"],
+    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.08)"],
+    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.12)"] {
+        border-color: rgba(15,23,42,.12) !important;
+    }
+    :root[data-theme="light"] .chip {
+        background: rgba(15,23,42,.06);
+        border-color: rgba(15,23,42,.12);
+        color: var(--muted);
+    }
+    :root[data-theme="light"] .chip.ok   { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
+    :root[data-theme="light"] .chip.warn { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
+    :root[data-theme="light"] .chip.bad  { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
+    :root[data-theme="light"] .tag        { background: rgba(15,23,42,.06); border-color: rgba(15,23,42,.1); }
+    :root[data-theme="light"] .tag.ok     { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
+    :root[data-theme="light"] .tag.warn   { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
+    :root[data-theme="light"] .tag.bad    { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
+    :root[data-theme="light"] .pill {
+        background: rgba(255,255,255,.80);
+        border-color: rgba(15,23,42,.12);
+        color: var(--muted);
+    }
+    :root[data-theme="light"] .badge {
+        background: rgba(15,23,42,.06);
+        border-color: rgba(15,23,42,.10);
+    }
+    :root[data-theme="light"] .foot { border-top-color: var(--line); }
+    :root[data-theme="light"] .sidebar-toggle {
+        background: rgba(15,23,42,.05);
+        border-color: rgba(15,23,42,.12);
+        color: var(--muted);
+    }
+    :root[data-theme="light"] .sidebar-toggle:hover {
+        background: rgba(15,23,42,.09);
+        color: var(--text);
+    }
+    :root[data-theme="light"] .nav a.active {
+        background: rgba(14,165,163,.08);
+        border-color: rgba(14,165,163,.20);
+    }
+    :root[data-theme="light"] .cs-menu {
+        background: rgba(255,255,255,.98);
+        border-color: rgba(15,23,42,.12);
+        box-shadow: 0 10px 30px rgba(15,23,42,.12);
+    }
+    :root[data-theme="light"] .cs-btn {
+        background: var(--field-bg);
+        border-color: var(--field-border);
+        color: var(--text);
+    }
+    :root[data-theme="light"] .cs-opt:hover {
+        background: rgba(37,99,235,.06);
+        border-color: rgba(37,99,235,.15);
+    }
+    :root[data-theme="light"] .cs-search {
+        background: var(--field-bg);
+        border-color: var(--field-border);
+        color: var(--text);
+    }
+    :root[data-theme="light"] .kcard {
+        background: rgba(255,255,255,.90);
+        border-color: rgba(15,23,42,.12);
+    }
+    :root[data-theme="light"] .kanban-col {
+        background: rgba(15,23,42,.03);
+        border-color: rgba(15,23,42,.10);
+    }
+
+    /* painéis dentro de modais no light */
+    :root[data-theme="light"] .modal-card .panel,
+    :root[data-theme="light"] .modal-card .two > div {
+        background: rgba(15,23,42,.04);
+        border-color: rgba(15,23,42,.09);
+        color: var(--text);
+    }
+    :root[data-theme="light"] .modal-card .muted { color: var(--muted); }
+    :root[data-theme="light"] .modal-card input,
+    :root[data-theme="light"] .modal-card select,
+    :root[data-theme="light"] .modal-card textarea {
+        background: rgba(255,255,255,.9);
+        border-color: rgba(15,23,42,.15);
+        color: var(--text);
+    }
+    :root[data-theme="light"] .modal-card .modal-header {
+        border-bottom-color: rgba(15,23,42,.10);
+    }
+
+    /* ── Botão toggle de tema ── */
+    .btn-theme-toggle {
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-size: 15px;
+        line-height: 1;
+        min-width: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background .15s, transform .1s;
+    }
+    .btn-theme-toggle:hover { transform: rotate(12deg); }
+    :root[data-theme="light"] .btn-theme-toggle {
+        background: rgba(15,23,42,.07);
+        border-color: rgba(15,23,42,.12);
     }
 
     </style>
@@ -816,24 +1090,50 @@
     <div class="app">
         <aside class="sidebar">
             <div class="brand">
-                <div class="logo"></div>
-                <div>
+                <div class="logo" style="flex-shrink:0;"></div>
+                <div class="brand-text">
                     <h1>Techbase GRC • NIS2</h1>
                     <p>Conformidade • Risco • Evidências</p>
                 </div>
             </div>
 
-            <nav class="nav"> @foreach($navItems as $item) <a href="{{ route($item['route']) }}"
-                    class="{{ request()->routeIs($item['route']) ? 'active' : '' }}">
-                    <span>{{ $item['label'] }}</span>
-                    <span class="badge">{{ $item['badge'] }}</span>
+            <nav class="nav"> @foreach($navItems as $item)
+                @php
+                    $navIcons = [
+                        'dashboard'       => '◈',
+                        'assets'          => '⬡',
+                        'docs'            => '⊟',
+                        'assessments'     => '⚖',
+                        'risks'           => '◬',
+                        'treatment'       => '⊕',
+                        'questionnaire'   => '≡',
+                        'chat'            => '⊙',
+                        'audit'           => '⊞',
+                        'rbac'            => '⊛',
+                        'relatorios-cncs' => '⊠',
+                    ];
+                    $icon = $navIcons[$item['route']] ?? '·';
+                @endphp
+                <a href="{{ route($item['route']) }}"
+                    class="{{ request()->routeIs($item['route']) ? 'active' : '' }}"
+                    title="{{ $item['label'] }}">
+                    <span style="display:flex;align-items:center;gap:9px;overflow:hidden;">
+                        <span class="nav-icon">{{ $icon }}</span>
+                        <span class="nav-label">{{ $item['label'] }}</span>
+                    </span>
+                    <span class="badge nav-badge">{{ $item['badge'] }}</span>
                 </a>
             @endforeach
             </nav>
 
             <div class="foot">
-                <span>Estado: <b style="color:var(--ok)">Online</b></span>
-                <span>v0.1 mock</span>
+                <div class="sidebar-toggle-wrap">
+                    <span class="foot-text" style="display:flex;gap:12px;">
+                        <span>Estado: <b style="color:var(--ok)">Online</b></span>
+                        <span>v0.1</span>
+                    </span>
+                    <button class="sidebar-toggle" id="sidebarToggle" title="Minimizar sidebar" aria-label="Minimizar sidebar">‹</button>
+                </div>
             </div>
         </aside>
 
@@ -858,9 +1158,10 @@
                         <button class="btn" type="submit">Sair</button>
                     </form>
 
-                    {{-- <button id="btnThemeToggle" class="btn" type="button" title="Alternar tema">
-                        🌙
-                    </button> --}}
+                    <button id="btnThemeToggle" class="btn btn-theme-toggle" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+                        <span class="theme-icon-dark">🌙</span>
+                        <span class="theme-icon-light" style="display:none;">☀️</span>
+                    </button>
 
                 </div>
             </header>
@@ -871,9 +1172,34 @@
         </main>
     </div>
 
-    @vite(['resources/js/theme.js'])
-    @stack('scripts')
 
+    <script>
+    (function () {
+        const KEY = 'techbase_sidebar';
+        const app = document.querySelector('.app');
+        const btn = document.getElementById('sidebarToggle');
+
+        function applyState(collapsed) {
+            if (!app) return;
+            app.classList.toggle('sidebar-collapsed', collapsed);
+            if (btn) btn.title = collapsed ? 'Expandir sidebar' : 'Minimizar sidebar';
+            localStorage.setItem(KEY, collapsed ? '1' : '0');
+        }
+
+        // Restore state immediately (before paint) to avoid flash
+        const saved = localStorage.getItem(KEY);
+        if (saved === '1') applyState(true);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const b = document.getElementById('sidebarToggle');
+            if (b) b.addEventListener('click', function () {
+                const isCollapsed = document.querySelector('.app').classList.contains('sidebar-collapsed');
+                applyState(!isCollapsed);
+            });
+        });
+    })();
+    </script>
+    @vite(['resources/js/theme.js'])
     @stack('scripts')
     <script>
         (function () {

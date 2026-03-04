@@ -132,14 +132,14 @@
 <style>
   /* reutiliza teu padrão modal */
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.62);
+    position:fixed; inset:0; background:var(--modal-overlay);
     display:none; align-items:center; justify-content:center; padding:18px; z-index:99999;
   }
   .modal-overlay.open{display:flex;}
   .modal-card{
     width:min(1200px,96vw); max-height:90vh; overflow:auto;
-    border:1px solid rgba(255,255,255,.10); border-radius:16px;
-    background:rgba(18,26,43,.96); box-shadow:0 30px 60px rgba(0,0,0,.55);
+    border:1px solid var(--modal-border); border-radius:16px;
+    background:var(--modal-bg); color:var(--text); box-shadow:0 30px 60px rgba(0,0,0,.55);
     padding:14px;
   }
   .modal-header{
@@ -156,7 +156,7 @@
     max-width: 92%;
     padding:12px 12px;
     border-radius:14px;
-    border:1px solid rgba(255,255,255,.10);
+    border:1px solid var(--modal-border);
     background:rgba(0,0,0,.16);
     line-height:1.35;
   }
@@ -168,7 +168,7 @@
   /* Sources */
   .sources-list{ display:flex; flex-direction:column; gap:10px; }
   .source-item{
-    border:1px solid rgba(255,255,255,.10);
+    border:1px solid var(--modal-border);
     background:rgba(0,0,0,.12);
     border-radius:14px;
     padding:12px;
@@ -185,7 +185,7 @@
   .source-chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
   .chunklist{ display:flex; flex-direction:column; gap:10px; }
   .chunkrow{
-    border:1px solid rgba(255,255,255,.10);
+    border:1px solid var(--modal-border);
     background:rgba(0,0,0,.12);
     border-radius:12px;
     padding:10px;
@@ -193,7 +193,7 @@
   }
   .chunkrow.active{ border-color:rgba(34,211,238,.25); background:rgba(34,211,238,.08); }
   .chunk-preview{
-    border:1px solid rgba(255,255,255,.10);
+    border:1px solid var(--modal-border);
     background:rgba(0,0,0,.14);
     border-radius:12px;
     padding:10px;

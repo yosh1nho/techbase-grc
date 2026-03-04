@@ -125,17 +125,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
+                        <tr data-doc-id="DOC_INV_1">
                             <td>
                                 <b>Procedimento Inventário v1.0</b>
                                 <div class="muted">PDF • hash: 9f2a…e11</div>
                             </td>
                             <td>Política</td>
                             <td>v1.0</td>
-                            <td><span class="tag ok"><span class="s"></span> Ativo</span></td>
+                            <td><span class="tag ok" data-doc-status-badge><span class="s"></span> Ativo</span></td>
                             <td class="muted">2026-02-16</td>
                             <td>
+                            <div class="actions">
                             <button class="btn" type="button" data-open-doc-modal
+                            data-doc-id="DOC_INV_1"
                             data-doc-name="Procedimento Inventário v1.0"
                             data-doc-type="Política"
                             data-doc-version="v1.0"
@@ -144,20 +146,24 @@
                             data-doc-url="/mock/docs/procedimento-inventario-v1.pdf"
                             >Detalhes</button>
 
+                            <button class="btn ok btn-ghost" type="button" disabled aria-hidden="true">Aprovar</button>
+                            </div>
                             </td>
                         </tr>
 
-                        <tr>
+                        <tr data-doc-id="DOC_BKP_JAN">
                             <td>
                                 <b>Relatório Backups (Jan)</b>
                                 <div class="muted">Imagem/Relatório • hash: 1ac0…b9d</div>
                             </td>
                             <td>Relatório</td>
                             <td>v1.2</td>
-                            <td><span class="tag warn"><span class="s"></span> Pendente</span></td>
+                            <td><span class="tag warn" data-doc-status-badge><span class="s"></span> Pendente</span></td>
                             <td class="muted">2026-02-15</td>
                             <td>
+                            <div class="actions">
                             <button class="btn" type="button" data-open-doc-modal
+                            data-doc-id="DOC_BKP_JAN"
                             data-doc-name="Relatório Backups (Jan)"
                             data-doc-type="Relatório"
                             data-doc-version="v1.2"
@@ -166,6 +172,8 @@
                             data-doc-url="/mock/docs/relatorio-backups-jan.pdf"
                             >Detalhes</button>
 
+                            <button class="btn ok" type="button" data-approve-doc data-doc-id="DOC_BKP_JAN">Aprovar</button>
+                            </div>
                             </td>
                         </tr>
                     </tbody>
@@ -234,8 +242,9 @@
 
                             <div id="assocList" class="assoc-list"></div>
 
-                            <div style="display:flex; gap:10px; margin-top:10px">
+                            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap">
                                 <button id="addAssocBtn" class="btn" type="button">+ Nova associação</button>
+                                <button id="docApproveBtn" class="btn ok" type="button" style="display:none">Aprovar documento</button>
                                 <button id="saveDocBtn" class="btn primary" type="button">Guardar alterações</button>
                             </div>
                         </div>
@@ -326,7 +335,7 @@
                 .modal-overlay {
                     position: fixed;
                     inset: 0;
-                    background: rgba(0, 0, 0, .62);
+                    background: var(--modal-overlay);
                     display: none;
                     align-items: center;
                     justify-content: center;
@@ -342,9 +351,9 @@
                     width: min(1200px, 96vw);
                     max-height: 90vh;
                     overflow: auto;
-                    border: 1px solid rgba(255, 255, 255, .10);
+                    border: 1px solid var(--modal-border);
                     border-radius: 16px;
-                    background: rgba(18, 26, 43, .96);
+                    background: var(--modal-bg); color: var(--text);
                     box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
                     padding: 14px;
                 }
@@ -371,7 +380,7 @@
                     justify-content: space-between;
                     padding: 12px;
                     border-radius: 14px;
-                    border: 1px solid rgba(255, 255, 255, .10);
+                    border: 1px solid var(--modal-border);
                     background: rgba(0, 0, 0, .16);
                 }
 
@@ -424,7 +433,7 @@
                     width: 340px;
                     padding: 10px;
                     border-radius: 12px;
-                    background: rgba(18, 26, 43, .98);
+                    background: var(--modal-bg); color: var(--text);
                     border: 1px solid rgba(255, 255, 255, .14);
                     box-shadow: 0 18px 30px rgba(0, 0, 0, .45);
                     color: var(--text);
@@ -442,7 +451,7 @@
                     transform: translate(-50%, -2px);
                     width: 10px;
                     height: 10px;
-                    background: rgba(18, 26, 43, .98);
+                    background: var(--modal-bg); color: var(--text);
                     border-left: 1px solid rgba(255, 255, 255, .14);
                     border-bottom: 1px solid rgba(255, 255, 255, .14);
                     rotate: 45deg;
@@ -458,7 +467,7 @@
                 }
 
                 .chunk {
-                    border: 1px solid rgba(255, 255, 255, .10);
+                    border: 1px solid var(--modal-border);
                     border-radius: 14px;
                     background: rgba(0, 0, 0, .14);
                     padding: 10px;
@@ -494,7 +503,7 @@
                     gap: 8px;
                     padding: 6px;
                     border-radius: 999px;
-                    border: 1px solid rgba(255, 255, 255, .10);
+                    border: 1px solid var(--modal-border);
                     background: rgba(0, 0, 0, .12);
                     width: fit-content;
                 }
@@ -521,7 +530,7 @@
                 }
 
                 .chunk-preview {
-                    border: 1px solid rgba(255, 255, 255, .10);
+                    border: 1px solid var(--modal-border);
                     background: rgba(0, 0, 0, .14);
                     border-radius: 12px;
                     padding: 10px;
@@ -536,7 +545,25 @@
                     font-size: 12px;
                     line-height: 1.35;
                 }
-            </style>
+            
+                /* ACTIONS (table buttons alignment) */
+                .actions{
+                    display:flex;
+                    gap:10px;
+                    justify-content:flex-end;
+                    align-items:center;
+                    flex-wrap:wrap;
+                }
+                .actions .btn{
+                    min-width: 110px;
+                    text-align:center;
+                }
+                .btn-ghost{
+                    opacity:0;
+                    pointer-events:none;
+                }
+
+</style>
         </div>
     </section>
 

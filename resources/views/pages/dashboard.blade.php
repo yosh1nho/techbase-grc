@@ -335,7 +335,7 @@
         .modal-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, .62);
+            background: var(--modal-overlay);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -347,9 +347,10 @@
             width: min(1200px, 96vw);
             max-height: 90vh;
             overflow: auto;
-            border: 1px solid rgba(255, 255, 255, .10);
+            border: 1px solid var(--modal-border);
             border-radius: 16px;
-            background: rgba(18, 26, 43, .96);
+            background: var(--modal-bg);
+            color: var(--text);
             box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
             padding: 14px;
         }

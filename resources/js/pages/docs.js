@@ -217,6 +217,50 @@
   // manual chunks criados (aparecem depois no histórico)
   let MANUAL_CHUNKS = []; // {id,label,full,suggested}
 
+  // Doc atualmente aberto no modal (mock)
+  let CURRENT_DOC_ID = null;
+
+  function statusTagClass(status) {
+    if (status === 'Ativo') return 'ok';
+    if (status === 'Pendente') return 'warn';
+    return '';
+  }
+
+  function setDocRowStatus(docId, newStatus) {
+    const row = document.querySelector(`tr[data-doc-id="${docId}"]`);
+    if (!row) return;
+
+    const badge = row.querySelector('[data-doc-status-badge]');
+    if (badge) {
+      badge.className = `tag ${statusTagClass(newStatus)}`.trim();
+      badge.innerHTML = `<span class="s"></span> ${newStatus}`;
+    }
+
+    // mantém o dataset do botão Detalhes em sync
+    const detailsBtn = row.querySelector('[data-open-doc-modal]');
+    if (detailsBtn) detailsBtn.dataset.docStatus = newStatus;
+
+    // botão Aprovar some quando não é Pendente
+    const approveBtn = row.querySelector('[data-approve-doc]');
+    if (approveBtn) {
+      approveBtn.style.display = (newStatus === 'Pendente') ? '' : 'none';
+    }
+  }
+
+  function approveDoc(docId) {
+    // MOCK: ao aprovar, muda para Ativo.
+    setDocRowStatus(docId, 'Ativo');
+
+    // se o modal estiver aberto nesse doc, reflete lá também
+    if (CURRENT_DOC_ID === docId) {
+      const statusSel = document.getElementById('dStatus');
+      if (statusSel) statusSel.value = 'Ativo';
+
+      const approveBtn = document.getElementById('docApproveBtn');
+      if (approveBtn) approveBtn.style.display = 'none';
+    }
+  }
+
   function classifyStateBadge(state) {
     if (state === 'Aprovado') return 'ok';
     if (state === 'Pendente') return 'warn';
@@ -226,6 +270,8 @@
   function openDocModal(btn) {
     const modal = document.getElementById('docModal');
     const title = document.getElementById('docModalTitle');
+
+    CURRENT_DOC_ID = btn.dataset.docId || null;
 
     title.textContent = btn.dataset.docName;
     document.getElementById('dType').textContent = btn.dataset.docType;
@@ -267,6 +313,12 @@
 
     const statusSel = document.getElementById('dStatus');
     statusSel.value = btn.dataset.docStatus;
+
+    // botão de aprovação (mock): só aparece se estiver Pendente
+    const approveBtn = document.getElementById('docApproveBtn');
+    if (approveBtn) {
+      approveBtn.style.display = (btn.dataset.docStatus === 'Pendente') ? '' : 'none';
+    }
     if (isFramework) {
       // Zera KPIs de evidência
       document.getElementById('dAssocCount').textContent = '—';
@@ -326,6 +378,7 @@
     modal.classList.remove('open');
     modal.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    CURRENT_DOC_ID = null;
   }
 
   function buildAssocRow({ id, control, coverage, confidence, state, justification, sourceChunkId, sourceType }) {
@@ -692,6 +745,21 @@
     document.querySelectorAll('[data-open-doc-modal]').forEach(btn => {
       btn.addEventListener('click', () => openDocModal(btn));
     });
+
+    // Aprovar (tabela) — delegation para funcionar mesmo se a tabela crescer
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-approve-doc]');
+      if (!btn) return;
+      const docId = btn.dataset.docId;
+      if (!docId) return;
+      approveDoc(docId);
+    });
+
+    // Aprovar (modal)
+    document.getElementById('docApproveBtn')?.addEventListener('click', () => {
+      if (!CURRENT_DOC_ID) return;
+      approveDoc(CURRENT_DOC_ID);
+    });
     document.getElementById("fwD_clear")?.addEventListener("click", clearFrameworkDetails);
     document.getElementById("fwModalClose")?.addEventListener("click", closeFwModal);
     document.getElementById("fwModal")?.addEventListener("click", (e) => {
@@ -740,6 +808,17 @@
     document.getElementById('addAssocBtn')?.addEventListener('click', addNewAssocInline);
 
     document.getElementById('saveDocBtn')?.addEventListener('click', () => {
+      // Mock: sincroniza status selecionado no modal com a linha da tabela
+      const statusSel = document.getElementById('dStatus');
+      const newStatus = statusSel ? statusSel.value : null;
+      if (CURRENT_DOC_ID && newStatus) setDocRowStatus(CURRENT_DOC_ID, newStatus);
+
+      // se o user mudou para Ativo no select, também esconde o botão aprovar
+      const approveBtn = document.getElementById('docApproveBtn');
+      if (approveBtn && newStatus) {
+        approveBtn.style.display = (newStatus === 'Pendente') ? '' : 'none';
+      }
+
       alert('Mock: alterações guardadas (status + associações + aprovações).');
     });
   });

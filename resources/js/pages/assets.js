@@ -571,72 +571,38 @@
         const wrap = $("#assetRiskTreatList");
         if (!wrap) return;
         const risks = asset.risks || [];
-        const tps = asset.treatments || [];
+        const tps   = asset.treatments || [];
 
         if (!risks.length && !tps.length) {
-            wrap.innerHTML = `<div class="muted">Sem riscos/planos ligados a este ativo.</div>`;
+            wrap.innerHTML = `<div class="muted" style="font-size:12px;">Sem riscos/planos ligados a este ativo.</div>`;
             return;
         }
 
-        const riskRows = risks.map(r => `
-        <div class="control-row">
-        <div class="control-left">
-            <div class="control-title">
-            <span class="control-code">${r.id}</span>
-            <span class="chip ${r.severity === "Crítico" ? "bad" : r.severity === "Alto" ? "warn" : ""}">
-                Severidade: <b>${r.severity}</b>
-            </span>
-            <span class="chip">Status: <b>${r.status}</b></span>
-            <span class="chip">Último: <b>${r.lastSeen || "—"}</b></span>
-            </div>
-            <div class="muted">${r.title}</div>
-        </div>
-        <div class="control-actions">
-            <button class="btn mini" type="button" data-open-risk="${r.id}">Ver</button>
-        </div>
-        </div>
-    `).join("");
+        const sevColor = { 'Crítico': 'var(--bad)', 'Alto': 'var(--bad)', 'Médio': 'var(--warn)', 'Baixo': 'var(--ok)' };
 
-        const tpRows = tps.map(t => `
-        <div class="control-row">
-        <div class="control-left">
-            <div class="control-title">
-            <span class="control-code">${t.id}</span>
-            <span class="chip">Status: <b>${t.status}</b></span>
-            <span class="chip">Resp.: <b>${t.owner || "—"}</b></span>
-            <span class="chip">Prazo: <b>${t.due || "—"}</b></span>
-            ${t.riskId ? `<span class="chip">Risco: <b>${t.riskId}</b></span>` : ""}
-            </div>
-            <div class="muted">${t.title}</div>
-        </div>
-        <div class="control-actions">
-            <button class="btn mini" type="button" data-open-treatment="${t.id}">Ver</button>
-        </div>
-        </div>
-    `).join("");
+        const riskRows = risks.map(r => {
+            const relatedTreatments = tps.filter(t => t.riskId === r.id);
+            const treatHtml = relatedTreatments.map(t => `
+                <div class="am-treat-row">
+                    <span class="am-treat-id">${t.id}</span>
+                    <span style="font-weight:600;color:var(--text);">${t.title}</span>
+                    <span class="muted" style="font-size:11px;"> · ${t.status} · ${t.owner} · até ${t.due}</span>
+                </div>`).join('');
 
-        wrap.innerHTML = `
-        <div style="margin-bottom:10px">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
-            <h3 style="margin:0">Riscos associados (${risks.length})</h3>
-            <button class="btn mini" type="button" id="btnGoRisksForAsset">Abrir módulo de riscos</button>
-        </div>
-        <div style="height:8px"></div>
-        ${riskRows || `<div class="muted">Nenhum risco ligado.</div>`}
-        </div>
+            return `
+            <div class="am-risk-row">
+                <div class="am-risk-top">
+                    <span class="am-risk-id">${r.id}</span>
+                    <span style="font-size:13px;font-weight:600;color:var(--text);">${r.title}</span>
+                    <span style="font-size:11px;font-weight:600;color:${sevColor[r.severity] || 'var(--muted)'};">${r.severity}</span>
+                    <span class="muted" style="font-size:11px;margin-left:auto;">${r.status} · ${r.lastSeen}</span>
+                </div>
+                ${treatHtml || '<div class="muted" style="font-size:11px;">Sem planos de tratamento.</div>'}
+            </div>`;
+        }).join('');
 
-        <div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
-            <h3 style="margin:0">Planos de tratamento (${tps.length})</h3>
-        </div>
-        <div style="height:8px"></div>
-        ${tpRows || `<div class="muted">Nenhum plano de tratamento ligado.</div>`}
-        </div>
-    `;
+        wrap.innerHTML = riskRows;
 
-        // handlers mock
-        $$("[data-open-risk]").forEach(b => b.addEventListener("click", () => alert("Abrir risco: " + b.dataset.openRisk)));
-        $$("[data-open-treatment]").forEach(b => b.addEventListener("click", () => alert("Abrir plano: " + b.dataset.openTreatment)));
         const goBtn = $("#btnGoRisksForAsset");
         if (goBtn) goBtn.addEventListener("click", () => goTo(`/riscos?asset=${asset.id}`));
     }
@@ -647,20 +613,52 @@
 
         currentAssetId = assetId;
 
-        $("#assetModalTitle").textContent = asset.name;
-        $("#mType").textContent = asset.type;
-        $("#mOwner").textContent = asset.owner;
-        $("#mIp").textContent = asset.ip || "—";
-        $("#mCrit").textContent = asset.criticity;
-        $("#mCreatedBy").textContent = asset.createdBy || "—";
-        $("#mNotes").textContent = asset.notes || "—";
+        // ── Hero ──
+        const typeIcons = { 'Servidor': '🖥', 'Aplicação': '🌐', 'Rede': '🔒', 'Cloud': '☁', 'Endpoint': '💻' };
+        const iconEl = $("#mAssetIcon");
+        if (iconEl) iconEl.textContent = typeIcons[asset.type] || '⬡';
 
-        $("#mProb").textContent = String(asset.prob);
+        $("#assetModalTitle").textContent = asset.name;
+
+        const typeChip = $("#mTypeChip");
+        if (typeChip) typeChip.textContent = asset.type;
+
+        const critChip = $("#mCritChip");
+        if (critChip) {
+            critChip.textContent = asset.criticity;
+            // colour by criticality
+            const critMap = { 'Crítico': 'rgba(251,113,133,.1)', 'Alto': 'rgba(251,191,36,.1)', 'Médio': 'rgba(79,156,249,.1)' };
+            critChip.style.background = critMap[asset.criticity] || '';
+        }
+
+        const ipChip = $("#mIpChip");
+        if (ipChip) ipChip.textContent = asset.ip || '—';
+
+        // ── KPI strip ──
+        $("#mOwner").textContent    = asset.owner;
+        $("#mCreatedBy").textContent = asset.createdBy || "—";
+        $("#mNotes").textContent    = asset.notes || "—";
+
+        $("#mProb").textContent   = String(asset.prob);
         $("#mImpact").textContent = String(asset.impact);
 
         const score = asset.prob * asset.impact;
         const cls = classify(score);
-        $("#mClassChip").textContent = `Classe: ${cls.label} (${score})`;
+
+        const scoreEl = $("#mScoreVal");
+        if (scoreEl) {
+            scoreEl.textContent = score;
+            const scoreColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
+            scoreEl.style.color = scoreColors[cls.cellClass] || 'var(--text)';
+        }
+
+        const classEl = $("#mClassChip");
+        if (classEl) {
+            classEl.textContent = cls.label;
+            const classColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
+            classEl.style.color = classColors[cls.cellClass] || 'var(--text)';
+            classEl.style.fontWeight = '600';
+        }
 
         buildMatrix(asset.prob, asset.impact);
         renderControlsList(asset);

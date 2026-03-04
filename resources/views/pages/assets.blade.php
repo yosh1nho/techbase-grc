@@ -94,92 +94,100 @@
 
     {{-- ================= MODAL: DETALHES DO ATIVO ================= --}}
     <div id="assetModal" class="modal-overlay" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="assetModalTitle">
-            <div class="modal-header">
-                <div>
-                    <div class="muted" style="margin-bottom:4px">Detalhes do ativo</div>
-                    <div id="assetModalTitle" style="font-size:18px;font-weight:800">—</div>
+        <div class="modal-card am-modal" role="dialog" aria-modal="true" aria-labelledby="assetModalTitle">
+
+            {{-- ══ HERO HEADER ══ --}}
+            <div class="am-hero">
+                <div class="am-hero-left">
+                    <div class="am-asset-icon" id="mAssetIcon">⬡</div>
+                    <div class="am-hero-info">
+                        <div class="am-eyebrow">Detalhes do ativo</div>
+                        <div class="am-title" id="assetModalTitle">—</div>
+                        <div class="am-chips-row">
+                            <span class="am-chip am-chip-type"  id="mTypeChip">—</span>
+                            <span class="am-chip am-chip-crit"  id="mCritChip">—</span>
+                            <span class="am-chip am-chip-mono"  id="mIpChip">—</span>
+                        </div>
+                    </div>
                 </div>
-                <div style="display:flex; gap:10px; align-items:center">
-                    <button class="btn" type="button" id="btnEditAsset">Editar</button>
-                    <button id="assetModalClose" class="btn" type="button">Fechar</button>
+                <div class="am-hero-actions">
+                    <button class="btn" type="button" id="btnGoDocs"        style="font-size:12px;padding:6px 12px;">↗ Evidências</button>
+                    <button class="btn" type="button" id="btnGoAssessments" style="font-size:12px;padding:6px 12px;">↗ Avaliações</button>
+                    <button class="btn" type="button" id="btnEditAsset"     style="font-size:12px;padding:6px 12px;">✎ Editar</button>
+                    <button class="btn" type="button" id="assetModalClose"  style="font-size:12px;padding:6px 12px;">✕</button>
                 </div>
             </div>
 
-            <div class="two" style="margin-top:12px">
-                {{-- COLUNA ESQ --}}
-                <div class="panel">
-                    <h2>Informações</h2>
+            {{-- ══ KPI STRIP ══ --}}
+            <div class="am-kpi-strip">
+                <div class="am-kpi">
+                    <div class="am-kpi-label">Responsável</div>
+                    <div class="am-kpi-val" id="mOwner">—</div>
+                </div>
+                <div class="am-kpi">
+                    <div class="am-kpi-label">Criado por</div>
+                    <div class="am-kpi-val am-kpi-muted" id="mCreatedBy">—</div>
+                </div>
+                <div class="am-kpi am-kpi-sep">
+                    <div class="am-kpi-label">Probabilidade</div>
+                    <div class="am-kpi-val am-kpi-num" id="mProb">—</div>
+                </div>
+                <div class="am-kpi">
+                    <div class="am-kpi-label">Impacto</div>
+                    <div class="am-kpi-val am-kpi-num" id="mImpact">—</div>
+                </div>
+                <div class="am-kpi">
+                    <div class="am-kpi-label">Score P×I</div>
+                    <div class="am-kpi-val am-kpi-num am-kpi-score" id="mScoreVal">—</div>
+                </div>
+                <div class="am-kpi">
+                    <div class="am-kpi-label">Classe de risco</div>
+                    <div class="am-kpi-val" id="mClassChip">—</div>
+                </div>
+                <div class="am-kpi am-kpi-action">
+                    <button class="btn" type="button" id="btnGoRisks" style="font-size:12px;padding:5px 12px;width:100%;">↗ Ver riscos</button>
+                </div>
+            </div>
 
-                    <div class="grid-2">
+            {{-- ══ DESCRIÇÃO ══ --}}
+            <div class="am-desc-bar">
+                <span class="am-desc-label">Descrição</span>
+                <span id="mNotes" class="am-desc-text muted">—</span>
+            </div>
+
+            {{-- ══ BODY 3-col ══ --}}
+            <div class="am-body">
+
+                {{-- Col 1: Controlos --}}
+                <div class="am-col">
+                    <div class="am-section-header">
                         <div>
-                            <div class="muted">Tipo</div>
-                            <div id="mType">—</div>
+                            <div class="am-section-title">Controlos associados</div>
+                            <div class="am-section-sub">GAP · PARTIAL · COVERED + evidências</div>
                         </div>
-                        <div>
-                            <div class="muted">Criticidade</div>
-                            <div id="mCrit">—</div>
-                        </div>
-                        <div class="kv">
-                            <span class="muted">IP</span>
-                            <b id="mIp">—</b>
-                        </div>
-
+                        <button class="btn ok" type="button" id="btnAddControlToAsset" style="font-size:12px;padding:5px 12px;flex-shrink:0;">+ Associar</button>
                     </div>
-
-                    <div style="height:10px"></div>
-
-                    <div class="grid-2">
-                        <div>
-                            <div class="muted">Responsável</div>
-                            <div id="mOwner">—</div>
-                        </div>
-                        <div>
-                            <div class="muted">Criado por</div>
-                            <div id="mCreatedBy" class="muted">—</div>
-                        </div>
-                    </div>
-
-                    <div style="height:10px"></div>
-
-                    <div class="muted">Descrição</div>
-                    <div id="mNotes" class="muted">—</div>
-
-                    <div style="height:12px"></div>
-
-                    <h2>Risco</h2>
-                    <div class="kpirow">
-                        <span class="chip">Prob: <b id="mProb">-</b></span>
-                        <span class="chip">Impacto: <b id="mImpact">-</b></span>
-                        <span class="chip" id="mClassChip">Classe: -</span>
-                        <button class="btn" type="button" id="btnGoRisks">Abrir Riscos</button>
-                    </div>
-
-                    <div style="height:12px"></div>
-
-                    <h2>Atalhos</h2>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap">
-                        <button class="btn" type="button" id="btnGoDocs">Ver evidências (Documentos)</button>
-                        <button class="btn" type="button" id="btnGoAssessments">Abrir Avaliações</button>
-                    </div>
+                    <div id="assetControlsList" class="controls-list"></div>
+                    <div class="am-hint">Mock: ao "Guardar", cria auditoria com diffs (RNF5).</div>
                 </div>
 
-                {{-- COLUNA DIR --}}
-                <div class="panel">
-                    <h2>Matriz de risco</h2>
-                    <div class="muted" style="margin-bottom:10px">Impacto (vertical) × Probabilidade (horizontal)</div>
-
+                {{-- Col 2: Matriz de risco --}}
+                <div class="am-col">
+                    <div class="am-section-header">
+                        <div>
+                            <div class="am-section-title">Matriz de risco</div>
+                            <div class="am-section-sub">Impacto × Probabilidade · ● posição atual</div>
+                        </div>
+                    </div>
                     <div class="matrix-wrap">
                         <div class="matrix-ylabel">Impacto</div>
-
                         <div class="matrix">
                             <div class="matrix-grid">
                                 <div class="matrix-rowlabels" id="impactLabels"></div>
-                                <div class="matrix-cells" id="riskMatrix"></div>
+                                <div class="matrix-cells"     id="riskMatrix"></div>
                                 <div class="matrix-collabels" id="probLabels"></div>
                                 <div class="matrix-bottomlabel">Probabilidade</div>
                             </div>
-
                             <div class="matrix-legend">
                                 <span class="legend-item"><span class="sw vlow"></span> Muito Baixo</span>
                                 <span class="legend-item"><span class="sw low"></span> Baixo</span>
@@ -190,61 +198,33 @@
                         </div>
                     </div>
 
-                    <div class="hint">A bolinha marca a célula atual do risco do ativo (P×I).</div>
-                </div>
-            </div>
-
-            <div style="height:12px"></div>
-
-            <div class="two">
-                {{-- CONTROLOS --}}
-                <div class="panel">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap">
+                    {{-- Riscos & Planos --}}
+                    <div class="am-section-header" style="margin-top:18px;">
                         <div>
-                            <h2 style="margin:0">Controlos associados</h2>
-                            <div class="muted">Define status (GAP/PARTIAL/COVERED), evidências e notas.</div>
+                            <div class="am-section-title">Riscos &amp; Planos de tratamento</div>
+                            <div class="am-section-sub">Riscos associados e planos em curso</div>
                         </div>
-                        <button class="btn primary" type="button" id="btnAddControlToAsset">+ Associar controlo</button>
                     </div>
-
-                    <div style="height:10px"></div>
-
-                    <div id="assetControlsList" class="controls-list">
-                        {{-- render via JS --}}
-                    </div>
-
-                    <div class="hint">Mock: ao “Guardar”, o sistema criaria auditoria (RNF5) com diffs.</div>
+                    <div id="assetRiskTreatList"></div>
                 </div>
 
-                {{-- SUGESTÕES IA --}}
-                <div class="panel">
-                    <h2>Sugestões automáticas (IA)</h2>
-                    <div class="muted">Comparação entre descrição do ativo e controlos alegados (RF16 como apoio ao RF1).
+                {{-- Col 3: Sugestões IA --}}
+                <div class="am-col">
+                    <div class="am-section-header">
+                        <div>
+                            <div class="am-section-title">
+                                Sugestões IA
+                                <span class="am-ai-badge">IA</span>
+                            </div>
+                            <div class="am-section-sub">RF16 — comparação descrição × controlos alegados</div>
+                        </div>
                     </div>
-
-                    <div style="height:10px"></div>
-
-                    <div id="aiSuggestions" class="ai-box">
-                        {{-- render via JS --}}
-                    </div>
-
-                    {{-- RISCOS + PLANOS (novo) --}}
-                    <div class="panel">
-                    <h2>Riscos &amp; Planos de tratamento</h2>
-                    <div class="muted">Riscos associados a este ativo e os planos de tratamento já criados.</div>
-
-                    <div style="height:10px"></div>
-
-                    <div id="assetRiskTreatList">
-                        {{-- render via JS --}}
-                    </div>
-                    </div>
-
-
-                    <div class="hint">Ideia: isto seria gerado por embeddings + regras (ex.: “diz ter inventário, mas sem
-                        evidência”).</div>
+                    <div id="aiSuggestions" class="ai-box"></div>
+                    <div class="am-hint">Seria gerado por embeddings + regras (ex.: "diz ter inventário, mas sem evidência").</div>
                 </div>
-            </div>
+
+            </div>{{-- /am-body --}}
+
         </div>
     </div>
 
@@ -498,369 +478,278 @@
 
     {{-- ================= CSS local (pode ir pro global depois) ================= --}}
     <style>
+        /* ══ Modal overlay & card (shared) ══ */
         .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, .62);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 18px;
-            z-index: 99999;
+            position: fixed; inset: 0;
+            background: var(--modal-overlay);
+            display: none; align-items: center; justify-content: center;
+            padding: 18px; z-index: 99999;
         }
-
-        .modal-overlay.open {
-            display: flex;
-        }
+        .modal-overlay.open { display: flex; }
 
         .modal-card {
             width: min(1200px, 96vw);
-            max-height: 90vh;
-            overflow: auto;
-            border: 1px solid rgba(255, 255, 255, .10);
+            max-height: 92vh; overflow: auto;
+            border: 1px solid var(--modal-border);
             border-radius: 16px;
-            background: rgba(18, 26, 43, .96);
-            box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
-            padding: 14px;
+            background: var(--modal-bg); color: var(--text);
+            box-shadow: 0 30px 80px rgba(0,0,0,.6);
+            padding: 0;
         }
 
-        .modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, .06);
+        /* ══ ASSET MODAL specific ══ */
+
+        /* Hero header */
+        .am-hero {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 16px; padding: 20px 22px 18px;
+            border-bottom: 1px solid var(--modal-border);
+            flex-wrap: wrap;
+        }
+        .am-hero-left  { display: flex; align-items: center; gap: 16px; }
+        .am-asset-icon {
+            width: 50px; height: 50px; border-radius: 14px; flex-shrink: 0;
+            display: grid; place-items: center; font-size: 22px;
+            background: rgba(79,156,249,.1); border: 1px solid rgba(79,156,249,.25);
+            box-shadow: 0 0 20px rgba(79,156,249,.1);
+        }
+        .am-eyebrow {
+            font-size: 10px; font-weight: 600; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px;
+        }
+        .am-title {
+            font-size: 20px; font-weight: 800; color: var(--text);
+            letter-spacing: -.2px; line-height: 1.2;
+        }
+        .am-chips-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .am-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+            border: 1px solid var(--modal-border);
+            background: rgba(255,255,255,.04); color: var(--muted);
+        }
+        .am-chip-type { background: rgba(79,156,249,.09); border-color: rgba(79,156,249,.22); color: #7eb8fb; }
+        .am-chip-crit { background: rgba(251,191,36,.09); border-color: rgba(251,191,36,.22); color: var(--warn); }
+        .am-chip-mono { font-family: var(--font-mono,monospace); font-size: 11px; }
+        .am-hero-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; padding-top: 2px; }
+
+        /* KPI strip */
+        .am-kpi-strip {
+            display: flex; gap: 0;
+            border-bottom: 1px solid var(--modal-border);
+            overflow-x: auto;
+        }
+        .am-kpi {
+            flex: 1; min-width: 90px; padding: 13px 18px;
+            border-right: 1px solid var(--modal-border);
+        }
+        .am-kpi:last-child { border-right: none; }
+        .am-kpi-sep { border-left: 2px solid rgba(79,156,249,.2); }
+        .am-kpi-action { display: flex; align-items: center; padding: 10px 14px; }
+        .am-kpi-label {
+            font-size: 10px; font-weight: 600; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px;
+            white-space: nowrap;
+        }
+        .am-kpi-val    { font-size: 13px; font-weight: 500; color: var(--text); }
+        .am-kpi-muted  { color: var(--muted); }
+        .am-kpi-num    { font-family: var(--font-mono,monospace); font-size: 18px; font-weight: 700; }
+        .am-kpi-score  { color: var(--warn); }
+
+        /* Descrição bar */
+        .am-desc-bar {
+            display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+            padding: 12px 22px; border-bottom: 1px solid var(--modal-border);
+            background: rgba(255,255,255,.015);
+        }
+        .am-desc-label {
+            font-size: 10px; font-weight: 600; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; flex-shrink: 0;
+        }
+        .am-desc-text { font-size: 13px; line-height: 1.5; }
+
+        /* Body 3-col */
+        .am-body {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 0;
+        }
+        @media (max-width: 900px) { .am-body { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .am-body { grid-template-columns: 1fr; } }
+
+        .am-col {
+            padding: 18px 20px;
+            border-right: 1px solid var(--modal-border);
+        }
+        .am-col:last-child { border-right: none; }
+
+        .am-section-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 10px; margin-bottom: 14px;
+        }
+        .am-section-title {
+            font-size: 12px; font-weight: 700; color: var(--text);
+            text-transform: uppercase; letter-spacing: .06em;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .am-section-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+        .am-ai-badge {
+            display: inline-flex; align-items: center; padding: 2px 7px;
+            border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: .05em;
+            background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.3);
+            color: #c4b5fd;
+        }
+        .am-hint {
+            margin-top: 12px; font-size: 11px; color: var(--muted);
+            border-top: 1px solid var(--modal-border); padding-top: 10px;
+            line-height: 1.45;
         }
 
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .controls-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
+        /* Controls list */
+        .controls-list { display: flex; flex-direction: column; gap: 8px; }
         .control-row {
-            border: 1px solid rgba(255, 255, 255, .10);
-            border-radius: 14px;
-            background: rgba(0, 0, 0, .14);
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            align-items: flex-start;
+            border: 1px solid var(--modal-border); border-radius: 12px;
+            background: rgba(255,255,255,.02); padding: 10px 12px;
+            display: flex; flex-direction: column; gap: 8px;
         }
-
-        .control-left {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .control-title {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
+        .control-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .control-code {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: rgba(96, 165, 250, .12);
-            border: 1px solid rgba(96, 165, 250, .22);
-            font-weight: 900;
+            display: inline-flex; align-items: center; padding: 3px 10px;
+            border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .03em;
+            background: rgba(79,156,249,.1); border: 1px solid rgba(79,156,249,.22);
+            color: #7eb8fb; font-family: var(--font-mono,monospace);
         }
-
         .status-pill {
-            padding: 6px 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, .14);
-            font-weight: 900;
-            font-size: 12px;
+            padding: 3px 9px; border-radius: 999px;
+            font-size: 10px; font-weight: 700; letter-spacing: .05em;
+            border: 1px solid transparent;
         }
+        .st-gap     { background: rgba(251,113,133,.1); border-color: rgba(251,113,133,.28); color: var(--bad); }
+        .st-partial { background: rgba(251,191,36,.1);  border-color: rgba(251,191,36,.26);  color: var(--warn); }
+        .st-covered { background: rgba(45,212,191,.09); border-color: rgba(45,212,191,.22);  color: var(--ok); }
 
-        .st-gap {
-            background: rgba(251, 113, 133, .12);
-            border-color: rgba(251, 113, 133, .28);
-        }
+        .control-left { display: flex; flex-direction: column; gap: 5px; }
+        .control-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .control-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+        .mini { font-size: 12px; padding: 5px 10px; border-radius: 10px; }
 
-        .st-partial {
-            background: rgba(251, 191, 36, .12);
-            border-color: rgba(251, 191, 36, .26);
-        }
-
-        .st-covered {
-            background: rgba(45, 212, 191, .10);
-            border-color: rgba(45, 212, 191, .22);
-        }
-
-        .control-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .mini {
-            font-size: 12px;
-            padding: 8px 10px;
-            border-radius: 12px;
-        }
-
-        .ai-box {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
+        /* AI box */
+        .ai-box { display: flex; flex-direction: column; gap: 8px; }
         .ai-item {
-            border: 1px solid rgba(255, 255, 255, .10);
-            border-radius: 14px;
-            background: rgba(0, 0, 0, .14);
-            padding: 10px;
+            border: 1px solid var(--modal-border); border-radius: 12px;
+            background: rgba(255,255,255,.02); padding: 10px 12px;
+        }
+        .ai-item .top  { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .ai-item .title { font-weight: 700; font-size: 13px; color: var(--text); }
+        .ai-item .desc  { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.4; }
+        .ai-item .badg  {
+            font-size: 11px; font-weight: 700; padding: 3px 9px;
+            border-radius: 999px; border: 1px solid var(--modal-border);
+            background: rgba(255,255,255,.04); color: var(--muted); white-space: nowrap;
         }
 
-        .ai-item .top {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            align-items: flex-start;
-        }
-
-        .ai-item .title {
-            font-weight: 900;
-        }
-
-        .ai-item .desc {
-            color: var(--muted);
-            font-size: 12px;
-            margin-top: 4px;
-            line-height: 1.35;
-        }
-
-        .ai-item .badg {
-            font-weight: 900;
-            font-size: 12px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, .14);
-            background: rgba(255, 255, 255, .06);
-        }
-
-        /* risk matrix (igual ao que já tinhas, com marker à esquerda e centrado verticalmente) */
-        .matrix-wrap {
-            display: grid;
-            grid-template-columns: 24px 1fr;
-            gap: 10px;
-            align-items: stretch;
-        }
-
+        /* Risk matrix (preserved exactly) */
+        .matrix-wrap { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: stretch; }
         .matrix-ylabel {
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: .6px;
-            display: flex;
-            justify-content: center;
+            writing-mode: vertical-rl; transform: rotate(180deg);
+            color: var(--muted); font-size: 12px; letter-spacing: .6px;
+            display: flex; justify-content: center;
         }
-
         .matrix {
-            border: 1px solid rgba(255, 255, 255, .10);
-            border-radius: 14px;
-            background: rgba(0, 0, 0, .14);
-            padding: 12px;
+            border: 1px solid var(--modal-border); border-radius: 12px;
+            background: rgba(0,0,0,.12); padding: 12px;
         }
-
-        .matrix-grid {
-            display: grid;
-            grid-template-columns: 90px 1fr;
-            gap: 10px;
-        }
-
-        .matrix-rowlabels {
-            display: grid;
-            grid-template-rows: repeat(5, 64px);
-            gap: 6px;
-        }
-
+        .matrix-grid { display: grid; grid-template-columns: 90px 1fr; gap: 10px; }
+        .matrix-rowlabels { display: grid; grid-template-rows: repeat(5, 52px); gap: 6px; }
         .matrix-rowlabels .lbl {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            color: var(--muted);
-            font-size: 12px;
-            padding-left: 6px;
+            display: flex; align-items: center; color: var(--muted);
+            font-size: 11px; padding-left: 4px;
         }
-
         .matrix-collabels {
-            grid-column: 2/3;
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            margin-top: -2px;
+            grid-column: 2/3; display: grid; grid-template-columns: repeat(5,1fr);
+            gap: 6px; margin-top: -2px;
         }
-
-        .matrix-collabels .lbl {
-            text-align: center;
-            color: var(--muted);
-            font-size: 12px;
-        }
-
+        .matrix-collabels .lbl { text-align: center; color: var(--muted); font-size: 11px; }
         .matrix-cells {
-            position: relative;
-            grid-column: 2/3;
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(5, 64px);
-            gap: 6px;
+            position: relative; grid-column: 2/3;
+            display: grid; grid-template-columns: repeat(5,1fr);
+            grid-template-rows: repeat(5, 52px); gap: 6px;
         }
-
         .mcell {
-            position: relative;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, .25);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 8px;
-            font-weight: 700;
-            color: rgba(255, 255, 255, .92);
-            overflow: hidden;
+            position: relative; border-radius: 8px; border: 1px solid rgba(0,0,0,.2);
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; padding: 6px; font-weight: 700;
+            color: rgba(255,255,255,.92); overflow: hidden;
         }
-
-        .mcell small {
-            display: block;
-            font-weight: 600;
-            opacity: .9;
-            margin-bottom: 2px;
-        }
-
-        .mcell .score {
-            font-size: 18px;
-            font-weight: 900;
-            letter-spacing: .2px;
-        }
-
-        .mcell.vlow {
-            background: #2b3447;
-        }
-
-        .mcell.low {
-            background: #2e7d32;
-        }
-
-        .mcell.med {
-            background: #f2b233;
-            color: #1c1406;
-        }
-
-        .mcell.high {
-            background: #d9534f;
-        }
-
-        .mcell.vhigh {
-            background: #8b1d3a;
-        }
-
-        /* marker: lado esquerdo e centralizado verticalmente dentro da célula */
+        .mcell small  { display: block; font-size: 10px; font-weight: 600; opacity:.85; margin-bottom:2px; }
+        .mcell .score { font-size: 15px; font-weight: 900; }
+        .mcell.vlow  { background: #2b3447; }
+        .mcell.low   { background: #2e7d32; }
+        .mcell.med   { background: #f2b233; color: #1c1406; }
+        .mcell.high  { background: #d9534f; }
+        .mcell.vhigh { background: #8b1d3a; }
         .marker {
-            position: absolute;
-            left: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 34px;
-            height: 34px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 11px;
-            color: #0b1220;
-            background: rgba(255, 255, 255, .92);
-            border: 3px solid rgba(96, 165, 250, .95);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, .35);
-            pointer-events: none;
+            position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+            width: 28px; height: 28px; border-radius: 999px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 10px; color: #0b1220;
+            background: rgba(255,255,255,.92); border: 2px solid rgba(96,165,250,.95);
+            box-shadow: 0 6px 16px rgba(0,0,0,.35); pointer-events: none;
         }
-
         .matrix-legend {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-            color: var(--muted);
-            font-size: 12px;
+            display: flex; gap: 10px; flex-wrap: wrap;
+            margin-top: 10px; color: var(--muted); font-size: 11px;
         }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .sw {
-            width: 12px;
-            height: 12px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-
-        .sw.vlow {
-            background: #2b3447;
-        }
-
-        .sw.low {
-            background: #2e7d32;
-        }
-
-        .sw.med {
-            background: #f2b233;
-        }
-
-        .sw.high {
-            background: #d9534f;
-        }
-
-        .sw.vhigh {
-            background: #8b1d3a;
-        }
-
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+        .sw.vlow { background: #2b3447; } .sw.low { background: #2e7d32; }
+        .sw.med  { background: #f2b233; } .sw.high { background: #d9534f; }
+        .sw.vhigh { background: #8b1d3a; }
         .matrix-bottomlabel {
-            grid-column: 2/3;
-            text-align: center;
-            color: var(--muted);
-            font-size: 12px;
-            margin-top: -6px;
+            grid-column: 2/3; text-align: center; color: var(--muted);
+            font-size: 11px; margin-top: -6px;
         }
 
-        .evidence-box {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
+        /* Evidence box */
+        .evidence-box { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         .evi {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            padding: 10px;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, .10);
-            background: rgba(0, 0, 0, .14);
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; padding: 9px 12px; border-radius: 10px;
+            border: 1px solid var(--modal-border); background: rgba(255,255,255,.02);
         }
+
+        /* Risk treat rows */
+        .am-risk-row {
+            border: 1px solid var(--modal-border); border-radius: 10px;
+            background: rgba(255,255,255,.02); padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+        .am-risk-row:last-child { margin-bottom: 0; }
+        .am-risk-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+        .am-risk-id {
+            font-family: var(--font-mono,monospace); font-size: 10px; font-weight: 600;
+            padding: 2px 8px; border-radius: 999px;
+            background: rgba(251,113,133,.1); border: 1px solid rgba(251,113,133,.22); color: var(--bad);
+        }
+        .am-treat-row {
+            margin-top: 6px; padding: 8px 10px; border-radius: 8px;
+            background: rgba(45,212,191,.04); border: 1px solid rgba(45,212,191,.12);
+            font-size: 12px;
+        }
+        .am-treat-id {
+            font-family: var(--font-mono,monospace); font-size: 10px;
+            color: var(--ok); font-weight: 600; margin-right: 6px;
+        }
+
+        /* Light mode overrides */
+        :root[data-theme="light"] .am-chip-type { color: #1a5fc8; }
+        :root[data-theme="light"] .am-chip-crit { color: #9a5c04; }
+        :root[data-theme="light"] .am-asset-icon { background: rgba(79,156,249,.08); }
+        :root[data-theme="light"] .am-desc-bar { background: rgba(15,23,42,.02); }
+        :root[data-theme="light"] .control-code { color: #1a5fc8; }
+        :root[data-theme="light"] .am-body .am-col { background: transparent; }
+
+        /* grid-2 (used in edit modal) */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     </style>
 
     <script>
