@@ -71,7 +71,30 @@
         </div>
 
         <div id="sourcesList" class="sources-list" style="display:none"></div>
+        <div id="sourceInline" style="display:none; margin-top:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div class="muted" style="margin-bottom:4px;">Documento usado na resposta</div>
+            <div id="sourceInlineTitle" style="font-size:16px; font-weight:900;">—</div>
+          </div>
+          <button id="sourceInlineClose" class="btn" type="button">Fechar</button>
+        </div>
 
+        <div class="two" style="margin-top:12px;">
+          <div class="panel">
+            <h2>Chunks citados</h2>
+            <p class="muted">Lista de referências/chunks usados.</p>
+            <div id="sourceInlineChunks" class="chunklist"></div>
+          </div>
+
+          <div class="panel">
+            <h2>Pré-visualização (PDF)</h2>
+            <iframe id="sourceInlinePdf" src=""
+              style="width:100%; height:520px; border:1px solid rgba(255,255,255,.10); border-radius:12px; background:rgba(0,0,0,.12)">
+            </iframe>
+          </div>
+        </div>
+      </div>
         <div class="hint" style="margin-top:10px">
           Ao clicar numa fonte, abre o modal com PDF + lista de chunks usados.
         </div>
@@ -130,78 +153,154 @@
 
 
 <style>
-  /* reutiliza teu padrão modal */
+  /* ── Tokens adaptativos claro/escuro ──
+     O app.blade.php usa :root sem data-theme = DARK (default)
+     e :root[data-theme="light"] = LIGHT
+     Seguimos a mesma convenção aqui.
+  ── */
+
+  /* DEFAULT = dark (igual ao app) */
+  :root {
+    --chat-border:       rgba(255,255,255,.10);
+    --chat-bubble-bot:   rgba(255,255,255,.06);
+    --chat-bubble-user-bg:  rgba(34,211,238,.10);
+    --chat-bubble-user-bd:  rgba(34,211,238,.18);
+    --chat-thread-bg:    rgba(0,0,0,.18);
+    --chat-source-bg:    rgba(255,255,255,.04);
+    --chat-source-hover: rgba(96,165,250,.06);
+    --chat-source-bd:    rgba(255,255,255,.10);
+    --chat-chunk-bg:     rgba(255,255,255,.04);
+    --chat-chunk-preview-bg:   rgba(0,0,0,.18);
+    --chat-chunk-preview-color: rgba(255,255,255,.85);
+    --chat-table-border: rgba(255,255,255,.10);
+    --chat-table-bg:     rgba(0,0,0,.10);
+    --chat-table-head-bg:rgba(255,255,255,.05);
+    --chat-table-row-bd: rgba(255,255,255,.07);
+    --modal-header-bd:   rgba(255,255,255,.06);
+  }
+
+  /* LIGHT — ativado pelo app quando data-theme="light" está no :root */
+  :root[data-theme="light"] {
+    --chat-border:       rgba(15,23,42,.12);
+    --chat-bubble-bot:   rgba(15,23,42,.04);
+    --chat-bubble-user-bg:  rgba(6,182,212,.09);
+    --chat-bubble-user-bd:  rgba(6,182,212,.28);
+    --chat-thread-bg:    rgba(15,23,42,.03);
+    --chat-source-bg:    rgba(15,23,42,.03);
+    --chat-source-hover: rgba(37,99,235,.06);
+    --chat-source-bd:    rgba(15,23,42,.10);
+    --chat-chunk-bg:     rgba(15,23,42,.03);
+    --chat-chunk-preview-bg:   rgba(15,23,42,.04);
+    --chat-chunk-preview-color: var(--text);
+    --chat-table-border: rgba(15,23,42,.10);
+    --chat-table-bg:     rgba(15,23,42,.02);
+    --chat-table-head-bg:rgba(15,23,42,.05);
+    --chat-table-row-bd: rgba(15,23,42,.07);
+    --modal-header-bd:   rgba(15,23,42,.08);
+  }
+
+  /* ── Modal ── */
   .modal-overlay{
-    position:fixed; inset:0; background:var(--modal-overlay);
+    position:fixed; inset:0; background:var(--modal-overlay, rgba(0,0,0,.55));
     display:none; align-items:center; justify-content:center; padding:18px; z-index:99999;
   }
-  .modal-overlay.open{display:flex;}
+  .modal-overlay.open{ display:flex; }
   .modal-card{
     width:min(1200px,96vw); max-height:90vh; overflow:auto;
-    border:1px solid var(--modal-border); border-radius:16px;
-    background:var(--modal-bg); color:var(--text); box-shadow:0 30px 60px rgba(0,0,0,.55);
-    padding:14px;
+    border:1px solid var(--modal-border, var(--chat-border)); border-radius:16px;
+    background:var(--modal-bg, var(--surface, #fff)); color:var(--text);
+    box-shadow:0 30px 60px rgba(0,0,0,.35); padding:14px;
   }
   .modal-header{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
-    padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.06);
+    padding-bottom:12px; border-bottom:1px solid var(--modal-header-bd);
   }
 
-  /* Chat */
-  .chat-thread{ min-height:420px; max-height:60vh; overflow:auto; border-radius:14px; }
+  /* ── Chat thread ── */
+  .chat-thread{
+    min-height:420px; max-height:60vh; overflow:auto; border-radius:14px;
+    background: var(--chat-thread-bg) !important;
+  }
   .chat-msg{ display:flex; flex-direction:column; gap:6px; margin:10px 0; }
   .chat-msg.user{ align-items:flex-end; }
-  .chat-msg.bot{ align-items:flex-start; }
+  .chat-msg.bot { align-items:flex-start; }
+
   .chat-bubble{
-    max-width: 92%;
-    padding:12px 12px;
+    max-width:92%; padding:12px;
     border-radius:14px;
-    border:1px solid var(--modal-border);
-    background:rgba(0,0,0,.16);
-    line-height:1.35;
+    border:1px solid var(--chat-border);
+    background: var(--chat-bubble-bot);
+    line-height:1.5;
+    overflow-wrap:anywhere; word-break:break-word;
+    overflow-x:auto;
   }
   .chat-msg.user .chat-bubble{
-    background:rgba(34,211,238,.10);
-    border-color:rgba(34,211,238,.18);
+    background: var(--chat-bubble-user-bg);
+    border-color: var(--chat-bubble-user-bd);
   }
+  .chat-bubble pre, .chat-bubble code{ white-space:pre-wrap; }
+  .chat-bubble table{ display:block; max-width:100%; overflow-x:auto; }
 
-  /* Sources */
+  /* ── Sources panel ── */
   .sources-list{ display:flex; flex-direction:column; gap:10px; }
   .source-item{
-    border:1px solid var(--modal-border);
-    background:rgba(0,0,0,.12);
-    border-radius:14px;
-    padding:12px;
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    align-items:flex-start;
-    cursor:pointer;
+    border:1px solid var(--chat-source-bd);
+    background: var(--chat-source-bg);
+    border-radius:14px; padding:12px;
+    display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
+    cursor:pointer; transition: background .15s, border-color .15s;
   }
-  .source-item:hover{ border-color:rgba(96,165,250,.22); background:rgba(96,165,250,.06); }
+  .source-item:hover{
+    border-color:rgba(59,130,246,.35);
+    background: var(--chat-source-hover);
+  }
   .source-left{ display:flex; flex-direction:column; gap:6px; }
   .source-title{ font-weight:900; }
   .source-sub{ color:var(--muted); font-size:12px; }
   .source-chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+  /* ── Chunks ── */
   .chunklist{ display:flex; flex-direction:column; gap:10px; }
   .chunkrow{
-    border:1px solid var(--modal-border);
-    background:rgba(0,0,0,.12);
-    border-radius:12px;
-    padding:10px;
-    cursor:pointer;
+    border:1px solid var(--chat-source-bd);
+    background: var(--chat-chunk-bg);
+    border-radius:12px; padding:10px; cursor:pointer;
+    transition: background .15s, border-color .15s;
   }
-  .chunkrow.active{ border-color:rgba(34,211,238,.25); background:rgba(34,211,238,.08); }
+  .chunkrow.active{
+    border-color:rgba(34,211,238,.35);
+    background:rgba(34,211,238,.08);
+  }
   .chunk-preview{
-    border:1px solid var(--modal-border);
-    background:rgba(0,0,0,.14);
-    border-radius:12px;
-    padding:10px;
-    color:rgba(255,255,255,.88);
-    font-size:13px;
-    line-height:1.35;
-    white-space:pre-wrap;
+    border:1px solid var(--chat-source-bd);
+    background: var(--chat-chunk-preview-bg);
+    border-radius:12px; padding:10px;
+    color: var(--chat-chunk-preview-color);
+    font-size:13px; line-height:1.45; white-space:pre-wrap;
   }
+
+  /* ── Markdown tables ── */
+  .md-table-wrap{
+    max-width:100%; overflow-x:auto;
+    border:1px solid var(--chat-table-border);
+    border-radius:12px;
+    background: var(--chat-table-bg);
+    margin: 8px 0;
+  }
+  .md-table{
+    width:100%; border-collapse:collapse;
+    font-size:0.9rem; min-width:560px;
+  }
+  .md-table th, .md-table td{
+    padding:9px 12px;
+    border-bottom:1px solid var(--chat-table-row-bd);
+    vertical-align:top; white-space:normal; word-break:break-word;
+  }
+  .md-table th{
+    font-weight:700; font-size:.8rem; letter-spacing:.04em; text-transform:uppercase;
+    background: var(--chat-table-head-bg);
+  }
+  .md-table tr:last-child td{ border-bottom:none; }
 </style>
 
 @push('scripts')
@@ -209,3 +308,5 @@
 @endpush
 
 @endsection
+
+{{-- tema gerido por CSS :root[data-theme] — sem JS necessário --}}

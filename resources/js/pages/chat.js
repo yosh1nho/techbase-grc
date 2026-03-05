@@ -79,20 +79,32 @@
             .replaceAll("'", "&#039;");
     }
 
+    // Extrai tabelas de blocos ```md``` e converte para markdown puro
+    function unwrapTableCodeFences(md) {
+        return (md || "").replace(/```(?:md|markdown)\n([\s\S]*?)```/g, (match, inner) => {
+            const trimmed = inner.trim();
+            if (trimmed.startsWith("|")) {
+                return "\n\n" + trimmed + "\n\n";
+            }
+            return match;
+        });
+    }
+
     function renderBotMarkdown(text) {
-        // Se marked não existir, cai para texto simples
         if (!window.marked || typeof window.marked.parse !== "function") {
             return `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text)}</pre>`;
         }
 
-        // Markdown -> HTML
-        const html = window.marked.parse(text || "");
-
-        // Sanitiza HTML (evita XSS)
-        if (window.DOMPurify) return window.DOMPurify.sanitize(html);
-
-        // fallback sem sanitize (não recomendado)
-        return html;
+        try {
+            // Extrai tabelas de blocos ```md```
+            const processed = unwrapTableCodeFences(text || "");
+            const html = window.marked.parse(processed);
+            if (window.DOMPurify) return window.DOMPurify.sanitize(html);
+            return html;
+        } catch (err) {
+            console.error("Markdown render error:", err);
+            return `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text || "")}</pre>`;
+        }
     }
 
     // ====== RAG mock: escolhe fontes por keywords ======
@@ -537,4 +549,49 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
         ]);
 
     });
+})();
+
+// Injected: marked table renderer setup (runs after marked CDN loads)
+(function setupMarked() {
+    function _setup() {
+        if (!window.marked) return;
+
+        const renderer = new window.marked.Renderer();
+
+        renderer.table = function(tokenOrHeader, body) {
+            let headerHtml, bodyHtml;
+
+            if (tokenOrHeader && typeof tokenOrHeader === "object" && tokenOrHeader.header) {
+                // marked v5+
+                const token = tokenOrHeader;
+                const headerRow = token.header.map(cell => {
+                    const txt = (cell.tokens || []).map(t => t.raw || t.text || "").join("") || cell.text || "";
+                    return `<th>${txt}</th>`;
+                }).join("");
+                headerHtml = `<tr>${headerRow}</tr>`;
+
+                bodyHtml = (token.rows || []).map(row => {
+                    const cells = row.map(cell => {
+                        const txt = (cell.tokens || []).map(t => t.raw || t.text || "").join("") || cell.text || "";
+                        return `<td>${txt}</td>`;
+                    }).join("");
+                    return `<tr>${cells}</tr>`;
+                }).join("");
+            } else {
+                headerHtml = tokenOrHeader || "";
+                bodyHtml = body || "";
+            }
+
+            return `<div class="md-table-wrap"><table class="md-table"><thead>${headerHtml}</thead><tbody>${bodyHtml}</tbody></table></div>`;
+        };
+
+        window.marked.use({ renderer });
+        window.marked.setOptions({ gfm: true, breaks: true });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", _setup);
+    } else {
+        _setup();
+    }
 })();

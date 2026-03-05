@@ -117,29 +117,45 @@ class RagChatService
 
     private function buildPrompt(string $context, string $question): string
     {
-        return
-"Você é um assistente de GRC focado em NIS2 e QNRCS/CNCS.
+        // IMPORTANT: Use nowdoc (single-quoted heredoc) to avoid PHP interpreting backticks as shell execution
+        $prompt = <<<'PROMPT'
+Você é um assistente de GRC focado em NIS2 e QNRCS/CNCS.
 Regras:
 - Responda em PT-PT, direto e prático.
 - Use APENAS o contexto fornecido como base factual.
 - Se o contexto não suportar, diga claramente o que falta e que evidência/documento seria necessário.
 - Cite fontes no formato [Fonte: ...] quando fizer afirmações.
 
-Formatação obrigatória:
-- Começa com um resumo de 2–3 linhas.
-- Depois dá um Checklist com 6–10 bullets curtos.
-- Depois, se necessário, dá uma tabela Campos mínimos por ativo (colunas: Campo | Exemplo | Obrigatório).
-- Depois, se necessário e se disponível, dá uma lista de Evidências (3–6 bullets).
-- No final, Fontes usadas listando apenas as fontes (sem repetir [Fonte...] em cada bullet).
-- Evita repetir texto; agrupa e simplifica.
+Estrutura da resposta:
+1. Resumo (2-3 linhas).
+2. Checklist com 6-10 bullets curtos.
+3. [OPCIONAL] Tabela de campos - inclui APENAS se a pergunta pedir campos/atributos mínimos de inventário de ativos. Para perguntas gerais, NÃO incluas tabela.
+   Se incluíres tabela, usa EXATAMENTE este formato dentro de um bloco ```md```:
+   - 4 colunas: Campo | Ativo de Rede (Geral) | Ativo de Rede (Externo) | Ponto de Rede
+   - Cada campo numa LINHA SEPARADA. NUNCA multiplos campos na mesma linha.
+   - Valores das celulas: apenas "Sim" ou "Nao aplicavel". NUNCA texto longo numa celula.
+   - Exemplo:
+     | Campo                | Ativo de Rede (Geral) | Ativo de Rede (Externo) | Ponto de Rede |
+     |----------------------|-----------------------|-------------------------|---------------|
+     | Numero de inventario | Sim                   | Sim                     | Nao aplicavel |
+     | Nome do equipamento  | Sim                   | Nao aplicavel           | Nao aplicavel |
+4. [OPCIONAL] Evidencias (3-6 bullets) - so se disponivel no contexto.
+5. Fontes usadas (lista simples, sem repetir [Fonte...]).
 
 CONTEXTO (RAG):
-{$context}
+PROMPT;
+
+        $prompt .= $context;
+        $prompt .= <<<'PROMPT'
+
 
 PERGUNTA:
-{$question}
+PROMPT;
 
-RESPONDA:";
+        $prompt .= $question;
+        $prompt .= "\n\nRESPONDA:";
+
+        return $prompt;
     }
 
     private function buildFilter(array $scope): ?array
