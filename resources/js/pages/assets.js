@@ -400,6 +400,60 @@
         );
     }
 
+    //========= Fetch de Ativos no API Fake do Acronis(só para mock)
+    async function loadAssetsFromAcronis() {
+
+        try {
+
+            const res = await fetch("http://127.0.0.1:9999/resource_management/v4/resources", {
+                headers: {
+                    "Authorization": "Bearer acronis_fake_jwt_token_998877"
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+
+            const data = await res.json();
+
+            const resources = data.items || [];
+
+            assets = resources.map((r) => {
+
+                let type = "Workstation";
+
+                if (r.name.includes("SRV") || r.name.includes("VM"))
+                    type = "Servidor";
+
+                return {
+                    id: r.id,
+                    name: r.name,
+                    subtitle: r.os?.name || "Unknown OS",
+                    type: type,
+                    criticity: "Médio",
+                    owner: "Acronis Agent",
+                    ip: r.network?.ip || "",
+                    createdBy: "acronis-sync",
+                    notes: "Importado automaticamente do Acronis",
+                    prob: 3,
+                    impact: 3,
+                    controls: [],
+                    risks: [],
+                    treatments: []
+                };
+            });
+
+            // Re-render a tabela com os dados recebidos
+            renderAssetsTable();
+
+        } catch (err) {
+
+            console.error("Erro ao carregar ativos Acronis:", err);
+
+        }
+
+    }
 
     // ========= details modal =========
     function renderControlsList(asset) {
@@ -571,7 +625,7 @@
         const wrap = $("#assetRiskTreatList");
         if (!wrap) return;
         const risks = asset.risks || [];
-        const tps   = asset.treatments || [];
+        const tps = asset.treatments || [];
 
         if (!risks.length && !tps.length) {
             wrap.innerHTML = `<div class="muted" style="font-size:12px;">Sem riscos/planos ligados a este ativo.</div>`;
@@ -635,11 +689,11 @@
         if (ipChip) ipChip.textContent = asset.ip || '—';
 
         // ── KPI strip ──
-        $("#mOwner").textContent    = asset.owner;
+        $("#mOwner").textContent = asset.owner;
         $("#mCreatedBy").textContent = asset.createdBy || "—";
-        $("#mNotes").textContent    = asset.notes || "—";
+        $("#mNotes").textContent = asset.notes || "—";
 
-        $("#mProb").textContent   = String(asset.prob);
+        $("#mProb").textContent = String(asset.prob);
         $("#mImpact").textContent = String(asset.impact);
 
         const score = asset.prob * asset.impact;
@@ -928,8 +982,11 @@
 
     // ========= init =========
     function init() {
-        // table
+        // Render inicial com dados mock enquanto o fetch não termina
         renderAssetsTable();
+
+        // Carrega ativos do Acronis (substitui o mock ao terminar)
+        loadAssetsFromAcronis();
 
         // filters
         $("#assetSearch").addEventListener("input", renderAssetsTable);

@@ -20,8 +20,8 @@
         {{-- RISCOS --}}
         <a class="card dash-card link-card" href="{{ route('risks') }}" style="text-decoration:none">
             <h3>Riscos (ativos críticos)</h3>
-            <p class="big">14</p>
-            <p class="sub">3 altos • 8 médios • 3 baixos</p>
+            <p class="big" id="riskCount">0</p>
+            <p class="sub" id="riskBreakdown">—</p>
             <div class="kpirow">
                 <span class="chip bad">Alto</span>
                 <span class="chip warn">Médio</span>
@@ -33,8 +33,8 @@
         {{-- PLANOS EM ATRASO --}}
         <a class="card dash-card link-card" href="{{ route('treatment') }}" style="text-decoration:none">
             <h3>Planos em atraso</h3>
-            <p class="big">2</p>
-            <p class="sub">Prazos ultrapassados</p>
+            <p class="big" id="treatmentOverdueCount">0</p>
+            <p class="sub" id="treatmentOverdueLabel">—</p>
             <div class="kpirow">
                 <span class="chip warn">Ações pendentes</span>
             </div>

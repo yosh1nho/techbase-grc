@@ -41,13 +41,114 @@ const MATURITY_ITEMS = [
     },
 ];
 
-const ALERTS = [
-    { id: 'WZ-1001', ts: '2026-02-18 08:22', sev: 'critical', asset: 'SRV-DB-01', cat: 'EDR', msg: 'Possible credential dumping detected.' },
-    { id: 'WZ-1002', ts: '2026-02-18 07:58', sev: 'high', asset: 'APP-GRC', cat: 'Web', msg: 'Multiple failed logins from same IP.' },
-    { id: 'WZ-1003', ts: '2026-02-18 06:40', sev: 'medium', asset: 'FW-EDGE', cat: 'Network', msg: 'Port scan pattern detected.' },
-    { id: 'WZ-1004', ts: '2026-02-17 23:10', sev: 'low', asset: 'NAS-BKP', cat: 'Backup', msg: 'Backup finished with warnings.' },
-];
+// ================== ALERTS (Temporariamente preenchido com dados do Acronis Fake)==================
+let ALERTS = [];
+function normalizeSeverity(sev) {
 
+    const map = {
+        critical: "critical",
+        high: "high",
+        warning: "medium",
+        medium: "medium",
+        low: "low",
+        info: "low"
+    };
+
+    return map[sev] || "low";
+}
+
+async function loadAcronisAlerts() {
+
+    try {
+
+        const res = await fetch(
+            "http://127.0.0.1:9999/api/alert_manager/v1/alerts",
+            {
+                headers: {
+                    Authorization: "Bearer acronis_fake_jwt_token_998877"
+                }
+            }
+        );
+
+        const data = await res.json();
+
+        ALERTS = data.items
+            .filter(a => a.severity !== "info")
+            .map(a => ({
+                id: a.id,
+                ts: new Date(a.createdAt).toISOString().slice(0, 16).replace("T", " "),
+                sev: normalizeSeverity(a.severity),
+                asset: a.details.resourceName,
+                cat: a.type,
+                msg: a.details.message
+            }));
+        localStorage.setItem("tb_acronis_alerts", JSON.stringify(ALERTS));
+
+    } catch (e) {
+        console.error("Erro ao carregar alertas:", e);
+    }
+
+}
+
+//========= Carregar Riscos ===========
+function loadRiskStats() {
+
+    const risks = JSON.parse(localStorage.getItem("tb_mock_risks") || "[]");
+
+    const total = risks.length;
+
+    let high = 0;
+    let medium = 0;
+    let low = 0;
+
+    risks.forEach(r => {
+
+        const score = r.score || (r.prob * r.impact);
+
+        if (score >= 17) high++;
+        else if (score >= 10) medium++;
+        else low++;
+
+    });
+
+    const countEl = document.getElementById("riskCount");
+    const subEl = document.getElementById("riskBreakdown");
+
+    if (countEl) countEl.textContent = total;
+    if (subEl) subEl.textContent = `${high} altos • ${medium} médios • ${low} baixos`;
+
+}
+
+
+//=========Carregar Planos em Atraso ===========
+function loadTreatmentStats() {
+
+    const plans = JSON.parse(localStorage.getItem("tb_mock_treatments") || "[]");
+
+    let overdue = 0;
+    let pending = 0;
+
+    plans.forEach(p => {
+
+        if (p.status === "Em atraso") overdue++;
+
+        if (p.status === "To do" || p.status === "Em curso")
+            pending++;
+
+    });
+
+    const big = document.getElementById("treatmentOverdueCount");
+    const sub = document.getElementById("treatmentOverdueLabel");
+
+    if (big) big.textContent = overdue;
+    if (sub) sub.textContent = overdue > 0
+        ? "Prazos ultrapassados"
+        : "Nenhum plano em atraso";
+
+    const chip = document.querySelector('.dash-card[href*="treatment"] .chip.warn');
+    if (chip) chip.textContent = `${pending} ações pendentes`;
+
+}
 
 // ================== HELPERS ==================
 function normalize(s) { return (s || '').toLowerCase().trim(); }
@@ -227,25 +328,25 @@ function renderAlertsTable() {
     if (!tbody) return;
 
     const q = normalize($('#alertSearch')?.value);
-const sev = $('#alertSeverity')?.value || 'all';
+    const sev = $('#alertSeverity')?.value || 'all';
 
-const fromRaw = $('#alertDateFrom')?.value; // YYYY-MM-DD
-const toRaw = $('#alertDateTo')?.value;     // YYYY-MM-DD
+    const fromRaw = $('#alertDateFrom')?.value; // YYYY-MM-DD
+    const toRaw = $('#alertDateTo')?.value;     // YYYY-MM-DD
 
-const from = fromRaw ? new Date(`${fromRaw}T00:00:00`) : null;
-const to = toRaw ? new Date(`${toRaw}T23:59:59`) : null;
+    const from = fromRaw ? new Date(`${fromRaw}T00:00:00`) : null;
+    const to = toRaw ? new Date(`${toRaw}T23:59:59`) : null;
 
-const rows = ALERTS.filter(a => {
-    const aDate = parseAlertTs(a.ts);
-            const matchesQ = !q || normalize(a.msg).includes(q) || normalize(a.asset).includes(q) || normalize(a.cat).includes(q);
-    const matchesSev = sev === 'all' || a.sev === sev;
+    const rows = ALERTS.filter(a => {
+        const aDate = parseAlertTs(a.ts);
+        const matchesQ = !q || normalize(a.msg).includes(q) || normalize(a.asset).includes(q) || normalize(a.cat).includes(q);
+        const matchesSev = sev === 'all' || a.sev === sev;
 
-    const matchesFrom = !from || (aDate && aDate >= from);
-    const matchesTo = !to || (aDate && aDate <= to);
-    const matchesDate = matchesFrom && matchesTo;
+        const matchesFrom = !from || (aDate && aDate >= from);
+        const matchesTo = !to || (aDate && aDate <= to);
+        const matchesDate = matchesFrom && matchesTo;
 
-    return matchesQ && matchesSev && matchesDate;
-});
+        return matchesQ && matchesSev && matchesDate;
+    });
 
 
     tbody.innerHTML = '';
@@ -276,7 +377,14 @@ const rows = ALERTS.filter(a => {
 }
 
 // ================== INIT ==================
-function init() {
+async function init() {
+    await loadAcronisAlerts();
+    document.querySelector(".big").textContent = ALERTS.length;
+    const critical = ALERTS.filter(a => a.sev === "critical").length;
+    document.querySelector(".chip.warn").textContent = `${critical} críticos`;
+    renderAlertsTable();
+    loadRiskStats();
+    loadTreatmentStats();
     // Open maturity
     const openMat = $('[data-open-maturity]');
     openMat?.addEventListener('click', () => {
@@ -310,10 +418,10 @@ function init() {
     $('#matStatus')?.addEventListener('change', renderMaturityTable);
 
     // Filters (alerts)
-$('#alertSearch')?.addEventListener('input', renderAlertsTable);
-$('#alertSeverity')?.addEventListener('change', renderAlertsTable);
-$('#alertDateFrom')?.addEventListener('change', renderAlertsTable);
-$('#alertDateTo')?.addEventListener('change', renderAlertsTable);
+    $('#alertSearch')?.addEventListener('input', renderAlertsTable);
+    $('#alertSeverity')?.addEventListener('change', renderAlertsTable);
+    $('#alertDateFrom')?.addEventListener('change', renderAlertsTable);
+    $('#alertDateTo')?.addEventListener('change', renderAlertsTable);
 
     // Click outside closes
     $('#maturityModal')?.addEventListener('click', (e) => { if (e.target.id === 'maturityModal') closeModal('#maturityModal'); });

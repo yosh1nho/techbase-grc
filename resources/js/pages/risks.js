@@ -1,25 +1,14 @@
 // resources/js/pages/risks.js
 
-const MOCK_ALERTS = [
-  {
-    id: "WZ-1001",
-    date: "2026-02-18 10:12",
-    severity: "critical",
-    asset: "SRV-DB-01",
-    category: "Malware",
-    summary: "Comportamento suspeito + execução não assinada",
-    raw: { rule: "100200", agent: "srv-db-01", ip: "10.0.2.15" }
-  },
-  {
-    id: "WZ-1002",
-    date: "2026-02-18 09:41",
-    severity: "high",
-    asset: "FW-EDGE-01",
-    category: "Brute force",
-    summary: "Múltiplas tentativas de login (SSH)",
-    raw: { rule: "5712", srcip: "185.111.x.x" }
-  }
-];
+const MOCK_ALERTS = (JSON.parse(localStorage.getItem("tb_acronis_alerts") || "[]"))
+  .map(a => ({
+    id: a.id,
+    date: a.ts,
+    severity: a.sev,
+    asset: a.asset,
+    category: a.cat,
+    summary: a.msg
+  }));
 
 const MOCK_ASSETS = {
   "SRV-DB-01": { criticality: "Crítico", owner: "IT Ops", notes: "Servidor de base de dados (PII)" },
