@@ -76,15 +76,38 @@
             <div class="hint" style="margin-top:10px">Clique para ver todos os riscos.</div>
         </a>
 
-        {{-- PLANOS EM ATRASO --}}
+        {{-- PLANOS DE TRATAMENTO --}}
         <a class="card dash-card link-card" href="{{ route('treatment') }}" style="text-decoration:none">
-            <h3>Planos em atraso</h3>
-            <p class="big" id="treatmentOverdueCount">0</p>
-            <p class="sub" id="treatmentOverdueLabel">—</p>
-            <div class="kpirow">
-                <span class="chip warn">Ações pendentes</span>
+            <h3>Planos de tratamento</h3>
+            <div style="display:flex;align-items:baseline;gap:8px;margin:6px 0 2px">
+                <p class="big" id="treatmentOverdueCount" style="margin:0;color:#f87171">0</p>
+                <span class="muted" style="font-size:13px" id="treatmentOverdueLabel">em atraso</span>
             </div>
-            <div class="hint">Clique para abrir Tratamento de Risco.</div>
+
+            {{-- barra de progresso --}}
+            <div style="display:flex;height:6px;border-radius:99px;overflow:hidden;gap:2px;margin:10px 0 8px">
+                <div id="treatBarDone"    style="background:#34d399;border-radius:99px;transition:width .4s;width:0%"></div>
+                <div id="treatBarDoing"   style="background:#60a5fa;border-radius:99px;transition:width .4s;width:0%"></div>
+                <div id="treatBarTodo"    style="background:#94a3b8;border-radius:99px;transition:width .4s;width:0%"></div>
+                <div id="treatBarOverdue" style="background:#f87171;border-radius:99px;transition:width .4s;width:0%"></div>
+            </div>
+
+            <div style="display:flex;gap:12px;font-size:12px">
+                <span style="display:flex;align-items:center;gap:4px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
+                    <span class="muted">Feito</span> <b id="treatCountDone">0</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:4px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#60a5fa;display:inline-block"></span>
+                    <span class="muted">Curso</span> <b id="treatCountDoing">0</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:4px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block"></span>
+                    <span class="muted">Atraso</span> <b id="treatCountOverdue">0</b>
+                </span>
+            </div>
+
+            <div class="hint" style="margin-top:10px">Clique para gerir planos de tratamento.</div>
         </a>
 
         {{-- MATURIDADE --}}

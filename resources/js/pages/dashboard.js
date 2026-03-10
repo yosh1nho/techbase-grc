@@ -176,33 +176,34 @@ function loadRiskStats() {
 }
 
 
-//=========Carregar Planos em Atraso (ponto 6: usa Store) ===========
+//=========Carregar Planos de Tratamento — barra de progresso ===========
 function loadTreatmentStats() {
     const plans = Store.getTreatments();
+    const total   = plans.length;
+    const overdue = plans.filter(p => p.status === "Em atraso").length;
+    const doing   = plans.filter(p => p.status === "Em curso").length;
+    const todo    = plans.filter(p => p.status === "To do").length;
+    const done    = plans.filter(p => p.status === "Concluído").length;
 
-    let overdue = 0;
-    let pending = 0;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set("treatmentOverdueCount", overdue);
+    set("treatmentOverdueLabel", overdue > 0 ? "em atraso" : "tudo em dia");
+    set("treatCountDone",    done);
+    set("treatCountDoing",   doing);
+    set("treatCountOverdue", overdue);
 
-    plans.forEach(p => {
+    if (total > 0) {
+        const pct = v => `${Math.round(v / total * 100)}%`;
+        const setW = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = pct(v); };
+        setW("treatBarDone",    done);
+        setW("treatBarDoing",   doing);
+        setW("treatBarTodo",    todo);
+        setW("treatBarOverdue", overdue);
+    }
 
-        if (p.status === "Em atraso") overdue++;
-
-        if (p.status === "To do" || p.status === "Em curso")
-            pending++;
-
-    });
-
+    // cor do número: vermelho se há atraso, verde se tudo feito
     const big = document.getElementById("treatmentOverdueCount");
-    const sub = document.getElementById("treatmentOverdueLabel");
-
-    if (big) big.textContent = overdue;
-    if (sub) sub.textContent = overdue > 0
-        ? "Prazos ultrapassados"
-        : "Nenhum plano em atraso";
-
-    const chip = document.querySelector('.dash-card[href*="treatment"] .chip.warn');
-    if (chip) chip.textContent = `${pending} ações pendentes`;
-
+    if (big) big.style.color = overdue > 0 ? "#f87171" : "#34d399";
 }
 
 // ================== HELPERS ==================

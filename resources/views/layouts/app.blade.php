@@ -35,6 +35,12 @@
         --modal-border: rgba(255,255,255,.08);
         --modal-overlay: rgba(0,0,0,.55);
         --modal-panel: rgba(255,255,255,.04);
+
+        /* shared component vars */
+        --input-bg:   rgba(0,0,0,.22);
+        --input-border: rgba(255,255,255,.14);
+        --border:     rgba(255,255,255,.09);
+        --card-bg:    rgba(18,26,43,.70);
         }
 
         :root[data-theme="light"]{
@@ -72,6 +78,12 @@
         --modal-border: rgba(15,23,42,.12);
         --modal-overlay: rgba(15,23,42,.45);
         --modal-panel: rgba(15,23,42,.04);
+
+        /* shared component vars */
+        --input-bg:     #ffffff;
+        --input-border: rgba(15,23,42,.18);
+        --border:       rgba(15,23,42,.11);
+        --card-bg:      rgba(255,255,255,.72);
         }
 
 
@@ -388,6 +400,24 @@
             border-color: rgba(45, 212, 191, .30)
         }
 
+        .btn.warn {
+            background: rgba(251,191,36,.14);
+            border-color: rgba(251,191,36,.30);
+            color: var(--text);
+        }
+
+        .btn.small {
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 8px;
+        }
+
+        .btn:disabled {
+            opacity: .38;
+            cursor: not-allowed;
+            filter: none;
+        }
+
         .btn:hover {
             filter: brightness(1.08)
         }
@@ -587,10 +617,19 @@
             padding: 10px 10px;
             border-radius: 12px;
             background: rgba(0, 0, 0, .18);
-            border: 1px solid rgba(255, 255, 255, .10);
+            border: 1px solid rgba(255, 255, 255, .14);
             color: var(--text);
             font-family: inherit;
             font-size: 13px;
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        input:not([type="checkbox"]):focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: rgba(96,165,250,.55) !important;
+            box-shadow: 0 0 0 3px rgba(96,165,250,.14);
         }
 
         select {
@@ -899,9 +938,28 @@
     :root[data-theme="light"] input,
     :root[data-theme="light"] select,
     :root[data-theme="light"] textarea{
-    background: var(--field-bg);
-    border: 1px solid var(--field-border);
+    background: #ffffff;
+    border: 1.5px solid rgba(15,23,42,.18);
     color: var(--text);
+    box-shadow: 0 1px 3px rgba(15,23,42,.07);
+    }
+
+    :root[data-theme="light"] input:not([type="checkbox"]):focus,
+    :root[data-theme="light"] select:focus,
+    :root[data-theme="light"] textarea:focus {
+    border-color: rgba(37,99,235,.50) !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,.10);
+    }
+
+    /* seta do select visível no light */
+    :root[data-theme="light"] select {
+    background-color: #ffffff;
+    background-image:
+        linear-gradient(45deg, transparent 50%, rgba(15,23,42,.55) 50%),
+        linear-gradient(135deg, rgba(15,23,42,.55) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 55%, calc(100% - 12px) 55%;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
     }
 
     :root[data-theme="light"] th,
