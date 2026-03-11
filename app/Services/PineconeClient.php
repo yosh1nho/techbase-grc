@@ -57,6 +57,7 @@ class PineconeClient
             'fields' => [
                 'text',
                 'doc_id','doc_name','version','chunk_index','source_file',
+                'page_number',
                 'section_type',
                 'control_code','control_family',
                 'article_num','article_code','chapter',

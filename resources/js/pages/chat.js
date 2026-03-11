@@ -1,54 +1,20 @@
-// Techbase GRC • NIS2 — Chat (mock RAG)
-// Vanilla JS, sem frameworks.
+// Techbase GRC • Chat RAG — chat.js
+// Reescrito: chunks reais da API no modal, UX melhorada.
 
 (() => {
-    // ====== Mock docs + chunks (ajusta fileUrl pro teu public/mock) ======
-    const DOCS = [
-        {
-            id: "F1",
-            title: "QNRCS 2019 — Quadro Nacional de Referência para a Cibersegurança",
-            kind: "framework",
-            fileUrl: "/mock/frameworks/cncs-qnrcs-2019.pdf",
-            chunks: [
-                { id: "F1-C1", label: "QNRCS • Gestão de Ativos", text: "A organização deve manter inventário atualizado de ativos, incluindo dono, criticidade, localização e evidências de revisão periódica." },
-                { id: "F1-C2", label: "QNRCS • Análise de Risco", text: "A organização deve executar análise de risco formal com periodicidade definida, com aprovação e evidência documental." }
-            ]
-        },
-        {
-            id: "F2",
-            title: "NIS2 — Diretiva (UE) 2022/2555",
-            kind: "framework",
-            fileUrl: "/mock/frameworks/NIS2.pdf",
-            chunks: [
-                { id: "F2-C1", label: "NIS2 • Gestão de incidentes", text: "Exige capacidades de deteção, resposta e reporte de incidentes relevantes às autoridades competentes, conforme prazos e conteúdo definido." },
-                { id: "F2-C2", label: "NIS2 • Medidas de gestão de risco", text: "Medidas técnicas e organizacionais para gerir riscos: políticas, continuidade, backup, controlo de acesso, etc." }
-            ]
-        },
-        {
-            id: "D1",
-            title: "Procedimento Inventário v1.0",
-            kind: "procedure",
-            fileUrl: "/mock/docs/procedimento-inventario-v1.pdf", // cria/ajusta conforme teus ficheiros
-            chunks: [
-                { id: "D1-C1", label: "Inventário mensal", text: "Inventário deve ser atualizado mensalmente, contendo responsáveis, criticidade e evidências do processo de revisão." },
-                { id: "D1-C2", label: "Evidência e revisão", text: "Cada revisão do inventário deve gerar evidência (export/relatório) e registo do responsável." }
-            ]
-        },
-        {
-            id: "D2",
-            title: "Política de Backups v0.9",
-            kind: "policy",
-            fileUrl: "/mock/docs/politica-backups-v0-9.pdf", // cria/ajusta conforme teus ficheiros
-            chunks: [
-                { id: "D2-C1", label: "Frequência e retenção", text: "Backups devem seguir frequência definida e retenção mínima, conforme criticidade do sistema." },
-                { id: "D2-C2", label: "Testes de restore", text: "Devem ser realizados testes periódicos de restauração, com registo de evidências e resultados." }
-            ]
-        }
-    ];
-
-    // ====== Helpers DOM ======
+    // ─── Helpers DOM ─────────────────────────────────────────
     const $ = (sel) => document.querySelector(sel);
 
+    function escapeHtml(str) {
+        return (str || "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    // ─── Modal helpers ────────────────────────────────────────
     function openModal(id) {
         const m = document.getElementById(id);
         if (!m) return;
@@ -65,421 +31,336 @@
         document.body.style.overflow = "";
     }
 
+    // ─── Timestamp ───────────────────────────────────────────
     function nowLabel() {
-        return "agora";
+        return new Date().toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
     }
 
-    //===== Helpers RAG ======
-    function escapeHtml(str) {
-        return (str || "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-
-    // Extrai tabelas de blocos ```md``` e converte para markdown puro
+    // ─── Markdown rendering ───────────────────────────────────
     function unwrapTableCodeFences(md) {
-        return (md || "").replace(/```(?:md|markdown)\n([\s\S]*?)```/g, (match, inner) => {
-            const trimmed = inner.trim();
-            if (trimmed.startsWith("|")) {
-                return "\n\n" + trimmed + "\n\n";
-            }
-            return match;
+        return (md || "").replace(/```(?:md|markdown)\n([\s\S]*?)```/g, (_, inner) => {
+            const t = inner.trim();
+            return t.startsWith("|") ? "\n\n" + t + "\n\n" : _;
         });
     }
 
     function renderBotMarkdown(text) {
         if (!window.marked || typeof window.marked.parse !== "function") {
-            return `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text)}</pre>`;
+            return `<pre style="white-space:pre-wrap;margin:0">${escapeHtml(text)}</pre>`;
         }
-
         try {
-            // Extrai tabelas de blocos ```md```
-            const processed = unwrapTableCodeFences(text || "");
-            const html = window.marked.parse(processed);
-            if (window.DOMPurify) return window.DOMPurify.sanitize(html);
-            return html;
-        } catch (err) {
-            console.error("Markdown render error:", err);
-            return `<pre style="white-space:pre-wrap;margin:0;">${escapeHtml(text || "")}</pre>`;
+            const html = window.marked.parse(unwrapTableCodeFences(text || ""));
+            return window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+        } catch (e) {
+            console.error("Markdown render error:", e);
+            return `<pre style="white-space:pre-wrap;margin:0">${escapeHtml(text || "")}</pre>`;
         }
     }
 
-    // ====== RAG mock: escolhe fontes por keywords ======
-    function pickSources(question) {
-        const q = (question || "").toLowerCase();
-        const sources = [];
-
-        // heurística simples (mock)
-        const wantsRisk = q.includes("risco") || q.includes("ar-") || q.includes("análise");
-        const wantsInventory = q.includes("invent") || q.includes("ativo") || q.includes("ga-");
-        const wantsBackup = q.includes("backup") || q.includes("restore");
-        const wantsIncident = q.includes("incidente") || q.includes("notificar") || q.includes("cncs") || q.includes("nis2");
-
-        if (wantsInventory) {
-            sources.push({
-                docId: "F1",
-                chunkIds: ["F1-C1"]
-            });
-            sources.push({
-                docId: "D1",
-                chunkIds: ["D1-C1", "D1-C2"]
-            });
-        }
-
-        if (wantsRisk) {
-            sources.push({
-                docId: "F1",
-                chunkIds: ["F1-C2"]
-            });
-        }
-
-        if (wantsBackup) {
-            sources.push({
-                docId: "D2",
-                chunkIds: ["D2-C2"]
-            });
-            sources.push({
-                docId: "F1",
-                chunkIds: ["F1-C2"]
-            });
-        }
-
-        if (wantsIncident) {
-            sources.push({
-                docId: "F2",
-                chunkIds: ["F2-C1"]
-            });
-        }
-
-        // fallback: se nada bater, usa QNRCS geral
-        if (!sources.length) {
-            sources.push({ docId: "F1", chunkIds: ["F1-C2"] });
-        }
-
-        // merge por docId
-        const merged = new Map();
-        for (const s of sources) {
-            const prev = merged.get(s.docId) || new Set();
-            s.chunkIds.forEach(id => prev.add(id));
-            merged.set(s.docId, prev);
-        }
-
-        return Array.from(merged.entries()).map(([docId, chunkSet]) => ({
-            docId,
-            chunkIds: Array.from(chunkSet)
-        }));
-    }
-
-    function buildAnswer(question, sources) {
-        const q = (question || "").toLowerCase();
-
-        // texto mock baseado no tema
-        if (q.includes("id.ar-1") || q.includes("análise de risco")) {
-            return `Para cumprir o controlo relacionado com análise de risco (ex.: ID.AR-1), precisas de:
-• evidência de uma análise formal recente (relatório)
-• critérios de probabilidade × impacto e classificação
-• aprovação/validação (responsável/gestão)
-• plano de tratamento para gaps identificados (quando aplicável)
-
-Se quiseres, eu consigo gerar um “checklist” e ligar aos riscos/alertas atuais.`;
-        }
-
-        if (q.includes("invent") || q.includes("id.ga-1")) {
-            return `Para ID.GA-1 (Inventário de ativos), os pontos mais comuns que faltam são:
-• periodicidade definida (ex.: mensal)
-• dono/responsável por cada ativo
-• criticidade e localização
-• evidência de revisão (export/relatório + registo)
-
-Sugestão: cria o procedimento + evidência automática (export) e associa ao controlo.`;
-        }
-
-        if (q.includes("incidente") || q.includes("cncs") || q.includes("notificar")) {
-            return `Para incidentes relevantes (NIS2), o fluxo típico é:
-• identificar o incidente e impacto (serviço afetado, criticidade, evidências)
-• conter/mitigar (ações iniciais)
-• preparar o reporte com campos obrigatórios (timeline, indicadores, medidas adotadas)
-• registar auditoria (quem decidiu e quando)
-
-No mock, eu posso “pré-montar” um template de notificação a partir do alerta + ativo.`;
-        }
-
-        return `Com base nas evidências disponíveis, recomendo validar se existe documento formal e evidências recentes para suportar o requisito. Se não existir, cria uma nova versão do documento e associa aos controlos relevantes.`;
-    }
-
-    // ====== Render chat ======
-    function appendMessage({ who, text }) {
+    // ─── Chat thread rendering ────────────────────────────────
+    function appendMessage({ who, text, isLoading = false }) {
         const thread = $("#chatThread");
         if (!thread) return;
 
+        // Remove loading message if it exists and we're adding real content
+        if (!isLoading) {
+            const loading = thread.querySelector("[data-loading]");
+            if (loading) loading.remove();
+        }
+
         const wrap = document.createElement("div");
         wrap.className = `chat-msg ${who === "user" ? "user" : "bot"}`;
+        if (isLoading) wrap.dataset.loading = "1";
+
+        const avatar = document.createElement("div");
+        avatar.className = who === "user" ? "chat-avatar user-avatar" : "chat-avatar bot-avatar";
+
+        if (who === "user") {
+            avatar.textContent = "U";
+        } else {
+            avatar.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`;
+        }
+
+        const msgContent = document.createElement("div");
+        msgContent.className = "chat-msg-content";
 
         const meta = document.createElement("div");
-        meta.className = "chat-meta muted";
-        meta.innerHTML = `<b>${who === "user" ? "Utilizador" : "Sistema"}</b> • ${nowLabel()}`;
+        meta.className = "chat-meta";
+        meta.innerHTML = `${who === "user" ? "Utilizador" : "Sistema"} <span class="chat-time">${nowLabel()}</span>`;
 
         const bubble = document.createElement("div");
         bubble.className = "chat-bubble";
 
-        if (who === "user") {
-            // utilizador: texto puro
+        if (isLoading) {
+            bubble.innerHTML = `<span style="color:var(--c-text-muted);font-size:13px">A analisar evidências…</span>`;
+        } else if (who === "user") {
             bubble.textContent = text || "";
         } else {
-            // bot/sistema: markdown bonito
             bubble.innerHTML = renderBotMarkdown(text || "");
         }
 
-        wrap.appendChild(meta);
-        wrap.appendChild(bubble);
+        msgContent.appendChild(meta);
+        msgContent.appendChild(bubble);
+        wrap.appendChild(avatar);
+        wrap.appendChild(msgContent);
 
         thread.appendChild(wrap);
         thread.scrollTop = thread.scrollHeight;
+        return wrap;
     }
 
-    function escapeHtml(str) {
-        return (str || "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
+    // ─── Typing indicator ─────────────────────────────────────
+    function showTyping() {
+        const el = $("#typingIndicator");
+        if (el) el.style.display = "flex";
+        const thread = $("#chatThread");
+        if (thread) thread.scrollTop = thread.scrollHeight;
     }
 
-    // ====== Render sources panel ======
-    function renderSources(sources) {
-        const list = $("#sourcesList");
-        const empty = $("#sourcesEmpty");
-        const chip = $("#chatSourcesChip");
-
-        if (!list || !empty) return;
-
-        if (!sources || !sources.length) {
-            empty.style.display = "block";
-            list.style.display = "none";
-            chip && (chip.textContent = "0");
-            return;
-        }
-
-        chip && (chip.textContent = String(sources.length));
-        empty.style.display = "none";
-        list.style.display = "flex";
-        list.innerHTML = "";
-
-        sources.forEach((s) => {
-            const doc = DOCS.find(d => d.id === s.docId);
-            if (!doc) return;
-
-            const item = document.createElement("div");
-            item.className = "source-item";
-            item.dataset.docId = doc.id;
-            item.dataset.chunkIds = JSON.stringify(s.chunkIds);
-
-            const kindLabel =
-                doc.kind === "framework" ? "Norma oficial" :
-                    doc.kind === "policy" ? "Política" :
-                        doc.kind === "procedure" ? "Procedimento" : "Documento";
-
-            item.innerHTML = `
-        <div class="source-left">
-          <div class="source-title">${doc.title}</div>
-          <div class="source-sub">${kindLabel} • chunks: ${s.chunkIds.length}</div>
-        </div>
-        <div class="source-chips">
-          <span class="chip">${kindLabel}</span>
-          <span class="chip">Abrir</span>
-        </div>
-      `;
-
-            item.addEventListener("click", () => openSourceModal(doc.id, s.chunkIds));
-            list.appendChild(item);
-        });
+    function hideTyping() {
+        const el = $("#typingIndicator");
+        if (el) el.style.display = "none";
     }
 
-    function openSourceModalDynamic(doc) {
-        const pdf = $("#sourcePdf");
-        if (pdf) {
-            // importante: força refresh mesmo com mesmo URL
-            pdf.src = doc.fileUrl ? (doc.fileUrl + `#toolbar=1&navpanes=0`) : "";
-        }
-
-        const chunkList = $("#sourceChunksList");
-        const full = $("#chunkFullText");
-        if (chunkList) chunkList.innerHTML = "";
-
-        const usedChunks = (doc.chunks || []).filter(c => chunkIds.includes(c.id));
-        if (!usedChunks.length) {
-            chunkList.innerHTML = `<div class="muted">Sem chunks ligados (mock).</div>`;
-            full.textContent = "—";
-        } else {
-            usedChunks.forEach((c, idx) => {
-                const row = document.createElement("div");
-                row.className = "chunkrow" + (idx === 0 ? " active" : "");
-                row.innerHTML = `
-          <div style="font-weight:900">${c.label}</div>
-          <div class="muted" style="margin-top:4px">${c.text.slice(0, 120)}${c.text.length > 120 ? "…" : ""}</div>
-        `;
-                row.addEventListener("click", () => {
-                    chunkList.querySelectorAll(".chunkrow").forEach(x => x.classList.remove("active"));
-                    row.classList.add("active");
-                    full.textContent = c.text;
-                });
-                chunkList.appendChild(row);
-
-                if (idx === 0 && full) full.textContent = c.text;
-            });
-        }
-
-        openModal("sourceModal");
+    // ─── Source kind helpers ──────────────────────────────────
+    function kindFromTitle(title) {
+        const t = (title || "").toLowerCase();
+        if (t.includes("nis2") || t.includes("qnrcs") || t.includes("cncs") || t.includes("diretiva")) return "framework";
+        if (t.includes("política") || t.includes("politica") || t.includes("policy")) return "policy";
+        if (t.includes("procedimento") || t.includes("procedure")) return "procedure";
+        return "internal";
     }
 
-    // ====== Modal: PDF + chunks ======
-    function openSourceModal(docId, chunkIds) {
-        const doc = DOCS.find(d => d.id === docId);
-        if (!doc) return;
-
-        $("#sourceModalTitle").textContent = doc.title;
-
-        const pdf = $("#sourcePdf");
-        if (pdf) {
-            // importante: força refresh mesmo com mesmo URL
-            pdf.src = doc.fileUrl ? (doc.fileUrl + `#toolbar=1&navpanes=0`) : "";
-        }
-
-        const chunkList = $("#sourceChunksList");
-        const full = $("#chunkFullText");
-        if (chunkList) chunkList.innerHTML = "";
-
-        const usedChunks = (doc.chunks || []).filter(c => chunkIds.includes(c.id));
-        if (!usedChunks.length) {
-            chunkList.innerHTML = `<div class="muted">Sem chunks ligados (mock).</div>`;
-            full.textContent = "—";
-        } else {
-            usedChunks.forEach((c, idx) => {
-                const row = document.createElement("div");
-                row.className = "chunkrow" + (idx === 0 ? " active" : "");
-                row.innerHTML = `
-          <div style="font-weight:900">${c.label}</div>
-          <div class="muted" style="margin-top:4px">${c.text.slice(0, 120)}${c.text.length > 120 ? "…" : ""}</div>
-        `;
-                row.addEventListener("click", () => {
-                    chunkList.querySelectorAll(".chunkrow").forEach(x => x.classList.remove("active"));
-                    row.classList.add("active");
-                    full.textContent = c.text;
-                });
-                chunkList.appendChild(row);
-
-                if (idx === 0 && full) full.textContent = c.text;
-            });
-        }
-
-        openModal("sourceModal");
+    function kindLabel(kind) {
+        return { framework: "Norma oficial", policy: "Política", procedure: "Procedimento", internal: "Documento interno" }[kind] || "Documento";
     }
 
-    function openPdfModal(title, url) {
-        const modal = document.querySelector("#pdfModal");
-        const frame = document.querySelector("#pdfFrame");
-        const t = document.querySelector("#pdfTitle");
-        if (!modal || !frame) return;
-
-        if (t) t.textContent = title || "Documento";
-        frame.src = url;
-        modal.style.display = "block";
+    function kindInitials(kind) {
+        return { framework: "NRM", policy: "POL", procedure: "PROC", internal: "INT" }[kind] || "DOC";
     }
 
-    function closePdfModal() {
-        const modal = document.querySelector("#pdfModal");
-        const frame = document.querySelector("#pdfFrame");
-        if (frame) frame.src = "";
-        if (modal) modal.style.display = "none";
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        document.querySelector("#pdfClose")?.addEventListener("click", closePdfModal);
-        document.querySelector("#pdfModal")?.addEventListener("click", (e) => {
-            if (e.target?.id === "pdfModal") closePdfModal();
-        });
-    });
-
-    function pdfUrlForDocTitle(title) {
+    function pdfUrlForTitle(title) {
         const t = (title || "").toLowerCase();
         if (t.includes("nis2")) return "/mock/frameworks/NIS2.pdf";
         if (t.includes("qnrcs") || t.includes("cncs")) return "/mock/frameworks/cncs-qnrcs-2019.pdf";
         return null;
     }
 
-    function renderDocsPanelFromSources(sources) {
+    // ─── Sources panel rendering ──────────────────────────────
+    // sources: array from RagChatService (doc_title, doc_url, snippet, ref_label, score, etc.)
+    function renderSourcesPanel(sources) {
         const list = $("#sourcesList");
         const empty = $("#sourcesEmpty");
         const chip = $("#chatSourcesChip");
         if (!list || !empty) return;
 
-        // agrupa por doc_title (ou doc_id)
-        const map = new Map();
-        for (const s of (sources || [])) {
-            const docKey = s.doc_title || s.doc_id;
-            if (!docKey) continue;
-
-            if (!map.has(docKey)) {
-                map.set(docKey, {
-                    title: s.doc_title || s.doc_id || "Documento",
-                    fileUrl: s.doc_url || pdfUrlForDocTitle(s.doc_title),
-                    refs: new Set(),
-                });
-            }
-            // guardar refs bonitas
-            if (s.ref_label) map.get(docKey).refs.add(s.ref_label);
-            else if (s.chunk_index != null) map.get(docKey).refs.add(`chunk ${s.chunk_index}`);
-            else if (s.chunk_id) map.get(docKey).refs.add(s.chunk_id);
-        }
-
-        const docs = Array.from(map.values());
-
-        if (!docs.length) {
-            empty.style.display = "block";
+        if (!sources || !sources.length) {
+            empty.style.display = "flex";
             list.style.display = "none";
             chip && (chip.textContent = "0");
             return;
         }
+
+        // Group by doc_title so each document appears once
+        const docMap = new Map();
+        for (const s of sources) {
+            const key = s.doc_title || s.doc_id || "Documento";
+            if (!docMap.has(key)) {
+                docMap.set(key, {
+                    title: key,
+                    fileUrl: s.doc_url || pdfUrlForTitle(key),
+                    kind: kindFromTitle(key),
+                    chunks: [],
+                });
+            }
+            docMap.get(key).chunks.push(s);
+        }
+
+        const docs = Array.from(docMap.values());
 
         chip && (chip.textContent = String(docs.length));
         empty.style.display = "none";
         list.style.display = "flex";
         list.innerHTML = "";
 
-        docs.forEach((doc) => {
+        docs.forEach((doc, i) => {
+            const kind = doc.kind;
             const item = document.createElement("div");
             item.className = "source-item";
+            item.style.animationDelay = `${i * 50}ms`;
 
             item.innerHTML = `
-            <div class="source-left">
-                <div class="source-title">${escapeHtml(doc.title)}</div>
-                <div class="source-sub">Norma oficial • chunks: ${doc.refs.size}</div>
-            </div>
-            <div class="source-chips">
-                <span class="chip">Norma oficial</span>
-                <span class="chip">Abrir</span>
-            </div>
+                <div class="source-item-header">
+                    <div class="source-item-icon ${kind}">${kindInitials(kind)}</div>
+                    <div class="source-item-title">${escapeHtml(doc.title)}</div>
+                </div>
+                <div class="source-item-meta">
+                    <span class="source-kind-chip">${escapeHtml(kindLabel(kind))}</span>
+                    <span class="source-chunks-count">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        ${doc.chunks.length} trecho${doc.chunks.length !== 1 ? "s" : ""}
+                    </span>
+                    <span class="source-open-hint">
+                        Ver documento
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </span>
+                </div>
             `;
 
-            item.addEventListener("click", () => openSourceModalDynamic(doc));
+            item.addEventListener("click", () => openSourceModal(doc));
             list.appendChild(item);
         });
     }
-    // ====== Main send ======
+
+
+
+    // ─── Source modal: PDF + real chunks ─────────────────────
+    // doc: { title, fileUrl, chunks: [source objects from API] }
+    function openSourceModal(doc) {
+        // Title
+        const titleEl = $("#sourceModalTitle");
+        if (titleEl) titleEl.textContent = doc.title || "Documento";
+
+        // PDF viewer
+        const pdfFrame = $("#sourcePdf");
+        const pdfPlaceholder = $("#pdfPlaceholder");
+
+        if (pdfFrame && pdfPlaceholder) {
+            if (doc.fileUrl) {
+                // Abre já na página do primeiro chunk usando o helper com cache-bust
+                const firstPage = doc.chunks?.[0]?.page_number ?? null;
+                if (firstPage) {
+                    navigatePdfToPage(doc.fileUrl, firstPage);
+                } else {
+                    pdfFrame.style.display = "block";
+                    pdfPlaceholder.style.display = "none";
+                    const bust = Date.now();
+                    pdfFrame.src = `${doc.fileUrl}?t=${bust}#toolbar=1&navpanes=0&view=FitH`;
+                }
+            } else {
+                pdfFrame.style.display = "none";
+                pdfPlaceholder.style.display = "flex";
+                pdfFrame.src = "";
+            }
+        }
+
+        // Chunks list
+        const chunksList = $("#sourceChunksList");
+        const fullText = $("#chunkFullText");
+        const countBadge = $("#chunkCountBadge");
+
+        if (!chunksList) return;
+        chunksList.innerHTML = "";
+        if (countBadge) countBadge.textContent = String(doc.chunks.length);
+        if (fullText) fullText.textContent = doc.chunks.length ? "Seleciona um trecho acima." : "—";
+
+        if (!doc.chunks.length) {
+            chunksList.innerHTML = `<div style="font-size:13px;color:var(--c-text-muted);padding:12px">Sem trechos disponíveis.</div>`;
+        } else {
+            doc.chunks.forEach((chunk, idx) => {
+                const row = document.createElement("div");
+                row.className = "chunk-row" + (idx === 0 ? " active" : "");
+
+                // Build label: use ref_label, control_code, or chunk_index
+                const label = chunk.ref_label || chunk.ref
+                    || (chunk.control_code ? `${chunk.control_family || ""} ${chunk.control_code}`.trim() : null)
+                    || (chunk.article_code ? chunk.article_code : null)
+                    || `Trecho ${idx + 1}`;
+
+                const snippet = chunk.snippet || "";
+                const score = chunk.score != null ? (parseFloat(chunk.score) * 100).toFixed(1) : null;
+                const page = chunk.page_number ?? null;
+
+                row.innerHTML = `
+                    <div class="chunk-row-header">
+                        <div class="chunk-number">${idx + 1}</div>
+                        <div class="chunk-label">${escapeHtml(label)}</div>
+                        ${page ? `<div class="chunk-page-badge">p. ${page}</div>` : ""}
+                    </div>
+                    <div class="chunk-snippet">${escapeHtml(snippet)}</div>
+                    <div class="chunk-row-footer">
+                        ${score ? `<span class="chunk-score">relevância ${score}%</span>` : ""}
+                        ${page ? `<span class="chunk-page-hint"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Vai para pág. ${page}</span>` : ""}
+                    </div>
+                `;
+
+                row.addEventListener("click", () => {
+                    chunksList.querySelectorAll(".chunk-row").forEach(r => r.classList.remove("active"));
+                    row.classList.add("active");
+
+                    if (fullText) {
+                        fullText.textContent = chunk.snippet || chunk.ref_label || label || "—";
+                    }
+
+                    // ── Navegar o PDF para a página do chunk ──
+                    if (page && doc.fileUrl) {
+                        navigatePdfToPage(doc.fileUrl, page);
+                    }
+                });
+
+                chunksList.appendChild(row);
+
+                // Auto-select first chunk
+                if (idx === 0 && fullText) {
+                    fullText.textContent = chunk.snippet || chunk.ref_label || label || "—";
+                }
+            });
+        }
+
+        openModal("sourceModal");
+    }
+
+    // ─── PDF navigation (reliable cross-page) ───────────────────
+    // Os browsers ignoram mudanças só no fragment (#page=N) se o path base
+    // for o mesmo. A solução é adicionar ?t=timestamp para forçar novo load.
+    // O timestamp é removido pelo servidor (query string ignorada em ficheiros estáticos).
+    function navigatePdfToPage(fileUrl, page) {
+        const pdfFrame = $("#sourcePdf");
+        const pdfPlaceholder = $("#pdfPlaceholder");
+        if (!pdfFrame) return;
+
+        pdfFrame.style.display = "block";
+        if (pdfPlaceholder) pdfPlaceholder.style.display = "none";
+
+        // cache-buster no query string + fragment com página
+        const bust = Date.now();
+        pdfFrame.src = `${fileUrl}?t=${bust}#page=${page}&toolbar=1&navpanes=0&view=FitH`;
+    }
+
+    // ─── Status badge ─────────────────────────────────────────
+    function setAuditStatus(ok) {
+        const chip = $("#chatAuditChip");
+        const badge = $("#auditBadge");
+        if (chip) chip.textContent = ok ? "OK" : "ERRO";
+        if (badge) {
+            const dot = badge.querySelector(".status-dot");
+            if (dot) {
+                dot.classList.toggle("green", ok);
+                dot.classList.toggle("red", !ok);
+            }
+        }
+    }
+
+    // ─── Textarea auto-resize ─────────────────────────────────
+    function autoResize(textarea) {
+        textarea.style.height = "auto";
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+    }
+
+    // ─── Send handler ─────────────────────────────────────────
     async function handleSend() {
         const input = $("#chatInput");
+        const sendBtn = $("#chatSend");
         const q = (input?.value || "").trim();
         if (!q) return;
 
-        appendMessage({ who: "user", text: q });
-        input.value = "";
+        // Disable input while loading
+        if (input) input.value = "";
+        if (input) { input.style.height = "auto"; }
+        if (sendBtn) sendBtn.disabled = true;
 
-        // (opcional) loading message
-        appendMessage({ who: "bot", text: "A analisar evidências..." });
+        appendMessage({ who: "user", text: q });
+        showTyping();
 
         try {
             const res = await fetch("/chat/ask", {
@@ -488,53 +369,57 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
                 },
                 body: JSON.stringify({ question: q }),
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data?.message || "Erro no chat");
+            if (!res.ok) throw new Error(data?.message || "Erro no servidor");
+
+            hideTyping();
+
+            // Store globally for debugging
             window.__RAG_SOURCES__ = data.sources || [];
-            // Pega as fontes e renderiza o PDF
-            renderDocsPanelFromSources(data.sources || []);
-            // remove a msg "A analisar..." (simples: re-render/ajusta como preferir)
-            // MVP: só adiciona resposta final
+
+            // Render sources panel with real API data
+            renderSourcesPanel(data.sources || []);
+
+            // Append bot answer
             appendMessage({ who: "bot", text: data.answer || "Sem resposta." });
 
+            setAuditStatus(true);
 
-            $("#chatAuditChip") && ($("#chatAuditChip").textContent = "OK");
         } catch (e) {
+            hideTyping();
             console.error("CHAT ERROR:", e);
-            appendMessage({ who: "bot", text: "Erro ao obter resposta. Verifica configuração do Gemini/Pinecone." });
-            $("#chatAuditChip") && ($("#chatAuditChip").textContent = "ERRO");
+            appendMessage({ who: "bot", text: `Erro ao obter resposta: ${e.message || "Verifica configuração do Gemini/Pinecone."}` });
+            setAuditStatus(false);
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+            input?.focus();
         }
     }
 
-    // transforma sources (lista) em [{docId, chunkIds}] como teu renderSources espera
-    function groupSourcesForPanel(sources) {
-        const map = new Map();
-        for (const s of sources) {
-            if (!s.doc_id) continue;
-            const chunkId = s.chunk_id;
-            const prev = map.get(s.doc_id) || new Set();
-            if (chunkId) prev.add(chunkId);
-            map.set(s.doc_id, prev);
-        }
-        return Array.from(map.entries()).map(([docId, set]) => ({
-            docId,
-            chunkIds: Array.from(set),
-        }));
-    }
-
+    // ─── DOMContentLoaded ─────────────────────────────────────
     document.addEventListener("DOMContentLoaded", () => {
-        $("#chatSend")?.addEventListener("click", handleSend);
-        $("#chatInput")?.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") handleSend();
+        const input = $("#chatInput");
+        const sendBtn = $("#chatSend");
+
+        sendBtn?.addEventListener("click", handleSend);
+
+        input?.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
         });
 
-        $("#btnClearSources")?.addEventListener("click", () => renderSources([]));
+        input?.addEventListener("input", () => autoResize(input));
 
+        $("#btnClearSources")?.addEventListener("click", () => renderSourcesPanel([]));
+
+        // Modal close
         $("#sourceModalClose")?.addEventListener("click", () => closeModal("sourceModal"));
         $("#sourceModal")?.addEventListener("click", (e) => {
             if (e.target?.id === "sourceModal") closeModal("sourceModal");
@@ -542,27 +427,21 @@ No mock, eu posso “pré-montar” um template de notificação a partir do ale
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") closeModal("sourceModal");
         });
-
-        // seed: mostrar uma fonte de exemplo logo ao abrir a página
-        renderSources([
-            { docId: "F1", chunkIds: ["F1-C2"] } // QNRCS (cncs-qnrcs-2019.pdf)
-        ]);
-
     });
+
 })();
 
-// Injected: marked table renderer setup (runs after marked CDN loads)
+// ─── Marked: custom table renderer ───────────────────────────
 (function setupMarked() {
     function _setup() {
         if (!window.marked) return;
 
         const renderer = new window.marked.Renderer();
 
-        renderer.table = function(tokenOrHeader, body) {
+        renderer.table = function (tokenOrHeader, body) {
             let headerHtml, bodyHtml;
 
             if (tokenOrHeader && typeof tokenOrHeader === "object" && tokenOrHeader.header) {
-                // marked v5+
                 const token = tokenOrHeader;
                 const headerRow = token.header.map(cell => {
                     const txt = (cell.tokens || []).map(t => t.raw || t.text || "").join("") || cell.text || "";

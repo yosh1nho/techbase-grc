@@ -51,6 +51,9 @@ class RagChatService
         $chunkIndex = $get('chunk_index');
         $chunkIndex = is_numeric($chunkIndex) ? (int)$chunkIndex : null;
 
+        $pageNumber = $get('page_number');
+        $pageNumber = is_numeric($pageNumber) ? (int)$pageNumber : null;
+
         $docTitle = $docName;
 
 
@@ -92,6 +95,7 @@ class RagChatService
             'article_code' => $articleCode ?: null,
             'chapter' => $chapter ?: null,
             'chunk_index' => $chunkIndex,
+            'page_number' => $pageNumber,
 
             // mantém interno para debug/modal se precisar
             'chunk_id' => $chunkId ?: null,

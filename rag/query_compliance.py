@@ -70,6 +70,7 @@ def main():
             "doc_id",
             "doc_name",
             "version",
+            "page_number",
             "chunk_index",
             "source_file",
             "section_type",
@@ -202,6 +203,7 @@ def main():
                 "control_family": it.get("control_family"),
                 "article_num": it.get("article_num"),
                 "doc_name": it.get("doc_name"),
+                "page_number": it.get("page_number"),
                 "source_file": it.get("source_file"),
                 "chunk_index": it.get("chunk_index"),
             }
