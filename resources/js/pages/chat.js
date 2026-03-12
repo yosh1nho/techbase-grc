@@ -212,7 +212,51 @@
         });
     }
 
+    function highlightChunkInPdf(frame, text) {
 
+        if (!frame || !text) return;
+
+        const needle = text
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 120)
+            .toLowerCase();
+
+        const tryHighlight = () => {
+
+            const doc = frame.contentDocument || frame.contentWindow?.document;
+            if (!doc) return;
+
+            const spans = doc.querySelectorAll(".textLayer span");
+            if (!spans.length) return;
+
+            spans.forEach(span => {
+
+                const txt = span.textContent
+                    ?.replace(/\s+/g, " ")
+                    .toLowerCase();
+
+                if (!txt) return;
+
+                if (needle.includes(txt) || txt.includes(needle.slice(0, 40))) {
+
+                    span.style.background = "rgba(255,230,0,0.6)";
+                    span.style.borderRadius = "3px";
+                    span.style.padding = "1px 2px";
+
+                    span.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+                }
+
+            });
+
+        };
+
+        // PDF.js precisa de tempo para renderizar textLayer
+        setTimeout(tryHighlight, 900);
+    }
 
     // ─── Source modal: PDF + real chunks ─────────────────────
     // doc: { title, fileUrl, chunks: [source objects from API] }
@@ -294,7 +338,7 @@
 
                     // ── Navegar o PDF para a página do chunk ──
                     if (page && doc.fileUrl) {
-                        navigatePdfToPage(doc.fileUrl, page);
+                        navigatePdfToPage(doc.fileUrl, page, chunk.snippet);
                     }
                 });
 
@@ -314,7 +358,8 @@
     // Os browsers ignoram mudanças só no fragment (#page=N) se o path base
     // for o mesmo. A solução é adicionar ?t=timestamp para forçar novo load.
     // O timestamp é removido pelo servidor (query string ignorada em ficheiros estáticos).
-    function navigatePdfToPage(fileUrl, page) {
+    function navigatePdfToPage(fileUrl, page, chunkText) {
+
         const pdfFrame = $("#sourcePdf");
         const pdfPlaceholder = $("#pdfPlaceholder");
         if (!pdfFrame) return;
@@ -322,8 +367,12 @@
         pdfFrame.style.display = "block";
         if (pdfPlaceholder) pdfPlaceholder.style.display = "none";
 
-        // cache-buster no query string + fragment com página
         const bust = Date.now();
+
+        pdfFrame.onload = () => {
+            highlightChunkInPdf(pdfFrame, chunkText);
+        };
+
         pdfFrame.src = `${fileUrl}?t=${bust}#page=${page}&toolbar=1&navpanes=0&view=FitH`;
     }
 

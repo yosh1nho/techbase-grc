@@ -556,7 +556,7 @@ function buildCNCS24hDraftHtml(alert, ai) {
     field("cncs_iocs", "IoCs (indicadores de compromisso)", "textarea", "ex.: IPs, hashes, domínios", ioc.join("\n")) +
     field("cncs_notes", "Observações", "textarea", "", "Origem: Acronis (mock). Evidências a anexar via módulo Documentos.")
   )}
-    ${section("Decl.", "Declaração",
+    ${section("8", "Declaração",
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">` +
     field("cncs_decl_name", "Nome do declarante", "input", "Nome completo") +
     field("cncs_decl_role", "Cargo", "input", "ex.: CISO / DPO") +

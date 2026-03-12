@@ -171,81 +171,146 @@
         </div>
       </div>
 
-      {{-- Corpo 2 colunas --}}
-      <div class="treat-modal-body">
+      {{-- Tab nav --}}
+      <div class="treat-tab-nav">
+        <button class="treat-tab-btn active" data-tab="details" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Detalhes
+        </button>
+        <button class="treat-tab-btn" data-tab="tasks" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Tarefas
+          <span class="treat-tab-count" id="td_task_count">0</span>
+        </button>
+      </div>
 
-        {{-- Col esquerda: IA + descrição + evidência --}}
-        <div class="treat-modal-col">
+      {{-- ── TAB: DETALHES ── --}}
+      <div class="treat-tab-panel" id="tabPanel_details">
+        <div class="treat-modal-body">
 
-          <div class="treat-ai-box">
-            <div class="treat-ai-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Ações sugeridas pela IA
+          {{-- Col esquerda: IA + descrição + evidência --}}
+          <div class="treat-modal-col">
+
+            <div class="treat-ai-box">
+              <div class="treat-ai-header">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Ações sugeridas pela IA
+              </div>
+              <div id="td_ai_actions" class="treat-ai-steps"></div>
             </div>
-            <div id="td_ai_actions" class="treat-ai-steps"></div>
+
+            <div class="field" style="margin-top:14px">
+              <label>Descrição do plano <span class="muted" style="font-weight:400">(o que será feito)</span></label>
+              <textarea id="td_desc" rows="4"></textarea>
+            </div>
+
+            <div class="field" style="margin-top:10px">
+              <label>
+                Evidência <span style="font-size:10px;font-weight:700;color:#60a5fa;letter-spacing:.05em">RF11</span>
+                <span class="muted" style="font-weight:400;font-size:11px"> — link, nota ou ref. a documento</span>
+              </label>
+              <input id="td_evidence" placeholder="ex.: Relatório EDR v2, link SharePoint..." />
+            </div>
           </div>
 
-          <div class="field" style="margin-top:14px">
-            <label>Descrição do plano <span class="muted" style="font-weight:400">(o que será feito)</span></label>
-            <textarea id="td_desc" rows="4"></textarea>
-          </div>
+          {{-- Col direita: campos editáveis --}}
+          <div class="treat-modal-col">
 
-          <div class="field" style="margin-top:10px">
-            <label>
-              Evidência <span style="font-size:10px;font-weight:700;color:#60a5fa;letter-spacing:.05em">RF11</span>
-              <span class="muted" style="font-weight:400;font-size:11px"> — link, nota ou ref. a documento</span>
-            </label>
-            <input id="td_evidence" placeholder="ex.: Relatório EDR v2, link SharePoint..." />
+            <div class="field">
+              <label>Responsável (owner)</label>
+              <input id="td_owner" placeholder="ex.: IT Ops, SecOps, Network..." />
+            </div>
+
+            <div class="field">
+              <label>Prazo</label>
+              <input id="td_due" type="date" />
+            </div>
+
+            {{-- Indicador de deadline --}}
+            <div id="td_deadline_box" class="treat-deadline-box" style="display:none">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="td_deadline_msg"></span>
+            </div>
+
+            <div class="field">
+              <label>Prioridade</label>
+              <select id="td_priority">
+                <option>Alta</option>
+                <option>Média</option>
+                <option>Baixa</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Estado</label>
+              <select id="td_status">
+                <option>To do</option>
+                <option>Em curso</option>
+                <option>Concluído</option>
+                <option>Em atraso</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Estratégia de tratamento</label>
+              <select id="td_strategy">
+                <option>Mitigar</option>
+                <option>Aceitar</option>
+                <option>Transferir</option>
+                <option>Evitar</option>
+              </select>
+            </div>
           </div>
         </div>
+      </div>
 
-        {{-- Col direita: campos editáveis --}}
-        <div class="treat-modal-col">
+      {{-- ── TAB: TAREFAS ── --}}
+      <div class="treat-tab-panel is-hidden" id="tabPanel_tasks">
+        <div class="tasks-panel">
 
-          <div class="field">
-            <label>Responsável (owner)</label>
-            <input id="td_owner" placeholder="ex.: IT Ops, SecOps, Network..." />
+          {{-- Barra de progresso das tasks --}}
+          <div class="tasks-progress-bar-wrap" id="td_tasks_progress_wrap">
+            <div class="tasks-progress-label">
+              <span class="muted" style="font-size:11px">Progresso das tarefas</span>
+              <span style="font-size:11px;font-weight:700" id="td_tasks_pct">0%</span>
+            </div>
+            <div class="tasks-progress-track">
+              <div class="tasks-progress-fill" id="td_tasks_progress_fill" style="width:0%"></div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Prazo</label>
-            <input id="td_due" type="date" />
+          {{-- Botão nova task --}}
+          <div style="display:flex;justify-content:flex-end;padding:0 20px 12px">
+            <button class="btn primary small" id="td_btn_new_task" type="button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nova tarefa
+            </button>
           </div>
 
-          {{-- Indicador de deadline --}}
-          <div id="td_deadline_box" class="treat-deadline-box" style="display:none">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span id="td_deadline_msg"></span>
+          {{-- Formulário inline nova task (hidden por defeito) --}}
+          <div id="td_new_task_form" class="task-inline-form is-hidden">
+            <div class="task-inline-form-inner">
+              <input id="tf_title" placeholder="Título da tarefa..." class="task-form-input" />
+              <textarea id="tf_desc" rows="2" placeholder="Descrição (opcional)..." class="task-form-textarea"></textarea>
+              <div class="task-form-row">
+                <input id="tf_due" type="date" class="task-form-field" />
+                <input id="tf_assigned" placeholder="Designado..." class="task-form-field" />
+                <select id="tf_status" class="task-form-field">
+                  <option value="To do">To do</option>
+                  <option value="Em curso">Em curso</option>
+                  <option value="Concluído">Concluído</option>
+                </select>
+              </div>
+              <div class="task-form-actions">
+                <button type="button" class="btn small" id="tf_cancel">Cancelar</button>
+                <button type="button" class="btn primary small" id="tf_save">Criar tarefa</button>
+              </div>
+            </div>
           </div>
 
-          <div class="field">
-            <label>Prioridade</label>
-            <select id="td_priority">
-              <option>Alta</option>
-              <option>Média</option>
-              <option>Baixa</option>
-            </select>
-          </div>
+          {{-- Lista de tasks --}}
+          <div id="td_tasks_list" class="tasks-list"></div>
 
-          <div class="field">
-            <label>Estado</label>
-            <select id="td_status">
-              <option>To do</option>
-              <option>Em curso</option>
-              <option>Concluído</option>
-              <option>Em atraso</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label>Estratégia de tratamento</label>
-            <select id="td_strategy">
-              <option>Mitigar</option>
-              <option>Aceitar</option>
-              <option>Transferir</option>
-              <option>Evitar</option>
-            </select>
-          </div>
         </div>
       </div>
 
@@ -260,149 +325,129 @@
     </div>
   </div>
 
-  <style>
-    /* ── KPI Strip ── */
-    .treat-kpi-strip {
-      display:flex; gap:0; align-items:stretch;
-      background:var(--card-bg); border:1px solid var(--border);
-      border-radius:16px; overflow:hidden;
-    }
-    .treat-kpi {
-      flex:1; padding:18px 16px; text-align:center;
-      border-right:1px solid var(--border);
-    }
-    .treat-kpi:last-child { border-right:none; }
-    .treat-kpi-num   { font-size:30px; font-weight:900; line-height:1; }
-    .treat-kpi-label { font-size:11px; color:var(--muted); margin-top:4px; }
-    .treat-kpi-overdue .treat-kpi-num { color:#f87171; }
-    .treat-kpi-doing   .treat-kpi-num { color:#60a5fa; }
-    .treat-kpi-done    .treat-kpi-num { color:#34d399; }
-    .treat-kpi-progress {
-      flex:2.5; padding:16px 20px;
-      display:flex; flex-direction:column; justify-content:center; gap:7px;
-      border-left:1px solid var(--border);
-    }
-    .treat-kpi-progress-label { display:flex; justify-content:space-between; }
-    .treat-progress-bar {
-      display:flex; height:8px; border-radius:99px; overflow:hidden; gap:2px;
-    }
-    .treat-prog-seg { border-radius:99px; transition:width .5s; min-width:0; }
+  {{-- ══ MODAL DE TAREFA (detalhe + comentários) ══ --}}
+  <div id="taskDetailModal" class="modal-overlay is-hidden" aria-hidden="true">
+    <div class="modal-card task-detail-modal" role="dialog" aria-modal="true">
 
-    /* ── Coluna dot ── */
-    .treat-col-dot {
-      width:9px; height:9px; border-radius:50%;
-      display:inline-block; flex-shrink:0;
-    }
+      {{-- Header --}}
+      <div class="task-modal-header">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <button id="tkm_back" class="btn small task-back-btn" type="button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Voltar ao plano
+            </button>
+            <span class="treat-modal-eyebrow" style="margin-bottom:0" id="tkm_plan_ref">—</span>
+          </div>
+          <div class="task-modal-title" id="tkm_title">—</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+          <select id="tkm_status" class="task-status-select">
+            <option value="To do">To do</option>
+            <option value="Em curso">Em curso</option>
+            <option value="Concluído">Concluído</option>
+          </select>
+          <button id="tkm_close" class="btn" type="button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
 
-    /* ── Kanban card melhorado ── */
-    .kcard { position:relative; overflow:hidden; }
-    .kcard-urgency-bar {
-      position:absolute; left:0; top:0; bottom:0;
-      width:3px;
-    }
-    .kcard-due-badge {
-      font-size:10px; font-weight:700; padding:2px 8px;
-      border-radius:99px; display:inline-flex; align-items:center; gap:4px;
-    }
-    .kcard-due-overdue { background:rgba(248,113,113,.12); color:#f87171; }
-    .kcard-due-soon    { background:rgba(251,191,36,.1);   color:#fbbf24; }
-    .kcard-due-ok      { background:rgba(52,211,153,.08);  color:#34d399; }
-    .kcard-owner {
-      display:inline-flex; align-items:center; gap:5px;
-      font-size:11px; color:var(--muted);
-    }
-    .kcard-owner-avatar {
-      width:18px; height:18px; border-radius:50%;
-      background:var(--border); display:flex; align-items:center;
-      justify-content:center; font-size:9px; font-weight:800; flex-shrink:0;
-    }
+      {{-- Body 2 col --}}
+      <div class="task-modal-body">
 
-    /* ── Modal ── */
-    .treat-detail-modal {
-      padding:0; display:flex; flex-direction:column;
-      max-width:880px; width:100%; max-height:90vh;
-    }
-    .treat-modal-header {
-      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
-      padding:20px 24px 16px; border-bottom:1px solid var(--modal-border);
-    }
-    .treat-modal-eyebrow {
-      font-size:10px; font-weight:700; letter-spacing:.08em;
-      text-transform:uppercase; color:var(--muted); margin-bottom:4px;
-    }
-    .treat-modal-title { font-size:20px; font-weight:800; }
+        {{-- Col esquerda: meta + comentários --}}
+        <div class="task-modal-main">
 
-    .treat-status-badge {
-      font-size:11px; font-weight:700; padding:4px 12px;
-      border-radius:99px; letter-spacing:.04em;
-    }
-    .tsb-todo    { background:rgba(148,163,184,.12); color:#94a3b8; }
-    .tsb-doing   { background:rgba(96,165,250,.12);  color:#60a5fa; }
-    .tsb-done    { background:rgba(52,211,153,.1);   color:#34d399; }
-    .tsb-overdue { background:rgba(248,113,113,.12); color:#f87171; }
+          {{-- Meta strip --}}
+          <div class="task-meta-strip">
+            <div class="task-meta-item">
+              <span class="task-meta-label">Designado</span>
+              <span class="task-meta-val" id="tkm_assigned">—</span>
+            </div>
+            <div class="task-meta-item">
+              <span class="task-meta-label">Prazo</span>
+              <span class="task-meta-val" id="tkm_due">—</span>
+            </div>
+            <div class="task-meta-item">
+              <span class="task-meta-label">Criada</span>
+              <span class="task-meta-val" id="tkm_created">—</span>
+            </div>
+          </div>
 
-    .treat-context-strip {
-      display:flex; border-bottom:1px solid var(--modal-border);
-    }
-    .treat-ctx-item {
-      flex:1; padding:11px 20px;
-      border-right:1px solid var(--modal-border);
-    }
-    .treat-ctx-item:last-child { border-right:none; }
-    .treat-ctx-label {
-      font-size:9px; font-weight:700; letter-spacing:.07em;
-      text-transform:uppercase; color:var(--muted); margin-bottom:3px;
-    }
-    .treat-ctx-val { font-size:12px; font-weight:600; }
+          {{-- Descrição --}}
+          <div id="tkm_desc_wrap" class="task-desc-wrap">
+            <div class="task-section-label">Descrição</div>
+            <div id="tkm_desc" class="task-desc-text">—</div>
+          </div>
 
-    .treat-modal-body {
-      display:grid; grid-template-columns:1fr 1fr;
-      overflow-y:auto; flex:1;
-    }
-    .treat-modal-col { padding:20px 24px; }
-    .treat-modal-col:first-child { border-right:1px solid var(--modal-border); }
+          {{-- Thread de comentários --}}
+          <div class="task-section-label" style="padding:0 20px;margin-bottom:8px">
+            Comentários
+            <span class="treat-tab-count" id="tkm_comment_count">0</span>
+          </div>
 
-    .treat-ai-box {
-      background:rgba(96,165,250,.05);
-      border:1px solid rgba(96,165,250,.18);
-      border-radius:12px; padding:12px 14px;
-    }
-    .treat-ai-header {
-      display:flex; align-items:center; gap:6px;
-      font-size:10px; font-weight:700; letter-spacing:.07em;
-      text-transform:uppercase; color:#60a5fa; margin-bottom:10px;
-    }
-    .treat-ai-steps { display:flex; flex-direction:column; gap:8px; }
-    .treat-ai-step  { display:flex; align-items:flex-start; gap:9px; font-size:13px; line-height:1.45; }
-    .treat-ai-step-num {
-      flex-shrink:0; width:19px; height:19px; border-radius:50%;
-      background:rgba(96,165,250,.15); color:#60a5fa;
-      font-size:10px; font-weight:800;
-      display:flex; align-items:center; justify-content:center; margin-top:1px;
-    }
+          <div id="tkm_comments_list" class="task-comments-list"></div>
 
-    .treat-deadline-box {
-      display:flex; align-items:center; gap:7px;
-      padding:8px 12px; border-radius:10px;
-      font-size:12px; font-weight:600; margin-bottom:10px;
-    }
-    .treat-deadline-box.overdue { background:rgba(248,113,113,.09); color:#f87171; border:1px solid rgba(248,113,113,.2); }
-    .treat-deadline-box.soon    { background:rgba(251,191,36,.07);  color:#fbbf24; border:1px solid rgba(251,191,36,.2); }
-    .treat-deadline-box.ok      { background:rgba(52,211,153,.06);  color:#34d399; border:1px solid rgba(52,211,153,.18); }
+          {{-- Composer --}}
+          <div class="task-composer">
+            <div class="task-composer-avatar" id="tkm_composer_avatar">U</div>
+            <div class="task-composer-right">
+              <textarea id="tkm_comment_input" rows="2" placeholder="Adicionar um comentário ou update..."></textarea>
 
-    .treat-modal-footer {
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:14px 24px; border-top:1px solid var(--modal-border);
-    }
+              {{-- Anexo preview --}}
+              <div id="tkm_attach_preview" class="task-attach-preview is-hidden"></div>
 
-    @media (max-width:680px) {
-      .treat-modal-body { grid-template-columns:1fr; }
-      .treat-modal-col:first-child { border-right:none; border-bottom:1px solid var(--modal-border); }
-      .treat-kpi-strip { flex-wrap:wrap; }
-      .treat-context-strip { flex-wrap:wrap; }
-    }
-  </style>
+              <div class="task-composer-actions">
+                <label class="btn small task-attach-btn" title="Anexar ficheiro">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Anexar
+                  <input type="file" id="tkm_file_input" multiple style="display:none" />
+                </label>
+                <button type="button" class="btn primary small" id="tkm_send_comment">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Enviar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        {{-- Col direita: editar meta --}}
+        <div class="task-modal-sidebar">
+          <div class="task-sidebar-label">Editar tarefa</div>
+
+          <div class="field">
+            <label>Título</label>
+            <input id="tkm_edit_title" />
+          </div>
+          <div class="field">
+            <label>Descrição</label>
+            <textarea id="tkm_edit_desc" rows="3"></textarea>
+          </div>
+          <div class="field">
+            <label>Designado</label>
+            <input id="tkm_edit_assigned" placeholder="ex.: IT Ops..." />
+          </div>
+          <div class="field">
+            <label>Prazo</label>
+            <input id="tkm_edit_due" type="date" />
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button type="button" class="btn primary small" id="tkm_save_meta" style="flex:1">Guardar</button>
+            <button type="button" class="btn small tkm-delete-btn" id="tkm_delete_task" title="Eliminar tarefa">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Toast de confirmação --}}
+  <div id="treat_toast" class="treat-toast is-hidden"></div>
+@vite(['resources/css/pages/treatment_tasks.css'])
 @endsection
 @push('scripts')
   @vite(['resources/js/pages/treatment.js'])

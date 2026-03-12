@@ -75,11 +75,11 @@ class RagChatService
             $ref = 'Trecho';
         }
 
-        // ✅ label humano completo (o que aparece na resposta)
+        //label humano completo (o que aparece na resposta)
         $refLabel = trim($docTitle . ' — ' . $ref . ($chunkIndex !== null ? " — chunk {$chunkIndex}" : ''));
 
         // usa refLabel no contexto (para o Gemini citar bonito)
-        $contextBlocks[] = "[Fonte: {$refLabel}]\n" . $text;
+        $contextBlocks[] = "[{$refLabel}]\n" . $text;
 
         // retorna sources com refLabel (sem mostrar UUID na UI)
         $sources[] = [
@@ -128,7 +128,10 @@ Regras:
 - Responda em PT-PT, direto e prático.
 - Use APENAS o contexto fornecido como base factual.
 - Se o contexto não suportar, diga claramente o que falta e que evidência/documento seria necessário.
-- Cite fontes no formato [Fonte: ...] quando fizer afirmações.
+- NÃO coloque fontes dentro das frases ou bullets.
+- Liste todas as fontes apenas na secção final "Fontes usadas".
+- NUNCA repita fontes dentro de cada bullet.
+- Cada bullet deve conter apenas a ação ou requisito.
 
 Estrutura da resposta:
 1. Resumo (2-3 linhas).
