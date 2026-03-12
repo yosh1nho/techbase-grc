@@ -547,47 +547,69 @@ function renderTasksTab(planId) {
     });
 }
 
-// ── New Task Form ─────────────────────────────────────────────────────────────
-function wireNewTaskForm() {
-    document.getElementById("td_btn_new_task")?.addEventListener("click", () => {
-        const form = document.getElementById("td_new_task_form");
-        form?.classList.toggle("is-hidden");
-        if (!form?.classList.contains("is-hidden")) {
-            document.getElementById("tf_title")?.focus();
-        }
-    });
+// ── New Task Modal ────────────────────────────────────────────────────────────
+function openNewTaskModal() {
+    // Set plan label
+    const plans = loadPlans();
+    const plan  = plans.find(p => p.id === currentId);
+    const label = document.getElementById("ntm_plan_label");
+    if (label) label.textContent = plan ? plan.id : currentId;
 
-    document.getElementById("tf_cancel")?.addEventListener("click", () => {
-        document.getElementById("td_new_task_form")?.classList.add("is-hidden");
-        clearTaskForm();
+    clearTaskForm();
+    openModal("newTaskModal");
+    setTimeout(() => document.getElementById("tf_title")?.focus(), 80);
+}
+
+function closeNewTaskModal() {
+    closeModal("newTaskModal");
+    clearTaskForm();
+}
+
+function wireNewTaskForm() {
+    document.getElementById("td_btn_new_task")?.addEventListener("click", openNewTaskModal);
+
+    document.getElementById("ntm_close")?.addEventListener("click", closeNewTaskModal);
+    document.getElementById("tf_cancel")?.addEventListener("click", closeNewTaskModal);
+
+    // Click outside closes
+    document.getElementById("newTaskModal")?.addEventListener("click", (e) => {
+        if (e.target.id === "newTaskModal") closeNewTaskModal();
     });
 
     document.getElementById("tf_save")?.addEventListener("click", () => {
         const title = document.getElementById("tf_title")?.value.trim();
         if (!title) {
             document.getElementById("tf_title")?.focus();
+            document.getElementById("tf_title")?.classList.add("input-error");
+            setTimeout(() => document.getElementById("tf_title")?.classList.remove("input-error"), 1200);
             return;
         }
         const task = {
-            id:         `TK-${Date.now()}`,
-            planId:     currentId,
+            id:          `TK-${Date.now()}`,
+            planId:      currentId,
             title,
             description: document.getElementById("tf_desc")?.value.trim() || "",
-            status:     document.getElementById("tf_status")?.value || "To do",
-            assignedTo: document.getElementById("tf_assigned")?.value.trim() || "",
-            due:        document.getElementById("tf_due")?.value || "",
-            createdAt:  new Date().toISOString(),
+            status:      document.getElementById("tf_status")?.value || "To do",
+            assignedTo:  document.getElementById("tf_assigned")?.value.trim() || "",
+            due:         document.getElementById("tf_due")?.value || "",
+            createdAt:   new Date().toISOString(),
         };
 
         const tasks = loadTasksForPlan(currentId);
         tasks.push(task);
         saveTasksForPlan(currentId, tasks);
 
-        document.getElementById("td_new_task_form")?.classList.add("is-hidden");
-        clearTaskForm();
+        closeNewTaskModal();
         renderTasksTab(currentId);
         render();
         showToast("Tarefa criada.");
+    });
+
+    // Esc closes
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !document.getElementById("newTaskModal")?.classList.contains("is-hidden")) {
+            closeNewTaskModal();
+        }
     });
 }
 

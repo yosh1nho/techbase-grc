@@ -1308,6 +1308,18 @@
     })();
     </script>
     @vite(['resources/js/app.js', 'resources/js/theme.js', 'resources/js/audit-store.js'])
+    {{-- pdf.js: renderização com text layer (chat modal + highlight) --}}
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs" type="module" id="pdfjs-script"></script>
+    <script>
+        // Expõe pdfjsLib globalmente para uso em módulos não-ES (chat.js, docs.js)
+        // O script acima é type="module" então usamos dynamic import como bridge
+        window.__pdfjs_ready = import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs').then(mod => {
+            window.pdfjsLib = mod;
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+                'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
+            return mod;
+        });
+    </script>
     @stack('scripts')
     <script>
         (function () {

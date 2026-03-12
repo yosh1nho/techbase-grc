@@ -287,27 +287,6 @@
             </button>
           </div>
 
-          {{-- Formulário inline nova task (hidden por defeito) --}}
-          <div id="td_new_task_form" class="task-inline-form is-hidden">
-            <div class="task-inline-form-inner">
-              <input id="tf_title" placeholder="Título da tarefa..." class="task-form-input" />
-              <textarea id="tf_desc" rows="2" placeholder="Descrição (opcional)..." class="task-form-textarea"></textarea>
-              <div class="task-form-row">
-                <input id="tf_due" type="date" class="task-form-field" />
-                <input id="tf_assigned" placeholder="Designado..." class="task-form-field" />
-                <select id="tf_status" class="task-form-field">
-                  <option value="To do">To do</option>
-                  <option value="Em curso">Em curso</option>
-                  <option value="Concluído">Concluído</option>
-                </select>
-              </div>
-              <div class="task-form-actions">
-                <button type="button" class="btn small" id="tf_cancel">Cancelar</button>
-                <button type="button" class="btn primary small" id="tf_save">Criar tarefa</button>
-              </div>
-            </div>
-          </div>
-
           {{-- Lista de tasks --}}
           <div id="td_tasks_list" class="tasks-list"></div>
 
@@ -321,6 +300,55 @@
           <button id="td_close2" class="btn" type="button">Cancelar</button>
           <button id="td_save" class="btn primary" type="button">Guardar alterações</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- ══ MODAL: CRIAR TAREFA ══ --}}
+  <div id="newTaskModal" class="modal-overlay is-hidden" aria-hidden="true">
+    <div class="modal-card new-task-modal" role="dialog" aria-modal="true">
+      <div class="ntm-header">
+        <div>
+          <div class="treat-modal-eyebrow">Nova tarefa</div>
+          <div class="ntm-title" id="ntm_plan_label">—</div>
+        </div>
+        <button class="btn small" type="button" id="ntm_close">✕</button>
+      </div>
+
+      <div class="ntm-body">
+        <div class="ntm-field">
+          <label class="ntm-label">Título <span style="color:var(--bad)">*</span></label>
+          <input id="tf_title" class="ntm-input" placeholder="Ex.: Verificar estado do backup e alertas..." />
+        </div>
+
+        <div class="ntm-field">
+          <label class="ntm-label">Descrição <span class="ntm-optional">opcional</span></label>
+          <textarea id="tf_desc" class="ntm-textarea" rows="3" placeholder="Detalha o que deve ser feito, como e onde..."></textarea>
+        </div>
+
+        <div class="ntm-row">
+          <div class="ntm-field">
+            <label class="ntm-label">Designado a</label>
+            <input id="tf_assigned" class="ntm-input" placeholder="Ex.: IT Ops, SecOps..." />
+          </div>
+          <div class="ntm-field">
+            <label class="ntm-label">Prazo</label>
+            <input id="tf_due" type="date" class="ntm-input" />
+          </div>
+          <div class="ntm-field">
+            <label class="ntm-label">Status inicial</label>
+            <select id="tf_status" class="ntm-input">
+              <option value="To do">To do</option>
+              <option value="Em curso">Em curso</option>
+              <option value="Concluído">Concluído</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="ntm-footer">
+        <button type="button" class="btn small" id="tf_cancel">Cancelar</button>
+        <button type="button" class="btn primary small" id="tf_save">Criar tarefa</button>
       </div>
     </div>
   </div>
@@ -448,6 +476,69 @@
   {{-- Toast de confirmação --}}
   <div id="treat_toast" class="treat-toast is-hidden"></div>
 @vite(['resources/css/pages/treatment_tasks.css'])
+
+<style>
+/* ── New Task Modal ── */
+.new-task-modal {
+  width: min(520px, 96vw);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ntm-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
+}
+.ntm-title {
+  font-size: 16px; font-weight: 700; margin-top: 4px;
+  color: var(--text); font-family: var(--font-mono, monospace);
+  font-size: 13px; opacity: .65;
+}
+.ntm-body {
+  padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.ntm-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+}
+.ntm-field { display: flex; flex-direction: column; gap: 5px; }
+.ntm-label {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+.ntm-optional { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.ntm-input, .ntm-textarea {
+  width: 100%; padding: 9px 12px;
+  border: 1px solid var(--border, rgba(255,255,255,.1));
+  border-radius: 9px;
+  background: rgba(255,255,255,.04);
+  color: var(--text); font-size: 13px;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+}
+.ntm-input:focus, .ntm-textarea:focus {
+  outline: none;
+  border-color: rgba(79,156,249,.5);
+  box-shadow: 0 0 0 3px rgba(79,156,249,.1);
+}
+.ntm-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+.ntm-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border, rgba(255,255,255,.08));
+  background: rgba(0,0,0,.04);
+}
+/* light mode */
+:root[data-theme="light"] .ntm-input,
+:root[data-theme="light"] .ntm-textarea { background: #fff; border-color: rgba(0,0,0,.12); }
+:root[data-theme="light"] .ntm-footer   { background: rgba(0,0,0,.02); }
+@media (max-width: 500px) {
+  .ntm-row { grid-template-columns: 1fr; }
+}
+</style>
+
 @endsection
 @push('scripts')
   @vite(['resources/js/pages/treatment.js'])

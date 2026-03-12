@@ -165,8 +165,26 @@
             subtitle: "PostgreSQL • Produção",
             type: "Servidor",
             criticity: "Crítico",
+            source: "acronis",
             owner: "TI • João",
-            createdBy: "rita (admin)",
+            createdBy: "acronis-sync",
+            ip: "192.168.10.5",
+            mac_address: "00:1B:44:05:0F:23",
+            hostname: "SRV-DB01",
+            domain: "WORKGROUP",
+            os_platform: "linux",
+            os_Name: "Ubuntu 22.04 LTS",
+            os_Version: "22.04",
+            os_arch: "x86_64",
+            os_build: "jammy",
+            os_patch_level: "2026-02",
+            agent_status: "online",
+            agent_version: "Acronis Agent 15.2",
+            agent_last_seen: "2026-03-12T10:22:00Z",
+            backup_enabled: true,
+            antimalware_enabled: true,
+            patch_mgmt_enabled: false,
+            acronis_synced_at: "2026-03-12T10:22:00Z",
             notes: "Servidor de base de dados de produção. Monitorizado por Wazuh.",
             prob: 4,
             impact: 4,
@@ -188,8 +206,26 @@
             subtitle: "Laravel • Web",
             type: "Aplicação",
             criticity: "Alto",
+            source: "manual",
             owner: "SecOps • Ana",
             createdBy: "ana",
+            ip: "",
+            mac_address: "",
+            hostname: "",
+            domain: "",
+            os_platform: "",
+            os_Name: "",
+            os_Version: "",
+            os_arch: "",
+            os_build: "",
+            os_patch_level: "",
+            agent_status: "",
+            agent_version: "",
+            agent_last_seen: "",
+            backup_enabled: null,
+            antimalware_enabled: null,
+            patch_mgmt_enabled: null,
+            acronis_synced_at: null,
             notes: "Aplicação de governança. Evidências e controlos centralizados.",
             prob: 3,
             impact: 2,
@@ -341,19 +377,19 @@
         const crit = $("#critFilter").value;
         const type = $("#typeFilter").value;
         const st = $("#controlStatusFilter").value;
+        const src = $("#sourceFilter")?.value || "all";
 
         return assets.filter((a) => {
-            const text = normalize(`${a.name} ${a.subtitle} ${a.type} ${a.owner} ${a.notes}`);
-            const matchesQ = !q || text.includes(q);
-            const matchesCrit = crit === "all" || a.criticity === crit;
-            const matchesType = type === "all" || a.type === type;
-
+            const text = normalize(`${a.name} ${a.subtitle} ${a.type} ${a.owner} ${a.notes} ${a.hostname || ""}`);
+            const matchesQ    = !q    || text.includes(q);
+            const matchesCrit = crit  === "all" || a.criticity === crit;
+            const matchesType = type  === "all" || a.type === type;
+            const matchesSrc  = src   === "all" || (a.source || "manual") === src;
             let matchesControl = true;
             if (st !== "all") {
                 matchesControl = a.controls.some((c) => c.declaredStatus === st);
             }
-
-            return matchesQ && matchesCrit && matchesType && matchesControl;
+            return matchesQ && matchesCrit && matchesType && matchesSrc && matchesControl;
         });
     }
 
@@ -371,24 +407,24 @@
             const score = (a.prob || 0) * (a.impact || 0);
             const cls = classify(score); // cls.label -> "Baixo/Médio/Alto/Muito Alto"
 
+            const sourceClass = a.source === 'acronis' ? 'src-acronis' : 'src-manual';
+            const sourceLbl   = a.source === 'acronis' ? 'Acronis' : 'Manual';
             tr.innerHTML = `
       <td>
-        <b>${a.name}</b>
-        <div class="muted">${a.subtitle}${a.ip ? ` • ${a.ip}` : ""}</div>
+        <div class="asset-name">${a.name}</div>
+        <div class="asset-sub">${a.hostname || a.subtitle}${a.ip ? ` · ${a.ip}` : ""}</div>
       </td>
       <td>${a.type}</td>
       <td>${criticityTag(a.criticity)}</td>
+      <td><span class="src-badge ${sourceClass}">${sourceLbl}</span></td>
       <td>${a.owner}</td>
-
-      <!-- ✅ 2) troca esta coluna -->
       <td>
-        <b>${cls.label}</b>
-        <div class="muted" style="margin-top:4px">P=${a.prob} • I=${a.impact}</div>
+        <span style="font-weight:600;color:${cls.cellClass==='high'||cls.cellClass==='vhigh'?'var(--bad)':cls.cellClass==='med'?'var(--warn)':'var(--ok)'}">${cls.label}</span>
+        <div class="asset-sub">P=${a.prob} × I=${a.impact} = ${score}</div>
       </td>
-
       <td>${complianceTag(a)}</td>
       <td>
-        <button class="btn" type="button" data-open-asset="${a.id}">Ver detalhes</button>
+        <button class="btn-ghost btn-sm" type="button" data-open-asset="${a.id}">Ver detalhes</button>
       </td>
     `;
 
@@ -433,7 +469,25 @@
                     type: type,
                     criticity: "Médio",
                     owner: "Acronis Agent",
+                    source: "acronis",
+                    acronis_id: r.id,
                     ip: r.network?.ip || "",
+                    mac_address: r.network?.mac || "",
+                    hostname: r.host?.hostname || r.name,
+                    domain: r.host?.domain || "",
+                    os_platform: r.os?.platform || "",
+                    os_Name: r.os?.name || "",
+                    os_Version: r.os?.version || "",
+                    os_arch: r.os?.arch || "",
+                    os_build: r.os?.build || "",
+                    os_patch_level: r.os?.patch_level || "",
+                    agent_status: r.agent?.status || "",
+                    agent_version: r.agent?.version || "",
+                    agent_last_seen: r.agent?.last_seen || "",
+                    backup_enabled: r.protection?.backup_enabled ?? false,
+                    antimalware_enabled: r.protection?.antimalware_enabled ?? false,
+                    patch_mgmt_enabled: r.protection?.patch_management_enabled ?? false,
+                    acronis_synced_at: new Date().toISOString(),
                     createdBy: "acronis-sync",
                     notes: "Importado automaticamente do Acronis",
                     prob: 3,
@@ -661,65 +715,128 @@
         if (goBtn) goBtn.addEventListener("click", () => goTo(`/riscos?asset=${asset.id}`));
     }
 
+    function setTxt(id, val) { const el = $(id); if (el) el.textContent = val || "—"; }
+
     function openAssetModal(assetId) {
         const asset = assets.find((a) => a.id === assetId);
         if (!asset) return;
-
         currentAssetId = assetId;
 
-        // ── Hero ──
-        const typeIcons = { 'Servidor': '🖥', 'Aplicação': '🌐', 'Rede': '🔒', 'Cloud': '☁', 'Endpoint': '💻' };
-        const iconEl = $("#mAssetIcon");
-        if (iconEl) iconEl.textContent = typeIcons[asset.type] || '⬡';
+        // ── Header ──
+        const typeIcons = { 'Servidor': '🖥', 'Aplicação': '🌐', 'Rede': '🔒', 'Cloud': '☁', 'Endpoint': '💻', 'Workstation': '🖥' };
+        setTxt("#mAssetIcon", typeIcons[asset.type] || '⬡');
+        setTxt("#assetModalTitle", asset.name);
+        setTxt("#mTypeChip", asset.type);
+        setTxt("#mCritChip", asset.criticity);
+        setTxt("#mIpChip", asset.ip || '—');
 
-        $("#assetModalTitle").textContent = asset.name;
-
-        const typeChip = $("#mTypeChip");
-        if (typeChip) typeChip.textContent = asset.type;
-
-        const critChip = $("#mCritChip");
-        if (critChip) {
-            critChip.textContent = asset.criticity;
-            // colour by criticality
-            const critMap = { 'Crítico': 'rgba(251,113,133,.1)', 'Alto': 'rgba(251,191,36,.1)', 'Médio': 'rgba(79,156,249,.1)' };
-            critChip.style.background = critMap[asset.criticity] || '';
+        // source badge in header
+        const srcBadge = $("#mSourceBadge");
+        if (srcBadge) {
+            const isAcronis = asset.source === 'acronis';
+            srcBadge.textContent = isAcronis ? 'Acronis' : 'Manual';
+            srcBadge.className = 'src-badge ' + (isAcronis ? 'src-acronis' : 'src-manual');
         }
 
-        const ipChip = $("#mIpChip");
-        if (ipChip) ipChip.textContent = asset.ip || '—';
+        // agent chip in header
+        const agentChip = $("#mAgentChip");
+        if (agentChip) {
+            if (asset.agent_status) {
+                agentChip.textContent = asset.agent_status === 'online' ? '● Online' : '○ Offline';
+                agentChip.className = 'meta-chip meta-agent ' + asset.agent_status;
+            } else {
+                agentChip.textContent = '—';
+                agentChip.className = 'meta-chip meta-agent';
+            }
+        }
 
-        // ── KPI strip ──
-        $("#mOwner").textContent = asset.owner;
-        $("#mCreatedBy").textContent = asset.createdBy || "—";
-        $("#mNotes").textContent = asset.notes || "—";
+        // ── Overview: Geral ──
+        setTxt("#mOwner", asset.owner);
+        setTxt("#mCreatedBy", asset.createdBy);
+        setTxt("#mSource", asset.source === 'acronis' ? 'Sincronizado via Acronis' : 'Registo manual');
+        setTxt("#mSyncedAt", asset.acronis_synced_at ? new Date(asset.acronis_synced_at).toLocaleString('pt-PT') : '—');
 
-        $("#mProb").textContent = String(asset.prob);
-        $("#mImpact").textContent = String(asset.impact);
+        // ── Rede ──
+        setTxt("#mIpDetail", asset.ip);
+        setTxt("#mMac", asset.mac_address);
+        setTxt("#mHostname", asset.hostname);
+        setTxt("#mDomain", asset.domain);
 
+        // ── OS ──
+        setTxt("#mOsName", asset.os_Name);
+        setTxt("#mOsVersion", asset.os_Version);
+        setTxt("#mOsBuild", asset.os_build);
+        setTxt("#mOsArch", asset.os_arch);
+        setTxt("#mOsPatch", asset.os_patch_level);
+
+        // ── Agent ──
+        const agentStatusEl = $("#mAgentStatus");
+        if (agentStatusEl) {
+            const st = asset.agent_status;
+            if (st === 'online')       { agentStatusEl.innerHTML = `<span style="color:var(--ok);font-weight:600;">● Online</span>`; }
+            else if (st === 'offline') { agentStatusEl.innerHTML = `<span style="color:var(--bad);font-weight:600;">○ Offline</span>`; }
+            else                        { agentStatusEl.textContent = '—'; }
+        }
+        setTxt("#mAgentVersion", asset.agent_version);
+        setTxt("#mAgentLastSeen", asset.agent_last_seen ? new Date(asset.agent_last_seen).toLocaleString('pt-PT') : '—');
+
+        // ── Protection ──
+        const protGrid = $("#mProtectionGrid");
+        if (protGrid) {
+            if (asset.source === 'acronis') {
+                const items = [
+                    { lbl: 'Backup', val: asset.backup_enabled },
+                    { lbl: 'Antimalware', val: asset.antimalware_enabled },
+                    { lbl: 'Patch Management', val: asset.patch_mgmt_enabled },
+                ];
+                protGrid.innerHTML = items.map(i => `
+                    <div class="prot-row">
+                        <span class="prot-lbl">${i.lbl}</span>
+                        <span class="${i.val ? 'prot-on' : 'prot-off'}">${i.val ? '✓ Activo' : '✗ Inactivo'}</span>
+                    </div>`).join('');
+            } else {
+                protGrid.innerHTML = `<div class="prot-row"><span class="prot-lbl" style="font-style:italic;">Não disponível para ativos manuais</span></div>`;
+            }
+        }
+
+        // ── Risk score ──
+        setTxt("#mProb", String(asset.prob));
+        setTxt("#mImpact", String(asset.impact));
         const score = asset.prob * asset.impact;
         const cls = classify(score);
-
         const scoreEl = $("#mScoreVal");
         if (scoreEl) {
             scoreEl.textContent = score;
-            const scoreColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
+            const scoreColors = { vlow:'var(--muted)', low:'var(--ok)', med:'var(--warn)', high:'var(--bad)', vhigh:'var(--bad)' };
             scoreEl.style.color = scoreColors[cls.cellClass] || 'var(--text)';
         }
-
         const classEl = $("#mClassChip");
         if (classEl) {
             classEl.textContent = cls.label;
-            const classColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
-            classEl.style.color = classColors[cls.cellClass] || 'var(--text)';
-            classEl.style.fontWeight = '600';
+            const cc = { vlow:'var(--muted)', low:'var(--ok)', med:'var(--warn)', high:'var(--bad)', vhigh:'var(--bad)' };
+            classEl.style.color = cc[cls.cellClass] || 'var(--text)';
         }
+
+        setTxt("#mNotes", asset.notes);
 
         buildMatrix(asset.prob, asset.impact);
         renderControlsList(asset);
         renderAiSuggestions(asset);
         renderRiskTreat(asset);
 
+        // update controls tab badge
+        const badge = $("#tabBadgeControls");
+        if (badge) badge.textContent = String(asset.controls.length);
+
+        // reset to overview tab
+        activateTab('overview');
+
         openModal("#assetModal");
+    }
+
+    function activateTab(tabId) {
+        $$(".am-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tabId));
+        $$(".am-tab-panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + tabId));
     }
 
     // ========= create/edit asset modal =========
@@ -848,9 +965,26 @@
                 name,
                 subtitle,
                 type,
+                source: "manual",
                 criticity,
                 owner,
                 ip,
+                mac_address: "",
+                hostname: "",
+                domain: "",
+                os_platform: "",
+                os_Name: "",
+                os_Version: "",
+                os_arch: "",
+                os_build: "",
+                os_patch_level: "",
+                agent_status: "",
+                agent_version: "",
+                agent_last_seen: "",
+                backup_enabled: null,
+                antimalware_enabled: null,
+                patch_mgmt_enabled: null,
+                acronis_synced_at: null,
                 createdBy: "mock-user",
                 notes,
                 prob,
@@ -1082,6 +1216,15 @@
         $("#btnGoRisks").addEventListener("click", () => goTo("/riscos"));
         $("#btnGoDocs").addEventListener("click", () => goTo("/documentos"));
         $("#btnGoAssessments").addEventListener("click", () => goTo("/avaliacoes"));
+
+        // source filter
+        const srcF = $("#sourceFilter");
+        if (srcF) srcF.addEventListener("change", renderAssetsTable);
+
+        // tab switching inside asset modal
+        $$(".am-tab").forEach(tab => {
+            tab.addEventListener("click", () => activateTab(tab.dataset.tab));
+        });
     }
 
     document.addEventListener("DOMContentLoaded", init);

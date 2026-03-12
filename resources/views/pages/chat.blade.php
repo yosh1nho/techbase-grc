@@ -145,20 +145,30 @@
         </div>
       </div>
 
-      {{-- RIGHT: PDF viewer --}}
+      {{-- RIGHT: PDF viewer (pdf.js com text layer + highlight) --}}
       <div class="modal-pdf-col">
         <div class="modal-col-header">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8l4 0"/><path d="M16 11l4 0"/><path d="M16 14l4 0"/><path d="M20 3l0 18"/></svg>
           Pré-visualização
+          <span id="pdfPageInfo" class="pdf-page-info" style="display:none"></span>
         </div>
+
+        {{-- Placeholder quando não há PDF --}}
         <div id="pdfPlaceholder" class="pdf-placeholder">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <p>Sem PDF disponível para este documento.</p>
         </div>
-        <iframe id="sourcePdf" src=""
-          class="pdf-iframe"
-          style="display:none"
-        ></iframe>
+
+        {{-- Loading enquanto pdf.js carrega --}}
+        <div id="pdfLoading" class="pdf-loading" style="display:none">
+          <div class="pdf-spinner"></div>
+          <p>A carregar documento…</p>
+        </div>
+
+        {{-- Container pdf.js: canvas + text layer sobrepostos --}}
+        <div id="pdfViewerWrap" class="pdf-viewer-wrap" style="display:none">
+          <div id="pdfContainer" class="pdf-container"></div>
+        </div>
       </div>
 
     </div>
@@ -998,11 +1008,111 @@
   opacity: .5;
 }
 
-.pdf-iframe {
+.pdf-page-info {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--c-text-muted);
+  font-family: var(--font-mono);
+  font-weight: 400;
+}
+
+/* Loading spinner */
+.pdf-loading {
   flex: 1;
-  width: 100%;
-  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--c-text-muted);
+  font-size: 13px;
+}
+
+.pdf-spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-accent);
+  border-radius: 50%;
+  animation: pdfSpin .7s linear infinite;
+}
+
+@keyframes pdfSpin { to { transform: rotate(360deg); } }
+
+/* Viewer wrap: scroll vertical */
+.pdf-viewer-wrap {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
   background: var(--c-surface2);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdf-viewer-wrap::-webkit-scrollbar { width: 5px; }
+.pdf-viewer-wrap::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 4px; }
+
+/* Container das páginas renderizadas */
+.pdf-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Cada página: canvas + textLayer sobrepostos */
+.pdf-page-wrap {
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.pdf-page-wrap canvas {
+  display: block;
+}
+
+/* Text layer — gerado pelo pdf.js */
+.pdf-page-wrap .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  pointer-events: none; /* não bloqueia scroll */
+}
+
+.pdf-page-wrap .textLayer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+/* Highlight dos spans que batem com o snippet */
+.pdf-page-wrap .textLayer span.hl-chunk {
+  background: rgba(34,211,238,.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Highlight mais forte no span activo (primeiro match) */
+.pdf-page-wrap .textLayer span.hl-chunk-primary {
+  background: rgba(34,211,238,.55);
+  box-shadow: 0 0 0 1px rgba(34,211,238,.5);
+}
+
+:root[data-theme="light"] .pdf-page-wrap .textLayer span.hl-chunk {
+  background: rgba(8,145,178,.22);
+}
+:root[data-theme="light"] .pdf-page-wrap .textLayer span.hl-chunk-primary {
+  background: rgba(8,145,178,.40);
+  box-shadow: 0 0 0 1px rgba(8,145,178,.5);
 }
 
 /* ══════════════════════════════════════════════

@@ -212,91 +212,205 @@
         });
     }
 
-    function highlightChunkInPdf(frame, text) {
+    // ═══════════════════════════════════════════════════════════
+    //  PDF.JS RENDERER — canvas + text layer + highlight
+    // ═══════════════════════════════════════════════════════════
 
-        if (!frame || !text) return;
+    // Estado do viewer actual
+    const pdfState = {
+        fileUrl: null,
+        pdfDoc: null,     // PDFDocumentProxy
+        rendering: false,
+        snippet: null,    // texto do chunk activo para highlight
+    };
 
-        const needle = text
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 120)
-            .toLowerCase();
-
-        const tryHighlight = () => {
-
-            const doc = frame.contentDocument || frame.contentWindow?.document;
-            if (!doc) return;
-
-            const spans = doc.querySelectorAll(".textLayer span");
-            if (!spans.length) return;
-
-            spans.forEach(span => {
-
-                const txt = span.textContent
-                    ?.replace(/\s+/g, " ")
-                    .toLowerCase();
-
-                if (!txt) return;
-
-                if (needle.includes(txt) || txt.includes(needle.slice(0, 40))) {
-
-                    span.style.background = "rgba(255,230,0,0.6)";
-                    span.style.borderRadius = "3px";
-                    span.style.padding = "1px 2px";
-
-                    span.scrollIntoView({
-                        behavior: "smooth",
-                        block: "center"
-                    });
-                }
-
-            });
-
+    // Elementos do viewer
+    function pdfEls() {
+        return {
+            placeholder: $("#pdfPlaceholder"),
+            loading:     $("#pdfLoading"),
+            viewerWrap:  $("#pdfViewerWrap"),
+            container:   $("#pdfContainer"),
+            pageInfo:    $("#pdfPageInfo"),
         };
-
-        // PDF.js precisa de tempo para renderizar textLayer
-        setTimeout(tryHighlight, 900);
     }
 
-    // ─── Source modal: PDF + real chunks ─────────────────────
+    function showPdfState(state) {
+        const e = pdfEls();
+        e.placeholder && (e.placeholder.style.display = state === "empty"   ? "flex"  : "none");
+        e.loading     && (e.loading.style.display     = state === "loading" ? "flex"  : "none");
+        e.viewerWrap  && (e.viewerWrap.style.display  = state === "ready"   ? "flex"  : "none");
+    }
+
+    // ─── Tokeniza snippet para matching fuzzy ─────────────────
+    // Remove pontuação, normaliza espaços, retorna array de palavras >= 3 chars
+    function tokenize(text) {
+        return (text || "")
+            .toLowerCase()
+            .replace(/[.,;:!?()\[\]{}"'«»\-–—\/]/g, " ")
+            .split(/\s+/)
+            .filter(w => w.length >= 3);
+    }
+
+    // ─── Carrega PDF via pdf.js ───────────────────────────────
+    async function loadPdfDoc(fileUrl) {
+        // Aguarda pdf.js estar pronto (carregado pelo app.blade)
+        const lib = await window.__pdfjs_ready;
+        const loadingTask = lib.getDocument(fileUrl);
+        return await loadingTask.promise;
+    }
+
+    // ─── Renderiza uma página e aplica text layer + highlight ─
+    async function renderPage(pdfDoc, pageNum, container, snippetTokens) {
+        const page = await pdfDoc.getPage(pageNum);
+
+        // Scale para caber na largura do container (max 900px)
+        const containerWidth = Math.min(container.clientWidth || 700, 900);
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = Math.max((containerWidth - 24) / viewport.width, 0.8);
+        const scaledViewport = page.getViewport({ scale });
+
+        // Wrap para posicionamento relativo canvas + textLayer
+        const wrap = document.createElement("div");
+        wrap.className = "pdf-page-wrap";
+        wrap.dataset.page = pageNum;
+        wrap.style.width = scaledViewport.width + "px";
+        wrap.style.height = scaledViewport.height + "px";
+
+        // Canvas
+        const canvas = document.createElement("canvas");
+        canvas.width  = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        const ctx = canvas.getContext("2d");
+
+        wrap.appendChild(canvas);
+        container.appendChild(wrap);
+
+        // Renderiza página no canvas
+        await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+        // Text layer
+        const textContent = await page.getTextContent();
+        const textLayerDiv = document.createElement("div");
+        textLayerDiv.className = "textLayer";
+        textLayerDiv.style.width  = scaledViewport.width + "px";
+        textLayerDiv.style.height = scaledViewport.height + "px";
+        wrap.appendChild(textLayerDiv);
+
+        // Renderiza text layer via pdf.js
+        const lib = await window.__pdfjs_ready;
+        const renderTask = lib.renderTextLayer({
+            textContentSource: textContent,
+            container: textLayerDiv,
+            viewport: scaledViewport,
+            textDivs: [],
+        });
+        await renderTask.promise;
+
+        // Highlight: itera spans e marca os que contêm tokens do snippet
+        if (snippetTokens && snippetTokens.length > 0) {
+            highlightSpans(textLayerDiv, snippetTokens);
+        }
+    }
+
+    // ─── Highlight fuzzy nos spans do text layer ──────────────
+    function highlightSpans(textLayerDiv, snippetTokens) {
+        const spans = Array.from(textLayerDiv.querySelectorAll("span"));
+        let firstMatch = true;
+
+        spans.forEach(span => {
+            const text = (span.textContent || "").toLowerCase();
+            if (!text.trim()) return;
+
+            // Conta quantos tokens do snippet existem neste span
+            const matches = snippetTokens.filter(tok => text.includes(tok));
+            const ratio = matches.length / snippetTokens.length;
+
+            // Threshold: pelo menos 30% dos tokens ou 2+ tokens em comum
+            if (ratio >= 0.30 || matches.length >= 2) {
+                span.classList.add("hl-chunk");
+                if (firstMatch) {
+                    span.classList.add("hl-chunk-primary");
+                    firstMatch = false;
+                }
+            }
+        });
+    }
+
+    // ─── Limpa highlights anteriores ─────────────────────────
+    function clearHighlights() {
+        document.querySelectorAll(".hl-chunk, .hl-chunk-primary").forEach(el => {
+            el.classList.remove("hl-chunk", "hl-chunk-primary");
+        });
+    }
+
+    // ─── Renderiza UMA página (a pedida) — sem scroll, sem delay ─
+    // Estratégia: só renderiza a página exacta do chunk.
+    // Trocar de chunk limpa o container e renderiza a nova página.
+    async function renderPdfViewer(fileUrl, targetPage, snippetText) {
+        if (!fileUrl) { showPdfState("empty"); return; }
+
+        // Cancela render anterior se ainda estiver a correr
+        pdfState.rendering = true;
+
+        showPdfState("loading");
+
+        const e = pdfEls();
+        if (e.container) e.container.innerHTML = "";
+
+        const snippetTokens = tokenize(snippetText);
+        const page = Math.max(1, targetPage || 1);
+
+        try {
+            // Carrega o documento apenas uma vez por URL
+            if (pdfState.fileUrl !== fileUrl) {
+                pdfState.pdfDoc = await loadPdfDoc(fileUrl);
+                pdfState.fileUrl = fileUrl;
+            }
+
+            if (!pdfState.rendering) return; // foi cancelado entretanto
+
+            const pdfDoc = pdfState.pdfDoc;
+
+            if (e.pageInfo) {
+                e.pageInfo.textContent = `${page} / ${pdfDoc.numPages}`;
+                e.pageInfo.style.display = "inline";
+            }
+
+            showPdfState("ready");
+
+            // Renderiza APENAS a página pedida — imediato, sem scroll
+            await renderPage(pdfDoc, page, e.container, snippetTokens);
+
+        } catch (err) {
+            console.error("PDF render error:", err);
+            showPdfState("empty");
+            const p = e.placeholder?.querySelector("p");
+            if (p) p.textContent = "Erro ao carregar PDF.";
+        } finally {
+            pdfState.rendering = false;
+        }
+    }
+
+    // ─── Source modal: chunks + pdf.js viewer ────────────────
     // doc: { title, fileUrl, chunks: [source objects from API] }
     function openSourceModal(doc) {
         // Title
         const titleEl = $("#sourceModalTitle");
         if (titleEl) titleEl.textContent = doc.title || "Documento";
 
-        // PDF viewer
-        const pdfFrame = $("#sourcePdf");
-        const pdfPlaceholder = $("#pdfPlaceholder");
-
-        if (pdfFrame && pdfPlaceholder) {
-            if (doc.fileUrl) {
-                // Abre já na página do primeiro chunk usando o helper com cache-bust
-                const firstPage = doc.chunks?.[0]?.page_number ?? null;
-                if (firstPage) {
-                    navigatePdfToPage(doc.fileUrl, firstPage);
-                } else {
-                    pdfFrame.style.display = "block";
-                    pdfPlaceholder.style.display = "none";
-                    const bust = Date.now();
-                    pdfFrame.src = `${doc.fileUrl}?t=${bust}#toolbar=1&navpanes=0&view=FitH`;
-                }
-            } else {
-                pdfFrame.style.display = "none";
-                pdfPlaceholder.style.display = "flex";
-                pdfFrame.src = "";
-            }
-        }
-
         // Chunks list
         const chunksList = $("#sourceChunksList");
-        const fullText = $("#chunkFullText");
+        const fullText   = $("#chunkFullText");
         const countBadge = $("#chunkCountBadge");
 
         if (!chunksList) return;
         chunksList.innerHTML = "";
         if (countBadge) countBadge.textContent = String(doc.chunks.length);
         if (fullText) fullText.textContent = doc.chunks.length ? "Seleciona um trecho acima." : "—";
+
+        // Primeiro chunk é activo por defeito
+        const firstChunk = doc.chunks[0] ?? null;
 
         if (!doc.chunks.length) {
             chunksList.innerHTML = `<div style="font-size:13px;color:var(--c-text-muted);padding:12px">Sem trechos disponíveis.</div>`;
@@ -305,15 +419,14 @@
                 const row = document.createElement("div");
                 row.className = "chunk-row" + (idx === 0 ? " active" : "");
 
-                // Build label: use ref_label, control_code, or chunk_index
                 const label = chunk.ref_label || chunk.ref
                     || (chunk.control_code ? `${chunk.control_family || ""} ${chunk.control_code}`.trim() : null)
                     || (chunk.article_code ? chunk.article_code : null)
                     || `Trecho ${idx + 1}`;
 
                 const snippet = chunk.snippet || "";
-                const score = chunk.score != null ? (parseFloat(chunk.score) * 100).toFixed(1) : null;
-                const page = chunk.page_number ?? null;
+                const score   = chunk.score != null ? (parseFloat(chunk.score) * 100).toFixed(1) : null;
+                const page    = chunk.page_number ?? null;
 
                 row.innerHTML = `
                     <div class="chunk-row-header">
@@ -324,7 +437,10 @@
                     <div class="chunk-snippet">${escapeHtml(snippet)}</div>
                     <div class="chunk-row-footer">
                         ${score ? `<span class="chunk-score">relevância ${score}%</span>` : ""}
-                        ${page ? `<span class="chunk-page-hint"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Vai para pág. ${page}</span>` : ""}
+                        ${page ? `<span class="chunk-page-hint">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            Vai para pág. ${page}
+                        </span>` : ""}
                     </div>
                 `;
 
@@ -332,19 +448,18 @@
                     chunksList.querySelectorAll(".chunk-row").forEach(r => r.classList.remove("active"));
                     row.classList.add("active");
 
-                    if (fullText) {
-                        fullText.textContent = chunk.snippet || chunk.ref_label || label || "—";
-                    }
+                    const snippetText = chunk.snippet || chunk.ref_label || label || "";
+                    if (fullText) fullText.textContent = snippetText;
 
-                    // ── Navegar o PDF para a página do chunk ──
-                    if (page && doc.fileUrl) {
-                        navigatePdfToPage(doc.fileUrl, page, chunk.snippet);
+                    // Re-renderiza directamente a página do chunk — sem scroll animado
+                    if (doc.fileUrl) {
+                        renderPdfViewer(doc.fileUrl, page ?? 1, snippetText);
                     }
                 });
 
                 chunksList.appendChild(row);
 
-                // Auto-select first chunk
+                // Texto completo do primeiro chunk
                 if (idx === 0 && fullText) {
                     fullText.textContent = chunk.snippet || chunk.ref_label || label || "—";
                 }
@@ -352,31 +467,16 @@
         }
 
         openModal("sourceModal");
+
+        // Carrega PDF com o primeiro chunk activo
+        if (doc.fileUrl && firstChunk) {
+            renderPdfViewer(doc.fileUrl, firstChunk.page_number ?? 1, firstChunk.snippet || "");
+        } else if (!doc.fileUrl) {
+            showPdfState("empty");
+        }
     }
 
-    // ─── PDF navigation (reliable cross-page) ───────────────────
-    // Os browsers ignoram mudanças só no fragment (#page=N) se o path base
-    // for o mesmo. A solução é adicionar ?t=timestamp para forçar novo load.
-    // O timestamp é removido pelo servidor (query string ignorada em ficheiros estáticos).
-    function navigatePdfToPage(fileUrl, page, chunkText) {
-
-        const pdfFrame = $("#sourcePdf");
-        const pdfPlaceholder = $("#pdfPlaceholder");
-        if (!pdfFrame) return;
-
-        pdfFrame.style.display = "block";
-        if (pdfPlaceholder) pdfPlaceholder.style.display = "none";
-
-        const bust = Date.now();
-
-        pdfFrame.onload = () => {
-            highlightChunkInPdf(pdfFrame, chunkText);
-        };
-
-        pdfFrame.src = `${fileUrl}?t=${bust}#page=${page}&toolbar=1&navpanes=0&view=FitH`;
-    }
-
-    // ─── Status badge ─────────────────────────────────────────
+        // ─── Status badge ─────────────────────────────────────────
     function setAuditStatus(ok) {
         const chip = $("#chatAuditChip");
         const badge = $("#auditBadge");
@@ -469,7 +569,14 @@
         $("#btnClearSources")?.addEventListener("click", () => renderSourcesPanel([]));
 
         // Modal close
-        $("#sourceModalClose")?.addEventListener("click", () => closeModal("sourceModal"));
+        $("#sourceModalClose")?.addEventListener("click", () => {
+            closeModal("sourceModal");
+            // Limpa estado do PDF ao fechar (liberta memória)
+            pdfState.pdfDoc = null;
+            pdfState.fileUrl = null;
+            const c = $("#pdfContainer");
+            if (c) c.innerHTML = "";
+        });
         $("#sourceModal")?.addEventListener("click", (e) => {
             if (e.target?.id === "sourceModal") closeModal("sourceModal");
         });
