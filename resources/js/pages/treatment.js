@@ -1,16 +1,16 @@
 // resources/js/pages/treatment.js
 // Techbase GRC — Tratamento v2 (+ Tasks, Comentários, Anexos)
 
-const LS_KEY        = "tb_mock_treatments";
-const LS_TASKS_KEY  = "tb_mock_tasks";       // { [planId]: Task[] }
+const LS_KEY = "tb_mock_treatments";
+const LS_TASKS_KEY = "tb_mock_tasks";       // { [planId]: Task[] }
 const LS_COMMENTS_KEY = "tb_mock_comments";  // { [taskId]: Comment[] }
 
 // ── Storage helpers ───────────────────────────────────────────────────────────
-function loadPlans()    { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
-function savePlans(p)   { localStorage.setItem(LS_KEY, JSON.stringify(p)); }
+function loadPlans() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; } }
+function savePlans(p) { localStorage.setItem(LS_KEY, JSON.stringify(p)); }
 
 function loadAllTasks() { try { return JSON.parse(localStorage.getItem(LS_TASKS_KEY) || "{}"); } catch { return {}; } }
-function saveAllTasks(t){ localStorage.setItem(LS_TASKS_KEY, JSON.stringify(t)); }
+function saveAllTasks(t) { localStorage.setItem(LS_TASKS_KEY, JSON.stringify(t)); }
 function loadTasksForPlan(planId) { return loadAllTasks()[planId] || []; }
 function saveTasksForPlan(planId, tasks) {
     const all = loadAllTasks();
@@ -19,7 +19,7 @@ function saveTasksForPlan(planId, tasks) {
 }
 
 function loadAllComments() { try { return JSON.parse(localStorage.getItem(LS_COMMENTS_KEY) || "{}"); } catch { return {}; } }
-function saveAllComments(c){ localStorage.setItem(LS_COMMENTS_KEY, JSON.stringify(c)); }
+function saveAllComments(c) { localStorage.setItem(LS_COMMENTS_KEY, JSON.stringify(c)); }
 function loadCommentsForTask(taskId) { return loadAllComments()[taskId] || []; }
 function saveCommentsForTask(taskId, comments) {
     const all = loadAllComments();
@@ -124,13 +124,13 @@ function daysUntil(due) {
 }
 function normalizePlan(p) { return { ...p, status: p.status || "To do" }; }
 function priorityClass(p) {
-    if (p === "Alta")  return "chip bad";
+    if (p === "Alta") return "chip bad";
     if (p === "Média") return "chip warn";
     return "chip";
 }
 const STATUS_BAR = {
-    "To do":     "#94a3b8",
-    "Em curso":  "#60a5fa",
+    "To do": "#94a3b8",
+    "Em curso": "#60a5fa",
     "Concluído": "#34d399",
     "Em atraso": "#f87171",
 };
@@ -142,7 +142,7 @@ function dueBadge(due, status) {
     if (status === "Concluído") return "";
     const days = daysUntil(due);
     if (days === null) return "";
-    if (days < 0)  return `<span class="kcard-due-badge kcard-due-overdue">
+    if (days < 0) return `<span class="kcard-due-badge kcard-due-overdue">
         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         ${Math.abs(days)}d atraso</span>`;
     if (days <= 5) return `<span class="kcard-due-badge kcard-due-soon">
@@ -151,7 +151,7 @@ function dueBadge(due, status) {
     return `<span class="kcard-due-badge kcard-due-ok">${due}</span>`;
 }
 function taskStatusClass(s) {
-    if (s === "Em curso")  return "task-status-doing";
+    if (s === "Em curso") return "task-status-doing";
     if (s === "Concluído") return "task-status-done";
     return "task-status-todo";
 }
@@ -180,9 +180,9 @@ function showToast(msg, type = "success") {
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
-let filterSearch   = "";
+let filterSearch = "";
 let filterPriority = "all";
-let filterOwner    = "all";
+let filterOwner = "all";
 
 function applyFilters(plans) {
     return plans.filter(p => {
@@ -221,8 +221,8 @@ function render() {
     const plans = applyFilters(allPlans);
 
     const cols = {
-        "To do":     document.getElementById("colTodo"),
-        "Em curso":  document.getElementById("colDoing"),
+        "To do": document.getElementById("colTodo"),
+        "Em curso": document.getElementById("colDoing"),
         "Concluído": document.getElementById("colDone"),
         "Em atraso": document.getElementById("colOverdue"),
     };
@@ -232,8 +232,8 @@ function render() {
         const col = cols[p.status];
         if (!col) return;
 
-        const tasks      = loadTasksForPlan(p.id);
-        const tasksDone  = tasks.filter(t => t.status === "Concluído").length;
+        const tasks = loadTasksForPlan(p.id);
+        const tasksDone = tasks.filter(t => t.status === "Concluído").length;
         const tasksTotal = tasks.length;
 
         const card = document.createElement("div");
@@ -242,8 +242,8 @@ function render() {
         card.dataset.id = p.id;
 
         const barColor = STATUS_BAR[p.status] || "#94a3b8";
-        const badge    = dueBadge(p.due, p.status);
-        const desc     = (p.planDescription || "").slice(0, 100) || "<span class='muted'>Sem descrição</span>";
+        const badge = dueBadge(p.due, p.status);
+        const desc = (p.planDescription || "").slice(0, 100) || "<span class='muted'>Sem descrição</span>";
         const taskBadge = tasksTotal > 0
             ? `<span class="kcard-task-badge" title="${tasksDone}/${tasksTotal} tarefas concluídas">
                 <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -289,28 +289,28 @@ function render() {
 
     // KPIs
     const by = (s) => allPlans.filter(p => p.status === s).length;
-    const total   = allPlans.length;
-    const done    = by("Concluído");
-    const doing   = by("Em curso");
-    const todo    = by("To do");
+    const total = allPlans.length;
+    const done = by("Concluído");
+    const doing = by("Em curso");
+    const todo = by("To do");
     const overdue = by("Em atraso");
 
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setText("kpiTotal",   total);
-    setText("kpiTodo",    todo);
-    setText("kpiDoing",   doing);
-    setText("kpiDone",    done);
+    setText("kpiTotal", total);
+    setText("kpiTodo", todo);
+    setText("kpiDoing", doing);
+    setText("kpiDone", done);
     setText("kpiOverdue", overdue);
-    setText("countTodo",    todo);
-    setText("countDoing",   doing);
-    setText("countDone",    done);
+    setText("countTodo", todo);
+    setText("countDoing", doing);
+    setText("countDone", done);
     setText("countOverdue", overdue);
 
     const pct = v => total > 0 ? `${Math.round(v / total * 100)}%` : "0%";
     const setW = (id, v) => { const el = document.getElementById(id); if (el) el.style.width = pct(v); };
-    setW("treatProgDone",    done);
-    setW("treatProgDoing",   doing);
-    setW("treatProgTodo",    todo);
+    setW("treatProgDone", done);
+    setW("treatProgDoing", doing);
+    setW("treatProgTodo", todo);
     setW("treatProgOverdue", overdue);
 
     const pctDone = total > 0 ? Math.round(done / total * 100) : 0;
@@ -352,10 +352,10 @@ function wireDnD() {
 }
 
 // ── Modal helpers ─────────────────────────────────────────────────────────────
-function openModal(id)  { document.getElementById(id)?.classList.remove("is-hidden"); document.body.style.overflow = "hidden"; }
+function openModal(id) { document.getElementById(id)?.classList.remove("is-hidden"); document.body.style.overflow = "hidden"; }
 function closeModal(id) { document.getElementById(id)?.classList.add("is-hidden"); document.body.style.overflow = ""; }
 function statusBadgeClass(status) {
-    if (status === "Em curso")  return "tsb-doing";
+    if (status === "Em curso") return "tsb-doing";
     if (status === "Concluído") return "tsb-done";
     if (status === "Em atraso") return "tsb-overdue";
     return "tsb-todo";
@@ -407,7 +407,7 @@ function switchTab(tab) {
 }
 
 // ── Plan detail modal ─────────────────────────────────────────────────────────
-let currentId   = null;
+let currentId = null;
 let pendingFiles = [];  // files staged in composer
 
 function openDetail(id) {
@@ -425,10 +425,10 @@ function openDetail(id) {
     }
 
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || "—"; };
-    setText("td_asset_disp",   p.asset);
-    setText("td_risk_disp",    p.risk);
-    setText("td_source_disp",  `${p.alertId || "—"} (${p.source || "—"})`);
-    setText("td_alert_ref",    `Ref: ${p.alertId || "—"}`);
+    setText("td_asset_disp", p.asset);
+    setText("td_risk_disp", p.risk);
+    setText("td_source_disp", `${p.alertId || "—"} (${p.source || "—"})`);
+    setText("td_alert_ref", `Ref: ${p.alertId || "—"}`);
 
     const created = p.createdAt ? new Date(p.createdAt).toLocaleDateString("pt-PT") : "—";
     setText("td_created_disp", created);
@@ -436,12 +436,12 @@ function openDetail(id) {
     renderAiSteps(p.aiActions);
 
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ""; };
-    setVal("td_desc",     p.planDescription);
+    setVal("td_desc", p.planDescription);
     setVal("td_evidence", p.evidence);
-    setVal("td_owner",    p.owner);
-    setVal("td_due",      p.due);
+    setVal("td_owner", p.owner);
+    setVal("td_due", p.due);
     setVal("td_priority", p.priority);
-    setVal("td_status",   p.status);
+    setVal("td_status", p.status);
     setVal("td_strategy", p.strategy);
 
     renderDeadlineBox(p.due, p.status);
@@ -467,13 +467,13 @@ function saveDetail() {
     const idx = plans.findIndex(x => String(x.id) === String(currentId));
     if (idx === -1) return;
 
-    plans[idx].owner           = document.getElementById("td_owner").value.trim();
-    plans[idx].due             = document.getElementById("td_due").value.trim();
-    plans[idx].priority        = document.getElementById("td_priority").value;
-    plans[idx].status          = document.getElementById("td_status").value;
-    plans[idx].strategy        = document.getElementById("td_strategy").value;
+    plans[idx].owner = document.getElementById("td_owner").value.trim();
+    plans[idx].due = document.getElementById("td_due").value.trim();
+    plans[idx].priority = document.getElementById("td_priority").value;
+    plans[idx].status = document.getElementById("td_status").value;
+    plans[idx].strategy = document.getElementById("td_strategy").value;
     plans[idx].planDescription = document.getElementById("td_desc").value.trim();
-    plans[idx].evidence        = document.getElementById("td_evidence").value.trim();
+    plans[idx].evidence = document.getElementById("td_evidence").value.trim();
 
     savePlans(plans);
     closeModal("treatDetailModal");
@@ -483,10 +483,10 @@ function saveDetail() {
 
 // ── Tasks Tab ─────────────────────────────────────────────────────────────────
 function renderTasksTab(planId) {
-    const tasks     = loadTasksForPlan(planId);
-    const done      = tasks.filter(t => t.status === "Concluído").length;
-    const total     = tasks.length;
-    const pct       = total > 0 ? Math.round(done / total * 100) : 0;
+    const tasks = loadTasksForPlan(planId);
+    const done = tasks.filter(t => t.status === "Concluído").length;
+    const total = tasks.length;
+    const pct = total > 0 ? Math.round(done / total * 100) : 0;
 
     // Count badge on tab
     const countEl = document.getElementById("td_task_count");
@@ -512,10 +512,10 @@ function renderTasksTab(planId) {
     }
 
     list.innerHTML = tasks.map(t => {
-        const comments  = loadCommentsForTask(t.id);
+        const comments = loadCommentsForTask(t.id);
         const commentCount = comments.length;
-        const attachCount  = comments.reduce((acc, c) => acc + (c.attachments?.length || 0), 0);
-        const statusCls    = taskStatusClass(t.status);
+        const attachCount = comments.reduce((acc, c) => acc + (c.attachments?.length || 0), 0);
+        const statusCls = taskStatusClass(t.status);
 
         return `
         <div class="task-row" data-task-id="${t.id}">
@@ -551,7 +551,7 @@ function renderTasksTab(planId) {
 function openNewTaskModal() {
     // Set plan label
     const plans = loadPlans();
-    const plan  = plans.find(p => p.id === currentId);
+    const plan = plans.find(p => p.id === currentId);
     const label = document.getElementById("ntm_plan_label");
     if (label) label.textContent = plan ? plan.id : currentId;
 
@@ -585,14 +585,14 @@ function wireNewTaskForm() {
             return;
         }
         const task = {
-            id:          `TK-${Date.now()}`,
-            planId:      currentId,
+            id: `TK-${Date.now()}`,
+            planId: currentId,
             title,
             description: document.getElementById("tf_desc")?.value.trim() || "",
-            status:      document.getElementById("tf_status")?.value || "To do",
-            assignedTo:  document.getElementById("tf_assigned")?.value.trim() || "",
-            due:         document.getElementById("tf_due")?.value || "",
-            createdAt:   new Date().toISOString(),
+            status: document.getElementById("tf_status")?.value || "To do",
+            assignedTo: document.getElementById("tf_assigned")?.value.trim() || "",
+            due: document.getElementById("tf_due")?.value || "",
+            createdAt: new Date().toISOString(),
         };
 
         const tasks = loadTasksForPlan(currentId);
@@ -614,7 +614,7 @@ function wireNewTaskForm() {
 }
 
 function clearTaskForm() {
-    ["tf_title","tf_desc","tf_assigned","tf_due"].forEach(id => {
+    ["tf_title", "tf_desc", "tf_assigned", "tf_due"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
@@ -623,7 +623,7 @@ function clearTaskForm() {
 }
 
 // ── Task Detail Modal ─────────────────────────────────────────────────────────
-let currentTaskId  = null;
+let currentTaskId = null;
 let currentTaskPlanId = null;
 pendingFiles = [];
 
@@ -644,23 +644,23 @@ function openTaskModal(taskId) {
 
     // Header
     document.getElementById("tkm_plan_ref").textContent = planId;
-    document.getElementById("tkm_title").textContent    = task.title;
-    document.getElementById("tkm_status").value         = task.status;
+    document.getElementById("tkm_title").textContent = task.title;
+    document.getElementById("tkm_status").value = task.status;
 
     // Meta
     document.getElementById("tkm_assigned").textContent = task.assignedTo || "—";
-    document.getElementById("tkm_due").textContent      = task.due || "—";
-    document.getElementById("tkm_created").textContent  = task.createdAt
+    document.getElementById("tkm_due").textContent = task.due || "—";
+    document.getElementById("tkm_created").textContent = task.createdAt
         ? new Date(task.createdAt).toLocaleDateString("pt-PT") : "—";
 
     // Desc
     document.getElementById("tkm_desc").textContent = task.description || "Sem descrição.";
 
     // Edit sidebar
-    document.getElementById("tkm_edit_title").value    = task.title;
-    document.getElementById("tkm_edit_desc").value     = task.description || "";
+    document.getElementById("tkm_edit_title").value = task.title;
+    document.getElementById("tkm_edit_desc").value = task.description || "";
     document.getElementById("tkm_edit_assigned").value = task.assignedTo || "";
-    document.getElementById("tkm_edit_due").value      = task.due || "";
+    document.getElementById("tkm_edit_due").value = task.due || "";
 
     // Comments
     renderComments(task.id);
@@ -677,8 +677,8 @@ function openTaskModal(taskId) {
 
 function renderComments(taskId) {
     const comments = loadCommentsForTask(taskId);
-    const list     = document.getElementById("tkm_comments_list");
-    const countEl  = document.getElementById("tkm_comment_count");
+    const list = document.getElementById("tkm_comments_list");
+    const countEl = document.getElementById("tkm_comment_count");
     if (countEl) countEl.textContent = comments.length;
     if (!list) return;
 
@@ -710,7 +710,6 @@ function renderAttachments(attachments, commentIdx) {
                 <span class="attach-name">${a.name}</span>
                 ${a.size ? `<span class="attach-size">${formatFileSize(a.size)}</span>` : ""}
 
-                {{-- Hover action menu --}}
                 <div class="attach-actions">
                     <button type="button" class="attach-action-btn" data-action="download"
                         data-comment-idx="${commentIdx}" data-attach-idx="${ai}"
@@ -784,7 +783,7 @@ function wireTaskModal() {
     document.getElementById("tkm_status")?.addEventListener("change", (e) => {
         if (!currentTaskId || !currentTaskPlanId) return;
         const tasks = loadTasksForPlan(currentTaskPlanId);
-        const idx   = tasks.findIndex(t => t.id === currentTaskId);
+        const idx = tasks.findIndex(t => t.id === currentTaskId);
         if (idx === -1) return;
         tasks[idx].status = e.target.value;
         saveTasksForPlan(currentTaskPlanId, tasks);
@@ -796,19 +795,19 @@ function wireTaskModal() {
     document.getElementById("tkm_save_meta")?.addEventListener("click", () => {
         if (!currentTaskId || !currentTaskPlanId) return;
         const tasks = loadTasksForPlan(currentTaskPlanId);
-        const idx   = tasks.findIndex(t => t.id === currentTaskId);
+        const idx = tasks.findIndex(t => t.id === currentTaskId);
         if (idx === -1) return;
-        tasks[idx].title      = document.getElementById("tkm_edit_title").value.trim() || tasks[idx].title;
+        tasks[idx].title = document.getElementById("tkm_edit_title").value.trim() || tasks[idx].title;
         tasks[idx].description = document.getElementById("tkm_edit_desc").value.trim();
-        tasks[idx].assignedTo  = document.getElementById("tkm_edit_assigned").value.trim();
-        tasks[idx].due         = document.getElementById("tkm_edit_due").value;
+        tasks[idx].assignedTo = document.getElementById("tkm_edit_assigned").value.trim();
+        tasks[idx].due = document.getElementById("tkm_edit_due").value;
         saveTasksForPlan(currentTaskPlanId, tasks);
 
         // Refresh header
-        document.getElementById("tkm_title").textContent    = tasks[idx].title;
+        document.getElementById("tkm_title").textContent = tasks[idx].title;
         document.getElementById("tkm_assigned").textContent = tasks[idx].assignedTo || "—";
-        document.getElementById("tkm_due").textContent      = tasks[idx].due || "—";
-        document.getElementById("tkm_desc").textContent     = tasks[idx].description || "Sem descrição.";
+        document.getElementById("tkm_due").textContent = tasks[idx].due || "—";
+        document.getElementById("tkm_desc").textContent = tasks[idx].description || "Sem descrição.";
 
         renderTasksTab(currentTaskPlanId);
         render();
@@ -850,15 +849,15 @@ function wireTaskModal() {
     document.getElementById("tkm_comments_list")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-action]");
         if (!btn) return;
-        const action      = btn.dataset.action;
-        const commentIdx  = Number(btn.dataset.commentIdx);
-        const attachIdx   = Number(btn.dataset.attachIdx);
+        const action = btn.dataset.action;
+        const commentIdx = Number(btn.dataset.commentIdx);
+        const attachIdx = Number(btn.dataset.attachIdx);
         handleAttachAction(action, commentIdx, attachIdx);
     });
 }
 
 function sendComment() {
-    const inp     = document.getElementById("tkm_comment_input");
+    const inp = document.getElementById("tkm_comment_input");
     const content = inp?.value.trim();
 
     if (!content && !pendingFiles.length) return;
@@ -866,7 +865,7 @@ function sendComment() {
 
     // Serialize file metadata (in real app you'd upload; here we store name/size/mime)
     const attachments = pendingFiles.map(f => ({
-        id:   `ATT-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,
+        id: `ATT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         name: f.name,
         size: f.size,
         mime: f.type,
@@ -875,12 +874,12 @@ function sendComment() {
     }));
 
     const comment = {
-        id:          `CMT-${Date.now()}`,
-        taskId:      currentTaskId,
-        author:      "Utilizador",
+        id: `CMT-${Date.now()}`,
+        taskId: currentTaskId,
+        author: "Utilizador",
         content,
         attachments,
-        createdAt:   new Date().toISOString(),
+        createdAt: new Date().toISOString(),
     };
 
     const comments = loadCommentsForTask(currentTaskId);
@@ -894,8 +893,8 @@ function sendComment() {
 }
 
 function handleAttachAction(action, commentIdx, attachIdx) {
-    const comments   = loadCommentsForTask(currentTaskId);
-    const comment    = comments[commentIdx];
+    const comments = loadCommentsForTask(currentTaskId);
+    const comment = comments[commentIdx];
     if (!comment) return;
     const attachment = comment.attachments?.[attachIdx];
     if (!attachment && action !== "delete") return;
@@ -945,9 +944,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Detail modal
-    document.getElementById("td_close")?.addEventListener("click",  () => closeModal("treatDetailModal"));
+    document.getElementById("td_close")?.addEventListener("click", () => closeModal("treatDetailModal"));
     document.getElementById("td_close2")?.addEventListener("click", () => closeModal("treatDetailModal"));
-    document.getElementById("td_save")?.addEventListener("click",   saveDetail);
+    document.getElementById("td_save")?.addEventListener("click", saveDetail);
     document.getElementById("treatDetailModal")?.addEventListener("click", (e) => {
         if (e.target?.id === "treatDetailModal") closeModal("treatDetailModal");
     });
