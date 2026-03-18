@@ -43,10 +43,6 @@
         <p class="muted" style="font-size:12px;margin:3px 0 0">Seleciona um alerta para ver contexto e gerar ações. <span style="opacity:.6">(RF17 · mock)</span></p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button id="btnCreateTreatmentFromAlert" class="btn" type="button" disabled>
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Criar plano
-        </button>
         <button id="btnCreateRiskFromAlert" class="btn" type="button" disabled>
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           Registar risco
@@ -333,14 +329,14 @@
     </div>
   </div>
 
-  {{-- ══ MODAL: Criar Plano a partir do Alerta ══ --}}
+  {{-- ══ MODAL: Criar Plano a partir do Risco ══ --}}
   <div id="treatmentAlertModal" class="modal-overlay is-hidden" aria-hidden="true">
     <div class="modal-card treat-detail-modal" role="dialog" aria-modal="true">
 
       <div class="treat-modal-header">
         <div>
           <div class="treat-modal-eyebrow">Plano de tratamento — RF10 · RF11</div>
-          <div class="treat-modal-title">Criar a partir de alerta</div>
+          <div class="treat-modal-title" id="ta_modal_title">Criar a partir de risco</div>
         </div>
         <button id="treatmentAlertClose" class="btn" type="button">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -349,30 +345,49 @@
 
       <div class="treat-context-strip">
         <div class="treat-ctx-item">
-          <div class="treat-ctx-label">Alerta</div>
-          <div class="treat-ctx-val" id="ta_alert_disp">—</div>
+          <div class="treat-ctx-label">ID do Risco</div>
+          <div class="treat-ctx-val" id="ta_risk_id_disp">—</div>
         </div>
         <div class="treat-ctx-item">
           <div class="treat-ctx-label">Ativo</div>
           <div class="treat-ctx-val" id="ta_asset_disp">—</div>
         </div>
         <div class="treat-ctx-item">
-          <div class="treat-ctx-label">Risco sugerido</div>
-          <div class="treat-ctx-val" id="ta_risk_disp">—</div>
+          <div class="treat-ctx-label">Score / Nível</div>
+          <div class="treat-ctx-val" id="ta_score_disp">—</div>
+        </div>
+        <div class="treat-ctx-item">
+          <div class="treat-ctx-label">Estado atual</div>
+          <div class="treat-ctx-val" id="ta_status_disp">—</div>
         </div>
       </div>
 
       <div class="treat-modal-body">
         <div class="treat-modal-col">
-          <div class="treat-ai-box">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Contexto do risco</div>
+          <div class="treat-ai-box" style="margin-bottom:14px">
             <div class="treat-ai-header">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Ações sugeridas pela IA
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Risco a tratar
             </div>
-            <div id="ta_ai_steps" class="treat-ai-steps"></div>
+            <div id="ta_risk_desc_disp" style="font-size:13px;font-weight:600;margin-bottom:6px">—</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Ameaça</div>
+                <div id="ta_threat_disp" style="font-size:12px;font-weight:600">—</div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Vulnerabilidade</div>
+                <div id="ta_vuln_disp" style="font-size:12px;font-weight:600">—</div>
+              </div>
+            </div>
+            <div style="margin-top:8px">
+              <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Ações registadas no risco</div>
+              <div id="ta_actions_disp" style="font-size:12px;color:var(--muted);white-space:pre-wrap">—</div>
+            </div>
           </div>
 
-          <div class="field" style="margin-top:14px">
+          <div class="field">
             <label>Descrição do plano <span class="muted" style="font-weight:400">(o que será feito)</span></label>
             <textarea id="ta_plan_desc" rows="4" placeholder="Descreve as ações, passos e responsáveis..."></textarea>
           </div>
@@ -412,8 +427,6 @@
       </div>
     </div>
   </div>
-
-  {{-- ══ MODAL: CNCS 24h ══ --}}
   <div id="cncs24hModal" class="modal-overlay is-hidden" aria-hidden="true">
     <div class="modal-card treat-detail-modal" role="dialog" aria-modal="true" style="max-width:700px">
       <div class="treat-modal-header">
@@ -447,9 +460,9 @@
   <input type="hidden" id="ra_id" />
   <input type="hidden" id="ra_alert" />
   <input type="hidden" id="ra_asset" />
-  <input type="hidden" id="ta_alert" />
+  <input type="hidden" id="ta_risk_id" />
+  <input type="hidden" id="ta_risk_desc" />
   <input type="hidden" id="ta_asset" />
-  <input type="hidden" id="ta_risk" />
   <input type="hidden" id="ta_actions" />
 
   <style>

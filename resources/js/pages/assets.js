@@ -381,10 +381,10 @@
 
         return assets.filter((a) => {
             const text = normalize(`${a.name} ${a.subtitle} ${a.type} ${a.owner} ${a.notes} ${a.hostname || ""}`);
-            const matchesQ    = !q    || text.includes(q);
-            const matchesCrit = crit  === "all" || a.criticity === crit;
-            const matchesType = type  === "all" || a.type === type;
-            const matchesSrc  = src   === "all" || (a.source || "manual") === src;
+            const matchesQ = !q || text.includes(q);
+            const matchesCrit = crit === "all" || a.criticity === crit;
+            const matchesType = type === "all" || a.type === type;
+            const matchesSrc = src === "all" || (a.source || "manual") === src;
             let matchesControl = true;
             if (st !== "all") {
                 matchesControl = a.controls.some((c) => c.declaredStatus === st);
@@ -408,18 +408,18 @@
             const cls = classify(score); // cls.label -> "Baixo/Médio/Alto/Muito Alto"
 
             const sourceClass = a.source === 'acronis' ? 'src-acronis' : 'src-manual';
-            const sourceLbl   = a.source === 'acronis' ? 'Acronis' : 'Manual';
+            const sourceLbl = a.source === 'acronis' ? 'Acronis' : 'Manual';
             tr.innerHTML = `
       <td>
-        <div class="asset-name">${a.name}</div>
-        <div class="asset-sub">${a.hostname || a.subtitle}${a.ip ? ` · ${a.ip}` : ""}</div>
+        <div class="asset-name">${a.hostname}</div>
+        <div class="asset-sub">${a.status || a.subtitle}${a.ip ? ` · ${a.ip}` : ""}</div>
       </td>
       <td>${a.type}</td>
       <td>${criticityTag(a.criticity)}</td>
       <td><span class="src-badge ${sourceClass}">${sourceLbl}</span></td>
       <td>${a.owner}</td>
       <td>
-        <span style="font-weight:600;color:${cls.cellClass==='high'||cls.cellClass==='vhigh'?'var(--bad)':cls.cellClass==='med'?'var(--warn)':'var(--ok)'}">${cls.label}</span>
+        <span style="font-weight:600;color:${cls.cellClass === 'high' || cls.cellClass === 'vhigh' ? 'var(--bad)' : cls.cellClass === 'med' ? 'var(--warn)' : 'var(--ok)'}">${cls.label}</span>
         <div class="asset-sub">P=${a.prob} × I=${a.impact} = ${score}</div>
       </td>
       <td>${complianceTag(a)}</td>
@@ -437,73 +437,66 @@
     }
 
     //========= Fetch de Ativos no API Fake do Acronis(só para mock)
-    async function loadAssetsFromAcronis() {
+    async function loadAssetsFromDB() {
 
         try {
 
-            const res = await fetch("http://127.0.0.1:9999/resource_management/v4/resources", {
-                headers: {
-                    "Authorization": "Bearer acronis_fake_jwt_token_998877"
-                }
-            });
-
-            if (!res.ok) {
-                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
+            const res = await fetch("/api/assets");
 
             const data = await res.json();
 
-            const resources = data.items || [];
-
-            assets = resources.map((r) => {
+            assets = data.map((a) => {
 
                 let type = "Workstation";
 
-                if (r.name.includes("SRV") || r.name.includes("VM"))
+                if (a.name?.includes("SRV"))
                     type = "Servidor";
 
                 return {
-                    id: r.id,
-                    name: r.name,
-                    subtitle: r.os?.name || "Unknown OS",
+
+                    id: a.id_asset,
+
+                    name: a.display_name ?? a.hostname ?? "Asset",
+
+                    subtitle: a.os_name || "Unknown OS",
+
                     type: type,
-                    criticity: "Médio",
-                    owner: "Acronis Agent",
-                    source: "acronis",
-                    acronis_id: r.id,
-                    ip: r.network?.ip || "",
-                    mac_address: r.network?.mac || "",
-                    hostname: r.host?.hostname || r.name,
-                    domain: r.host?.domain || "",
-                    os_platform: r.os?.platform || "",
-                    os_Name: r.os?.name || "",
-                    os_Version: r.os?.version || "",
-                    os_arch: r.os?.arch || "",
-                    os_build: r.os?.build || "",
-                    os_patch_level: r.os?.patch_level || "",
-                    agent_status: r.agent?.status || "",
-                    agent_version: r.agent?.version || "",
-                    agent_last_seen: r.agent?.last_seen || "",
-                    backup_enabled: r.protection?.backup_enabled ?? false,
-                    antimalware_enabled: r.protection?.antimalware_enabled ?? false,
-                    patch_mgmt_enabled: r.protection?.patch_management_enabled ?? false,
-                    acronis_synced_at: new Date().toISOString(),
-                    createdBy: "acronis-sync",
-                    notes: "Importado automaticamente do Acronis",
+                    criticity: a.criticity || "Médio",
+                    owner: a.owner || "—",
+                    source: a.source || "manual",
+
+                    ip: a.ip,
+                    mac_address: a.mac_address,
+                    hostname: a.hostname,
+
+                    os_Name: a.os_name,
+                    os_Version: a.os_version,
+
+                    agent_status: a.agent_status,
+                    agent_version: a.agent_version,
+                    agent_last_seen: a.agent_last_seen,
+                    os_arch: a.os_arch,
+                    os_build: a.os_build,
+                    os_patch_level: a.os_patch_level,
+                    domain: a.domain ?? null,
+                    createdBy: a.create_by ?? (a.source === 'acronis' ? 'Inserido automaticamente pelo Acronis' : 'Registo manual'),
+                    acronis_synced_at: a.updatedat,   // usar updatedat como proxy do sync
+
                     prob: 3,
                     impact: 3,
+
                     controls: [],
                     risks: [],
                     treatments: []
                 };
+
             });
 
-            // Re-render a tabela com os dados recebidos
             renderAssetsTable();
 
         } catch (err) {
 
-            console.error("Erro ao carregar ativos Acronis:", err);
+            console.error("Erro ao carregar ativos:", err);
 
         }
 
@@ -718,7 +711,7 @@
     function setTxt(id, val) { const el = $(id); if (el) el.textContent = val || "—"; }
 
     function openAssetModal(assetId) {
-        const asset = assets.find((a) => a.id === assetId);
+        const asset = assets.find((a) => String(a.id) === String(assetId));
         if (!asset) return;
         currentAssetId = assetId;
 
@@ -773,9 +766,9 @@
         const agentStatusEl = $("#mAgentStatus");
         if (agentStatusEl) {
             const st = asset.agent_status;
-            if (st === 'online')       { agentStatusEl.innerHTML = `<span style="color:var(--ok);font-weight:600;">● Online</span>`; }
+            if (st === 'online') { agentStatusEl.innerHTML = `<span style="color:var(--ok);font-weight:600;">● Online</span>`; }
             else if (st === 'offline') { agentStatusEl.innerHTML = `<span style="color:var(--bad);font-weight:600;">○ Offline</span>`; }
-            else                        { agentStatusEl.textContent = '—'; }
+            else { agentStatusEl.textContent = '—'; }
         }
         setTxt("#mAgentVersion", asset.agent_version);
         setTxt("#mAgentLastSeen", asset.agent_last_seen ? new Date(asset.agent_last_seen).toLocaleString('pt-PT') : '—');
@@ -807,13 +800,13 @@
         const scoreEl = $("#mScoreVal");
         if (scoreEl) {
             scoreEl.textContent = score;
-            const scoreColors = { vlow:'var(--muted)', low:'var(--ok)', med:'var(--warn)', high:'var(--bad)', vhigh:'var(--bad)' };
+            const scoreColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
             scoreEl.style.color = scoreColors[cls.cellClass] || 'var(--text)';
         }
         const classEl = $("#mClassChip");
         if (classEl) {
             classEl.textContent = cls.label;
-            const cc = { vlow:'var(--muted)', low:'var(--ok)', med:'var(--warn)', high:'var(--bad)', vhigh:'var(--bad)' };
+            const cc = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
             classEl.style.color = cc[cls.cellClass] || 'var(--text)';
         }
 
@@ -945,7 +938,7 @@
         openModal("#assetEditModal");
     }
 
-    function saveAssetFromForm() {
+    async function saveAssetFromForm() {
         const name = $("#fName").value.trim();
         if (!name) return alert("Nome é obrigatório.");
 
@@ -957,53 +950,88 @@
         const notes = $("#fNotes").value.trim();
         const ip = ($("#fIp")?.value || "").trim();
         if (!editingAssetId) {
-            const id = "A" + (Math.floor(Math.random() * 9000) + 1000);
-            const subtitle = `${type} • (novo)`;
+            // ── Persiste na base de dados ──
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
-            const newAsset = {
-                id,
-                name,
-                subtitle,
-                type,
-                source: "manual",
-                criticity,
-                owner,
-                ip,
-                mac_address: "",
-                hostname: "",
-                domain: "",
-                os_platform: "",
-                os_Name: "",
-                os_Version: "",
-                os_arch: "",
-                os_build: "",
-                os_patch_level: "",
-                agent_status: "",
-                agent_version: "",
-                agent_last_seen: "",
-                backup_enabled: null,
-                antimalware_enabled: null,
-                patch_mgmt_enabled: null,
-                acronis_synced_at: null,
-                createdBy: "mock-user",
-                notes,
-                prob,
-                impact,
-                controls: createControlsWorking.map(c => {
-                    const ai = mockAiSuggest(notes || name, c.key);
-                    return {
-                        key: c.key,
-                        declaredStatus: c.declaredStatus,
-                        aiSuggestedStatus: ai.suggestedStatus,
-                        aiConfidence: ai.confidence,
-                        aiJustification: ai.justification,
-                        note: c.note || "",
-                        evidences: []
-                    };
-                })
+            const payload = {
+                name: name,
+                type: type,
+                criticity: criticity,
+                owner: owner,
+                ip: ip || null,
+                prob: prob,
+                impact: impact,
+                notes: notes || null,
             };
 
-            assets.unshift(newAsset);
+            try {
+                const res = await fetch("/api/assets", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-TOKEN": csrfToken || ""
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert(`❌ Erro ao guardar ativo:\n${data.message || "Erro desconhecido"}`);
+                    return;
+                }
+
+                // Adiciona ao estado local com o id real da BD
+                const newAsset = {
+                    id: data.id_asset,
+                    name,
+                    subtitle: `${type} • Manual`,
+                    type,
+                    source: "manual",
+                    criticity,
+                    owner,
+                    ip,
+                    mac_address: "",
+                    hostname: name,
+                    domain: "",
+                    os_Name: "",
+                    os_Version: "",
+                    os_arch: "",
+                    os_build: "",
+                    os_patch_level: "",
+                    agent_status: "",
+                    agent_version: "",
+                    agent_last_seen: null,
+                    backup_enabled: false,
+                    antimalware_enabled: false,
+                    patch_mgmt_enabled: false,
+                    acronis_synced_at: null,
+                    createdBy: "Registo manual",
+                    notes,
+                    prob,
+                    impact,
+                    controls: createControlsWorking.map(c => {
+                        const ai = mockAiSuggest(notes || name, c.key);
+                        return {
+                            key: c.key,
+                            declaredStatus: c.declaredStatus,
+                            aiSuggestedStatus: ai.suggestedStatus,
+                            aiConfidence: ai.confidence,
+                            aiJustification: ai.justification,
+                            note: c.note || "",
+                            evidences: []
+                        };
+                    }),
+                    risks: [],
+                    treatments: []
+                };
+
+                assets.unshift(newAsset);
+
+            } catch (err) {
+                alert(`❌ Erro de conexão ao guardar ativo.\n${err.message}`);
+                return;
+            }
         } else {
             const a = assets.find(x => x.id === editingAssetId);
             a.name = name;
@@ -1114,13 +1142,75 @@
         window.location.href = routeName;
     }
 
+    // ========= sync acronis =========
+    async function syncAcronis() {
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+            if (!csrfToken) {
+                console.warn("CSRF token não encontrado no DOM.");
+            }
+
+            const res = await fetch("/api/assets/sync-acronis", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": csrfToken || ""
+                }
+            });
+
+            const text = await res.text();
+
+            console.group("🔄 Sync Acronis — Resposta do servidor");
+            console.log("Status:", res.status, res.statusText);
+            console.log("Body (raw):", text);
+            console.groupEnd();
+
+            let data;
+
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("❌ Resposta não é JSON válido. Body completo:", text);
+                alert(
+                    `Erro ${res.status}: O servidor não devolveu JSON válido.\n\n` +
+                    `Resposta:\n${text.substring(0, 500)}`
+                );
+                return;
+            }
+
+            if (res.ok) {
+                alert(`✅ Sync concluído! ${data.count} ativos importados/atualizados.`);
+                loadAssetsFromDB();
+            } else {
+                console.error("❌ Erro do servidor:", data);
+                alert(
+                    `❌ Erro ${res.status} ao sincronizar:\n\n` +
+                    `Mensagem: ${data.message || "Sem mensagem"}\n` +
+                    `Detalhe: ${data.error || data.exception || "Sem detalhe"}\n` +
+                    (data.file ? `Ficheiro: ${data.file}:${data.line}\n` : "") +
+                    (data.trace ? `\nStack (primeiros 300 chars):\n${JSON.stringify(data.trace).substring(0, 300)}` : "")
+                );
+            }
+
+        } catch (err) {
+            console.error("❌ Erro de rede/conexão ao sincronizar Acronis:", err);
+            console.error("Stack:", err.stack);
+            alert(
+                `❌ Erro de conexão ao sincronizar Acronis.\n\n` +
+                `Tipo: ${err.name}\n` +
+                `Mensagem: ${err.message}\n\n` +
+                `Verifica se o servidor Laravel está a correr.`
+            );
+        }
+    }
+
     // ========= init =========
     function init() {
         // Render inicial com dados mock enquanto o fetch não termina
         renderAssetsTable();
 
         // Carrega ativos do Acronis (substitui o mock ao terminar)
-        loadAssetsFromAcronis();
+        loadAssetsFromDB();
 
         // filters
         $("#assetSearch").addEventListener("input", renderAssetsTable);
@@ -1128,6 +1218,7 @@
         $("#typeFilter").addEventListener("change", renderAssetsTable);
         $("#controlStatusFilter").addEventListener("change", renderAssetsTable);
 
+        $("#btnSyncAcronis").addEventListener("click", syncAcronis);
         // open create asset
         $("#btnOpenCreateAsset").addEventListener("click", openCreateAsset);
 

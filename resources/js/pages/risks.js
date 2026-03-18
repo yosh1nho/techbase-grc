@@ -1,9 +1,13 @@
 // resources/js/pages/risks.js
 
-const MOCK_ALERTS = (JSON.parse(localStorage.getItem("tb_acronis_alerts") || "[]"))
+const MOCK_ALERTS = (JSON.parse(localStorage.getItem("tb_alerts") || "[]"))
   .map(a => ({
-    id: a.id, date: a.ts, severity: a.sev,
-    asset: a.asset, category: a.cat, summary: a.msg
+    id: a.id,
+    date: a.ts,
+    severity: a.sev,
+    asset: a.asset,
+    category: a.cat,
+    summary: a.msg
   }));
 
 const MOCK_ASSETS = {
@@ -93,20 +97,101 @@ let selectedRiskIds = new Set();
 let riskSearch = { q: "", level: "all", status: "all" };
 
 // ── Data ──────────────────────────────────────────────────
-function loadRisks() { try { return JSON.parse(localStorage.getItem("tb_mock_risks") || "[]"); } catch { return []; } }
-function loadTreatments() { try { return JSON.parse(localStorage.getItem("tb_mock_treatments") || "[]"); } catch { return []; } }
-function saveRisk(risk) {
-  const arr = loadRisks();
-  const idx = arr.findIndex(x => x.id === risk.id);
-  if (idx >= 0) arr[idx] = risk; else arr.unshift(risk);
-  localStorage.setItem("tb_mock_risks", JSON.stringify(arr));
+async function loadRisks() {
+
+  const res = await fetch("/api/risks");
+  const data = await res.json();
+
+  return data.map(r => ({
+    id: r.id_risk,
+    asset: r.hostname,
+    description: r.description,
+
+    threat: r.threat,
+    vulnerability: r.vulnerability,
+    riskOwner: r.risk_owner,
+    actions: r.actions,
+    due: r.due,
+
+    status: r.status,
+    prob: r.probability ?? 1,
+    impact: r.impact ?? 1,
+    score: r.score ?? 1,
+    strategy: r.origin,
+    createdAt: r.createdat
+  }));
 }
+function loadTreatments() { try { return JSON.parse(localStorage.getItem("tb_mock_treatments") || "[]"); } catch { return []; } }
+
+async function createRisk(data) {
+
+  const res = await fetch("/api/risks/from-alert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+    },
+    body: JSON.stringify({
+      hostname: data.asset,
+      title: data.title,
+      description: data.description,
+
+      threat: data.threat,
+      vulnerability: data.vulnerability,
+      risk_owner: data.risk_owner,
+      actions: data.actions,
+      due: data.due,
+
+      probability: data.probability ?? 3,
+      impact: data.impact ?? 3
+    })
+  });
+
+  return await res.json();
+}
+
 function saveTreatment(plan) {
   const arr = loadTreatments();
   arr.unshift(plan);
   localStorage.setItem("tb_mock_treatments", JSON.stringify(arr));
 }
-function clearRisks() { localStorage.removeItem("tb_mock_risks"); }
+async function deleteRisk(id) {
+  await fetch(`/api/risks/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+    }
+  });
+}
+async function saveRisk(data) {
+
+  // UPDATE
+  if (data.id && !String(data.id).startsWith("RK-")) {
+
+    const res = await fetch(`/api/risks/${data.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+      },
+      body: JSON.stringify(data)
+    });
+
+    return await res.json();
+  }
+
+  // CREATE
+  return await createRisk(data);
+}
+
+
+async function clearRisks() {
+  const risks = await loadRisks();
+  for (const r of risks) {
+    await deleteRisk(r.id);
+  }
+}
 
 // ── Risk scoring ──────────────────────────────────────────
 function riskLevelFromScore(score) {
@@ -117,8 +202,8 @@ function riskLevelFromScore(score) {
 }
 
 // ── KPIs ──────────────────────────────────────────────────
-function renderKpis() {
-  const risks = loadRisks();
+async function renderKpis() {
+  const risks = await loadRisks();
   setText("rkKpiTotal", risks.length);
   setText("rkKpiCritical", risks.filter(r => riskLevelFromScore(r.score).label === "Muito Alta").length);
   setText("rkKpiHigh", risks.filter(r => riskLevelFromScore(r.score).label === "Alta").length);
@@ -129,7 +214,7 @@ function renderKpis() {
 }
 
 // ── Render Alerts as cards ────────────────────────────────
-function renderAlerts() {
+async function renderAlerts() {
   const container = document.getElementById("alertCardsList");
   if (!container) return;
 
@@ -176,7 +261,7 @@ function selectAlert(alertId, openPlan = false) {
   document.querySelector(`.rk-alert-card[data-alert-id="${alertId}"]`)?.classList.add("selected");
 
   // enable action buttons
-  ["btnCreateTreatmentFromAlert", "btnCreateRiskFromAlert", "btnCNCS24h"].forEach(id => {
+  ["btnCreateRiskFromAlert", "btnCNCS24h"].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.disabled = false;
   });
@@ -229,12 +314,11 @@ function filterRisks(risks) {
   });
 }
 
-function renderRisks() {
+async function renderRisks() {
   const container = document.getElementById("riskCardsContainer");
   if (!container) return;
-  renderKpis();
 
-  const allRisks = loadRisks();
+  const allRisks = await loadRisks();
   const risks = filterRisks(allRisks);
 
   if (!risks.length) {
@@ -267,19 +351,29 @@ function renderRisks() {
       <button class="btn small" type="button" data-view-risk="${r.id}" style="font-size:11px;flex-shrink:0">
         Editar
       </button>
+      <button class="btn small primary" type="button" data-create-treatment="${r.id}" style="font-size:11px;flex-shrink:0">
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Criar plano
+      </button>
     `;
 
     card.querySelector("[data-risk-check]")?.addEventListener("change", (e) => {
       e.stopPropagation();
-      const id = e.target.getAttribute("data-risk-check");
+      const id = Number(e.target.getAttribute("data-risk-check"));
       e.target.checked ? selectedRiskIds.add(id) : selectedRiskIds.delete(id);
       document.getElementById("btnRemoveRisks").disabled = selectedRiskIds.size === 0;
     });
 
-    card.querySelector("[data-view-risk]")?.addEventListener("click", (e) => {
+    card.querySelector("[data-view-risk]")?.addEventListener("click", async (e) => {
       e.stopPropagation();
-      const rFull = loadRisks().find(x => x.id === r.id);
+      const rFull = (await loadRisks()).find(x => x.id === r.id);
       if (rFull) openRiskModalFromRisk(rFull);
+    });
+
+    card.querySelector("[data-create-treatment]")?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const rFull = (await loadRisks()).find(x => x.id === r.id);
+      if (rFull) openTreatmentModalFromRisk(rFull);
     });
 
     container.appendChild(card);
@@ -337,36 +431,38 @@ function updateRiskScoreUI() {
 }
 
 // ── Open Modals ───────────────────────────────────────────
-function openTreatmentModalPrefilled() {
-  if (!selectedAlert || !selectedAI) return;
+function openTreatmentModalFromRisk(r) {
+  const lvl = riskLevelFromScore(r.score);
 
-  // context strip (display fields)
-  setText("ta_alert_disp", `${selectedAlert.id} (${selectedAlert.severity})`);
-  setText("ta_asset_disp", selectedAlert.asset);
-  setText("ta_risk_disp", selectedAI.risk);
-  setText("ta_ref", `Alerta: ${selectedAlert.id}`);
+  // título do modal
+  const titleEl = document.getElementById("ta_modal_title");
+  if (titleEl) titleEl.textContent = `Plano para: ${r.description || r.id}`;
 
-  // hidden compat fields
-  setVal("ta_alert", `${selectedAlert.id} (${selectedAlert.severity})`);
-  setVal("ta_asset", selectedAlert.asset);
-  setVal("ta_risk", selectedAI.risk);
-  setVal("ta_actions", selectedAI.actionsText);
+  // context strip
+  setText("ta_risk_id_disp", r.id);
+  setText("ta_asset_disp", r.asset || "—");
+  setText("ta_score_disp", `${r.score} — ${lvl.label}`);
+  setText("ta_status_disp", r.status || "—");
 
-  // AI steps
-  const stepsEl = document.getElementById("ta_ai_steps");
-  if (stepsEl) {
-    stepsEl.innerHTML = selectedAI.actions.map((s, i) => `
-      <div class="treat-ai-step">
-        <div class="treat-ai-step-num">${i + 1}</div>
-        <div>${s}</div>
-      </div>
-    `).join("");
-  }
+  // painel esquerdo — contexto do risco
+  setText("ta_risk_desc_disp", r.description || "—");
+  setText("ta_threat_disp", r.threat || "—");
+  setText("ta_vuln_disp", r.vulnerability || "—");
+  setText("ta_actions_disp", r.actions || "—");
 
-  // clear editable fields
+  // hidden fields
+  setVal("ta_risk_id", r.id);
+  setVal("ta_risk_desc", r.description);
+  setVal("ta_asset", r.asset);
+  setVal("ta_actions", r.actions);
+
+  // footer ref
+  setText("ta_ref", `Risco: ${r.id}`);
+
+  // limpar campos editáveis
   setVal("ta_plan_desc", "");
-  setVal("ta_due", "");
-  setVal("ta_owner", "");
+  setVal("ta_due", r.due || "");
+  setVal("ta_owner", r.riskOwner || "");
 
   openModal("treatmentAlertModal");
 }
@@ -419,36 +515,38 @@ function openRiskModalPrefilled() {
 }
 
 function openRiskModalFromRisk(r) {
+
   setText("riskAlertTitle", `${r.asset} · ${r.description}`);
   setText("rk_id_disp", r.id);
   setText("rk_asset_disp", r.asset);
-  setText("rk_alert_disp", r.alertLabel || r.alertId || "—");
+  setText("rk_alert_disp", "—");
   setText("rk_created_disp", r.createdAt ? new Date(r.createdAt).toLocaleDateString("pt-PT") : "—");
   setText("rk_id_ref", `Editando: ${r.id}`);
 
-  document.getElementById("ra_alertId").value = r.alertId || "";
   setVal("ra_id", r.id);
-  setVal("ra_alert", r.alertLabel || r.alertId || "");
   setVal("ra_asset", r.asset);
-
   setVal("ra_desc", r.description);
-  setVal("ra_owner", r.riskOwner);
-  setVal("ra_threat", r.threat);
-  setVal("ra_vuln", r.vulnerability);
-  setVal("ra_actions", r.actions);
-  setVal("ra_action_owner", r.actionOwner);
-  setVal("ra_due", r.due);
-  setVal("ra_prob", String(r.prob));
-  setVal("ra_impact", String(r.impact));
-  setVal("ra_strategy", r.strategy);
-  setVal("ra_status", r.status);
 
-  document.getElementById("ra_c").checked = !!r.cia?.c;
-  document.getElementById("ra_i").checked = !!r.cia?.i;
-  document.getElementById("ra_a").checked = !!r.cia?.a;
+  setVal("ra_prob", r.prob || 1);
+  setVal("ra_impact", r.impact || 1);
+
+  setVal("ra_strategy", r.strategy || "Mitigar/Tratar");
+  setVal("ra_status", r.status || "Aberto");
+
+  // limpar campos que não vêm do backend
+  setVal("ra_owner", r.riskOwner || "");
+  setVal("ra_threat", r.threat || "");
+  setVal("ra_vuln", r.vulnerability || "");
+  setVal("ra_actions", r.actions || "");
+  setVal("ra_action_owner", r.actionOwner || "");
+  setVal("ra_due", r.due || "");
+
+  document.getElementById("ra_c").checked = false;
+  document.getElementById("ra_i").checked = false;
+  document.getElementById("ra_a").checked = false;
 
   const prev = document.getElementById("ra_alertPreview");
-  if (prev) prev.textContent = r.context || "—";
+  if (prev) prev.textContent = "—";
 
   updateRiskScoreUI();
   openModal("riskAlertModal");
@@ -562,7 +660,11 @@ function buildCNCS24hDraftHtml(alert, ai) {
     field("cncs_decl_role", "Cargo", "input", "ex.: CISO / DPO") +
     `</div>` +
     `<div style="margin-top:8px;font-size:12px;color:var(--muted)">Data: <b>${new Date().toISOString().slice(0, 10)}</b></div>`
-  )}
+  )}const MOCK_ALERTS = (JSON.parse(localStorage.getItem("tb_acronis_alerts") || "[]"))
+  .map(a => ({
+    id: a.id, date: a.ts, severity: a.sev,
+    asset: a.asset, category: a.cat, summary: a.msg
+  }));
   `;
 }
 
@@ -657,6 +759,18 @@ function printCNCS() {
   w.document.open(); w.document.write(buildCNCS24hPdfHtml(selectedAlert, selectedAI, p)); w.document.close();
 }
 
+async function loadUsers() {
+
+  const res = await fetch("/api/users");
+  const users = await res.json();
+
+  const ownerSelect = document.getElementById("ta_owner");
+
+  ownerSelect.innerHTML = users
+    .map(u => `<option value="${u.id_user}">${u.email}</option>`)
+    .join("");
+}
+
 // ── Wire UI ───────────────────────────────────────────────
 function wireUI() {
   // Alert action buttons
@@ -665,7 +779,6 @@ function wireUI() {
   document.getElementById("btnCloseCNCS2")?.addEventListener("click", () => closeModal("cncs24hModal"));
   document.getElementById("btnPrintCNCS")?.addEventListener("click", printCNCS);
 
-  document.getElementById("btnCreateTreatmentFromAlert")?.addEventListener("click", openTreatmentModalPrefilled);
   document.getElementById("btnCreateRiskFromAlert")?.addEventListener("click", openRiskModalPrefilled);
 
   // Risk modal
@@ -679,7 +792,7 @@ function wireUI() {
   document.getElementById("ra_prob")?.addEventListener("change", updateRiskScoreUI);
   document.getElementById("ra_impact")?.addEventListener("change", updateRiskScoreUI);
 
-  document.getElementById("ra_save")?.addEventListener("click", () => {
+  document.getElementById("ra_save")?.addEventListener("click", async () => {
     const prob = Number(document.getElementById("ra_prob").value);
     const impact = Number(document.getElementById("ra_impact").value);
     const desc = document.getElementById("ra_desc").value.trim();
@@ -710,8 +823,23 @@ function wireUI() {
       createdAt: new Date().toISOString(),
     };
 
-    saveRisk(risk);
-    renderRisks();
+    await saveRisk({
+      id: risk.id,
+      asset: risk.asset,
+      title: risk.description,
+      description: risk.description,
+      threat: risk.threat,
+      vulnerability: risk.vulnerability,
+      risk_owner: risk.riskOwner,
+      actions: risk.actions,
+      due: risk.due,
+      status: risk.status,
+      probability: prob,
+      impact: impact,
+      origin: "acronis"
+    });
+
+    await renderRisks();
     closeModal("riskAlertModal");
   });
 
@@ -726,24 +854,45 @@ function wireUI() {
     if (e.target === document.getElementById("cncs24hModal")) closeModal("cncs24hModal");
   });
 
-  document.getElementById("ta_save")?.addEventListener("click", () => {
-    if (!selectedAlert || !selectedAI) return;
+  document.getElementById("ta_save").addEventListener("click", async () => {
+
+    const riskId = document.getElementById("ta_risk_id")?.value;
+
+    if (!riskId) {
+      alert("Nenhum risco associado ao plano.");
+      return;
+    }
+
     const plan = {
-      id: `TP-${Date.now()}`,
-      source: "acronis", alertId: selectedAlert.id, asset: selectedAlert.asset,
-      risk: document.getElementById("ta_risk").value.trim(),
-      aiActions: document.getElementById("ta_actions").value.trim(),
-      planDescription: document.getElementById("ta_plan_desc").value.trim(),
+      risk_id: riskId,
+      description: document.getElementById("ta_plan_desc").value.trim(),
       strategy: document.getElementById("ta_strategy").value,
-      due: document.getElementById("ta_due").value.trim(),
-      owner: document.getElementById("ta_owner").value.trim(),
-      priority: document.getElementById("ta_priority").value,
-      status: "To do",
-      createdAt: new Date().toISOString(),
+      due: document.getElementById("ta_due").value,
+      owner: document.getElementById("ta_owner").value,
+      priority: document.getElementById("ta_priority").value
     };
-    saveTreatment(plan);
-    closeModal("treatmentAlertModal");
-    document.getElementById("btnGoTreatment").style.display = "inline-flex";
+
+    const res = await fetch("/api/treatment-plans", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
+      },
+      body: JSON.stringify(plan)
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+
+      closeModal("treatmentAlertModal");
+
+      document.getElementById("btnGoTreatment").style.display = "inline-flex";
+
+    } else {
+      alert("Erro ao criar plano");
+    }
+
   });
 
   // Risks filters
@@ -756,15 +905,18 @@ function wireUI() {
   document.getElementById("riskStatusFilter")?.addEventListener("change", (e) => {
     riskSearch.status = e.target.value; renderRisks();
   });
-  document.getElementById("btnClearRisks")?.addEventListener("click", () => {
-    clearRisks(); selectedRiskIds.clear(); renderRisks();
+  document.getElementById("btnClearRisks")?.addEventListener("click", async () => {
+    await clearRisks(); selectedRiskIds.clear(); await renderRisks();
   });
-  document.getElementById("btnRemoveRisks")?.addEventListener("click", () => {
-    const arr = loadRisks().filter(r => !selectedRiskIds.has(r.id));
-    localStorage.setItem("tb_mock_risks", JSON.stringify(arr));
+  document.getElementById("btnRemoveRisks")?.addEventListener("click", async () => {
+    const allRisks = await loadRisks();
+    const toRemove = allRisks.filter(r => selectedRiskIds.has(r.id));
+    for (const r of toRemove) {
+      await deleteRisk(r.id);
+    }
     selectedRiskIds.clear();
     document.getElementById("btnRemoveRisks").disabled = true;
-    renderRisks();
+    await renderRisks();
   });
 
   // ESC
@@ -788,5 +940,6 @@ function wireUI() {
 document.addEventListener("DOMContentLoaded", () => {
   renderAlerts();
   renderRisks();
+  loadUsers();
   wireUI();
 });

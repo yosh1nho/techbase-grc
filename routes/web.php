@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\RiskController;
+use App\Http\Controllers\TreatmentPlanController;
 
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
@@ -70,9 +73,36 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/relatorios-cncs', fn () => view('pages.reports-cncs'))->name('relatorios-cncs');
 
 
+    // ========= ATIVOS =========
+    Route::get('/api/assets', [AssetController::class, 'index']);
+    Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis']);
+    Route::post('/api/assets', [AssetController::class, 'store']);
+
     // ========= CHAT =========
     Route::post('/chat/ask', [ChatController::class, 'ask'])
     ->middleware(['throttle:60,1']);
+
+    // ========= RISCOS =========
+    Route::get('/api/risks', [RiskController::class, 'index']);
+    Route::post('/api/risks', [RiskController::class, 'store']);
+    Route::put('/api/risks/{id}', [RiskController::class, 'update']);
+    Route::delete('/api/risks/{id}', [RiskController::class, 'destroy']);
+    Route::post('/api/risks/from-alert', [RiskController::class, 'createFromAlert']);
+
+    // ========= PLANOS DE TRATAMENTO =========
+    Route::get('/api/treatment-plans', [TreatmentPlanController::class, 'index']);
+    Route::post('/api/treatment-plans', [TreatmentPlanController::class, 'store']);
+    Route::put('/api/treatment-plans/{id}', [TreatmentPlanController::class, 'update']);
+    Route::delete('/api/treatment-plans/{id}', [TreatmentPlanController::class, 'destroy']);
+
+    // ========= USERS =========
+    //Rota provisoria para puxar usuarios do banco de dados
+    Route::get('/api/users', function () {
+    return DB::table('User')
+        ->select('id_user','email')
+        ->get();
+});
+
 });
 
 Route::get('/_debug/php', function () {

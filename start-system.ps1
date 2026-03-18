@@ -5,14 +5,24 @@ cd 'C:\Users\Administrador\Desktop\projetoTechbase\Middleware AcronisWazuh\teste
 uvicorn fake_acronis_dynamic:app --port 9999 --reload
 "
 
-# Frontend (npm)
+# Frontend (Vite)
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "
 cd 'C:\Users\Administrador\Desktop\projetoTechbase\app\techbase-grc';
 npm run dev
 "
 
-# PHP Server
+# Laravel
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "
 cd 'C:\Users\Administrador\Desktop\projetoTechbase\app\techbase-grc';
-C:\Users\Administrador\.config\herd-lite\bin\php.exe -c C:\php-config\php.ini -S 127.0.0.1:8000 -t public
+C:\php\php.exe artisan serve
 "
+
+# Laravel Scheduler
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "
+cd 'C:\Users\Administrador\Desktop\projetoTechbase\app\techbase-grc';
+while (`$true) {
+    C:\php\php.exe artisan schedule:run;
+    Start-Sleep -Seconds 60;
+}
+"
+
