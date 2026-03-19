@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 
-import os, json, uuid, argparse, re
+import os, sys
+from pathlib import Path
+
+# ── TIKTOKEN CACHE — deve ser a primeira coisa a correr, antes de qualquer import ──
+# Os chunkers importam tiktoken no topo, por isso temos de definir o cache
+# antes de importar qualquer módulo local.
+_TIKTOKEN_CACHE = Path(__file__).resolve().parent / "tiktoken_cache"
+_TIKTOKEN_CACHE.mkdir(exist_ok=True)
+os.environ["TIKTOKEN_CACHE_DIR"] = str(_TIKTOKEN_CACHE)
+# ─────────────────────────────────────────────────────────────────────────────
+
+import json, uuid, argparse, re
 from datetime import datetime, timezone
 
 from pinecone import Pinecone
@@ -8,8 +19,6 @@ import tiktoken
 import pdfplumber
 
 from dotenv import load_dotenv
-from pathlib import Path
-
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from chunkers.qnrcs_controls import split_qnrcs_by_control

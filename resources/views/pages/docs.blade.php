@@ -110,9 +110,13 @@
         </div>
 
             <div class="panel">
-                <h2>Documentos no sistema</h2>
-                <p class="muted">Lista de evidências e políticas carregadas. Gerir status e associações a controlos.</p>
-
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+                    <div>
+                        <h2 style="margin:0">Documentos no sistema</h2>
+                        <p class="muted" style="margin:3px 0 0;font-size:12px">Evidências e políticas. Documenta promovidos de comentários ficam aqui para aprovação.</p>
+                    </div>
+                    <span class="chip">Total: <b id="docsCount">0</b></span>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -120,62 +124,12 @@
                             <th>Tipo</th>
                             <th>Versão</th>
                             <th>Status</th>
-                            <th>Última atualização</th>
+                            <th>Data</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr data-doc-id="DOC_INV_1">
-                            <td>
-                                <b>Procedimento Inventário v1.0</b>
-                                <div class="muted">PDF • hash: 9f2a…e11</div>
-                            </td>
-                            <td>Política</td>
-                            <td>v1.0</td>
-                            <td><span class="tag ok" data-doc-status-badge><span class="s"></span> Ativo</span></td>
-                            <td class="muted">2026-02-16</td>
-                            <td>
-                            <div class="actions">
-                            <button class="btn" type="button" data-open-doc-modal
-                            data-doc-id="DOC_INV_1"
-                            data-doc-name="Procedimento Inventário v1.0"
-                            data-doc-type="Política"
-                            data-doc-version="v1.0"
-                            data-doc-status="Ativo"
-                            data-doc-updated="2026-02-16"
-                            data-doc-url="/mock/docs/procedimento-inventario-v1.pdf"
-                            >Detalhes</button>
-
-                            <button class="btn ok btn-ghost" type="button" disabled aria-hidden="true">Aprovar</button>
-                            </div>
-                            </td>
-                        </tr>
-
-                        <tr data-doc-id="DOC_BKP_JAN">
-                            <td>
-                                <b>Relatório Backups (Jan)</b>
-                                <div class="muted">Imagem/Relatório • hash: 1ac0…b9d</div>
-                            </td>
-                            <td>Relatório</td>
-                            <td>v1.2</td>
-                            <td><span class="tag warn" data-doc-status-badge><span class="s"></span> Pendente</span></td>
-                            <td class="muted">2026-02-15</td>
-                            <td>
-                            <div class="actions">
-                            <button class="btn" type="button" data-open-doc-modal
-                            data-doc-id="DOC_BKP_JAN"
-                            data-doc-name="Relatório Backups (Jan)"
-                            data-doc-type="Relatório"
-                            data-doc-version="v1.2"
-                            data-doc-status="Pendente"
-                            data-doc-updated="2026-02-15"
-                            data-doc-url="/mock/docs/relatorio-backups-jan.pdf"
-                            >Detalhes</button>
-
-                            <button class="btn ok" type="button" data-approve-doc data-doc-id="DOC_BKP_JAN">Aprovar</button>
-                            </div>
-                            </td>
-                        </tr>
+                    <tbody id="docsTbody">
+                        <tr><td colspan="6" class="muted">A carregar...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -585,59 +539,68 @@
     <div class="panel">
       <div class="two">
         <div class="field">
-          <label>Nome</label>
+          <label>Nome / Título</label>
           <input id="u_name" placeholder="ex.: QNRCS 2019 / Política de Backups v1.0" />
         </div>
-
         <div class="field">
           <label>Tipo</label>
           <select id="u_type">
             <option value="evidence">Evidência</option>
             <option value="policy">Política</option>
             <option value="procedure">Procedimento</option>
+            <option value="report">Relatório</option>
             <option value="framework">Framework / Norma oficial</option>
           </select>
         </div>
       </div>
 
+      <div class="field">
+        <label>Ficheiro <span style="color:var(--bad)">*</span></label>
+        <input type="file" id="u_file"
+          accept=".pdf,.txt,.md,.docx"
+          style="padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);color:inherit;width:100%;cursor:pointer" />
+        <div class="hint" style="margin-top:4px">Formatos: PDF, TXT, DOCX. São indexados no Pinecone após aprovação (ou imediatamente se for Framework).</div>
+      </div>
+
       <div class="two">
         <div class="field">
-          <label>Versão</label>
-          <input id="u_version" placeholder="ex.: v2.1 / 2019" />
+          <label>Versão <span class="muted" style="font-weight:400">(opcional)</span></label>
+          <input id="u_version" placeholder="ex.: v1.0" />
         </div>
         <div class="field">
-          <label>Atualizado</label>
-          <input id="u_updated" placeholder="YYYY-MM-DD" />
+          <label>Data <span class="muted" style="font-weight:400">(opcional)</span></label>
+          <input id="u_updated" type="date" />
         </div>
       </div>
 
-      {{-- Bloco extra só para Framework --}}
       <div id="u_frameworkBlock" class="panel" style="margin-top:10px; display:none">
         <h2 style="margin-bottom:6px">Dados normativos (RF4)</h2>
+        <div class="hint" style="margin-bottom:10px">Frameworks são aprovados e indexados automaticamente no Pinecone ao fazer upload.</div>
         <div class="two">
           <div class="field">
             <label>Origem</label>
             <select id="u_source">
-              <option>CNCS</option>
-              <option>QNRCS</option>
-              <option>NIS2</option>
-              <option>Outro</option>
+              <option>CNCS</option><option>QNRCS</option>
+              <option>NIS2</option><option>ISO 27001</option><option>Outro</option>
             </select>
           </div>
           <div class="field">
             <label>Notas</label>
-            <input id="u_fwNotes" placeholder="ex.: Base normativa para avaliações e relatórios CNCS" />
+            <input id="u_fwNotes" placeholder="ex.: Base normativa para avaliações CNCS" />
           </div>
         </div>
-        <div class="hint">Frameworks não geram “chunks” e não recebem sugestões de cobertura por IA.</div>
       </div>
 
-      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px">
-        <button id="u_save" class="btn ok" type="button">Guardar (mock)</button>
+      <div id="u_feedback" style="display:none;margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;border:1px solid var(--border)"></div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px">
+        <button id="uploadDocClose2" class="btn" type="button">Cancelar</button>
+        <button id="u_save" class="btn ok" type="button">Fazer upload</button>
       </div>
     </div>
   </div>
 </div>
+
 
 {{-- MODAL: Detalhes do Framework --}}
 <div id="fwModal" class="modal-overlay" aria-hidden="true">

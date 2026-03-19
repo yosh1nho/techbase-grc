@@ -1,28 +1,28 @@
-// Techbase GRC • NIS2 — Docs page (mock)
+// Techbase GRC • NIS2 — Docs page
 // Note: sem frameworks JS, tudo vanilla.
 
 (() => {
-  // ===== Mock chunks base (sistema) =====
-  const SYSTEM_CHUNKS = [
-    {
-      id: 'C1',
-      label: 'Chunk #01 — Inventário mensal…',
-      full: 'Inventário deve ser atualizado mensalmente, contendo responsáveis, criticidade, localização e evidências do processo de revisão.',
-      suggested: { control: 'ID.GA-1', coverage: 'Alta', confidence: '0.82' }
-    },
-    {
-      id: 'C2',
-      label: 'Chunk #02 — Backups sem testes…',
-      full: 'Backups existem e são executados com frequência, porém não há evidência de testes periódicos de restauração nem relatórios de validação.',
-      suggested: { control: 'PR.IP-4', coverage: 'Média', confidence: '0.61' }
-    },
-  ];
+  // ── CSRF helper ─────────────────────────────────────────────────────────────
+  const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
 
-  // ===== Mock docs (documentos oficiais) =====
-  let DOCS = [
-    { id: "D1", name: "Procedimento Inventário v1.0", type: "procedure", version: "v1.0", updated: "2026-02-10", status: "Ativo" },
-    { id: "D2", name: "Política de Backups v0.9", type: "policy", version: "v0.9", updated: "2026-02-12", status: "Draft" },
-  ];
+  async function apiGet(url) {
+    const r = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+  async function apiPost(url, body = {}) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": csrf(), Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.message || `HTTP ${r.status}`); }
+    return r.json();
+  }
+
+  // ── Estado ───────────────────────────────────────────────────────────────────
+  // DOCS agora vem da API — array mantido em memória para UI reactiva
+  let DOCS = [];
 
 
   let FRAMEWORKS = [
@@ -155,12 +155,15 @@
 
 
   function resetUploadForm() {
-    document.getElementById("u_name").value = "";
-    document.getElementById("u_type").value = "evidence";
-    document.getElementById("u_version").value = "";
-    document.getElementById("u_updated").value = "";
-    document.getElementById("u_source").value = "CNCS";
-    document.getElementById("u_fwNotes").value = "";
+    ["u_name", "u_version", "u_fwNotes"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+    const type = document.getElementById("u_type"); if (type) type.value = "evidence";
+    const src = document.getElementById("u_source"); if (src) src.value = "CNCS";
+    const upd = document.getElementById("u_updated"); if (upd) upd.value = "";
+    const file = document.getElementById("u_file"); if (file) file.value = "";
+    const fb = document.getElementById("u_feedback"); if (fb) { fb.style.display = "none"; fb.textContent = ""; }
+    const btn = document.getElementById("u_save"); if (btn) btn.disabled = false;
     syncUploadTypeUI();
   }
 
@@ -171,47 +174,178 @@
     block.style.display = (type === "framework") ? "block" : "none";
   }
 
-  function saveUpload() {
-    const name = (document.getElementById("u_name").value || "").trim();
-    const type = document.getElementById("u_type").value;
-    const version = (document.getElementById("u_version").value || "").trim();
-    const updated = (document.getElementById("u_updated").value || "").trim();
+  // ── Upload de documento (real) ──────────────────────────────────────────────
+  async function saveUpload() {
+    const name = (document.getElementById("u_name")?.value || "").trim();
+    const type = document.getElementById("u_type")?.value || "evidence";
+    const version = (document.getElementById("u_version")?.value || "").trim();
+    const updated = document.getElementById("u_updated")?.value || "";
+    const fileEl = document.getElementById("u_file");
+    const file = fileEl?.files?.[0] ?? null;
 
-    if (!name) return alert("Nome é obrigatório.");
+    if (!name) return showFeedback("warn", "Preenche o nome do documento.");
+    if (!file) return showFeedback("warn", "Selecciona um ficheiro.");
 
+    const btn = document.getElementById("u_save");
+    if (btn) { btn.disabled = true; }
+    showFeedback("info", "A fazer upload...");
+
+    const fd = new FormData();
+    fd.append("title", name);
+    fd.append("type", type);
+    fd.append("version", version || "1.0");
+    if (updated) fd.append("date", updated);
+    fd.append("file", file);
+
+    // Dados extra para framework
     if (type === "framework") {
-      const source = document.getElementById("u_source").value;
-      const notes = (document.getElementById("u_fwNotes").value || "").trim();
-
-      FRAMEWORKS.unshift({
-        id: "F" + (Math.floor(Math.random() * 9000) + 1000),
-        name,
-        source,
-        version: version || "—",
-        updated: updated || "—",
-        status: "Oficial",
-        notes
-      });
-
-      renderFrameworks();
-      closeUploadModal();
-      return;
+      fd.append("source", document.getElementById("u_source")?.value || "Outro");
+      fd.append("notes", document.getElementById("u_fwNotes")?.value || "");
     }
 
-    // docs normais
-    DOCS.unshift({
-      id: "D" + (Math.floor(Math.random() * 9000) + 1000),
-      name,
-      type,
-      version: version || "—",
-      updated: updated || "—",
-      status: "Ativo"
+    try {
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        headers: { "X-CSRF-TOKEN": csrf(), "Accept": "application/json" },
+        body: fd,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+
+      if (type === "framework") {
+        // Framework: aprovado imediatamente, recarrega lista de frameworks
+        showFeedback("ok", data.ingest === "queued"
+          ? "Framework guardado e a indexar no Pinecone..."
+          : "Framework guardado com sucesso.");
+        await loadFrameworks();
+        setTimeout(closeUploadModal, 1800);
+      } else {
+        // Documento normal: fica pendente para aprovação
+        showFeedback("ok", "Ficheiro enviado. Aguarda aprovação de um administrador.");
+        await loadDocs();
+        setTimeout(closeUploadModal, 1800);
+      }
+    } catch (e) {
+      showFeedback("err", "Erro: " + e.message);
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function showFeedback(level, msg) {
+    const fb = document.getElementById("u_feedback");
+    if (!fb) return;
+    const colors = {
+      ok: "var(--color-background-success, rgba(52,211,153,.12))",
+      warn: "var(--color-background-warning, rgba(251,191,36,.12))",
+      err: "var(--color-background-danger,  rgba(248,113,113,.12))",
+      info: "var(--color-background-secondary)",
+    };
+    fb.style.display = "block";
+    fb.style.background = colors[level] || colors.info;
+    fb.textContent = msg;
+  }
+
+  // ── Carregar frameworks da API ────────────────────────────────────────────
+  async function loadFrameworks() {
+    try {
+      const data = await apiGet("/api/documents?type=framework&status=approved");
+      // Combinar com frameworks estáticos (QNRCS, NIS2 pré-carregados) se não vierem da BD
+      const fromApi = data.map(d => ({
+        id: "api-" + d.id,
+        name: d.title || d.file_name,
+        source: d.type || "—",
+        version: d.version || "—",
+        updated: (d.created_at || "").slice(0, 10),
+        status: d.status === "approved" ? "Oficial" : d.status,
+        notes: d.origin || "",
+      }));
+      // Só substitui se vier algo da API, senão mantém os estáticos do seed
+      if (fromApi.length > 0) FRAMEWORKS = fromApi;
+    } catch (e) {
+      // Silencioso — frameworks estáticos continuam a funcionar
+      console.warn("loadFrameworks:", e.message);
+    }
+    renderFrameworks();
+  }
+
+  // Carregar documentos da API
+  async function loadDocs() {
+    const tbody = document.getElementById("docsTbody");
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="muted">A carregar...</td></tr>';
+    try {
+      DOCS = await apiGet("/api/documents");
+      renderDocsTable();
+    } catch (e) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="muted">Erro ao carregar documentos.</td></tr>';
+      console.error("loadDocs:", e);
+    }
+  }
+
+  function _fmtSize(b) {
+    if (!b) return ""; if (b < 1024) return b + " B"; if (b < 1048576) return (b / 1024).toFixed(1) + " KB"; return (b / 1048576).toFixed(1) + " MB";
+  }
+  function _statusBadge(s) {
+    if (s === "approved") return '<span class="tag ok"><span class="s"></span> Aprovado</span>';
+    if (s === "pending") return '<span class="tag warn"><span class="s"></span> Pendente</span>';
+    if (s === "rejected") return '<span class="tag"><span class="s"></span> Rejeitado</span>';
+    return '<span class="tag"><span class="s"></span> ' + (s || "--") + '</span>';
+  }
+
+  function renderDocsTable() {
+    const tbody = document.getElementById("docsTbody"), countEl = document.getElementById("docsCount");
+    if (!tbody) return;
+    if (countEl) countEl.textContent = DOCS.length;
+    if (!DOCS.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted">Sem documentos registados.</td></tr>'; return; }
+    tbody.innerHTML = DOCS.map(d => {
+      const nm = d.title || d.file_name || "--";
+      const sub = (d.file_name ? d.file_name : "") + (d.file_size ? " · " + _fmtSize(d.file_size) : "") + (d.origin ? " · " + d.origin.slice(0, 50) : "");
+      const dl = d.has_file ? '<a class="btn small" href="/api/documents/' + d.id + '/download" target="_blank">Download</a>'
+        : '<button class="btn small" disabled>Sem ficheiro</button>';
+      const ap = d.status === "pending"
+        ? '<button class="btn ok small" data-approve-doc="' + d.id + '">Aprovar</button><button class="btn small" style="color:#f87171" data-reject-doc="' + d.id + '">Rejeitar</button>'
+        : "";
+      return '<tr data-doc-id="' + d.id + '">'
+        + '<td><b>' + nm + '</b><div class="muted" style="font-size:11px">' + sub + '</div></td>'
+        + '<td>' + (d.type || "--") + '</td><td>' + (d.version || "--") + '</td>'
+        + '<td data-doc-status-badge>' + _statusBadge(d.status) + '</td>'
+        + '<td class="muted">' + ((d.created_at || "--").toString().slice(0, 10)) + '</td>'
+        + '<td><div class="actions">' + dl + ap + '</div></td></tr>';
+    }).join("");
+    tbody.querySelectorAll("[data-approve-doc]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.dataset.approveDoc);
+        btn.disabled = true;
+        btn.textContent = "A aprovar...";
+        try {
+          const res = await apiPost("/api/documents/" + id + "/approve");
+          const d = DOCS.find(x => x.id === id);
+          if (d) d.status = "approved";
+          renderDocsTable();
+          // Feedback de indexação
+          if (res.ingest === "queued") {
+            const row = document.querySelector('[data-doc-id="' + id + '"]');
+            if (row) {
+              const cell = row.querySelector("td:first-child");
+              if (cell) {
+                const badge = document.createElement("div");
+                badge.style.cssText = "font-size:11px;color:var(--color-text-warning,#fbbf24);margin-top:3px";
+                badge.textContent = "A indexar no Pinecone...";
+                cell.appendChild(badge);
+                setTimeout(() => badge.remove(), 6000);
+              }
+            }
+          }
+        } catch (e) { alert("Erro ao aprovar: " + e.message); btn.disabled = false; btn.textContent = "Aprovar"; }
+      });
     });
-
-    // aqui tu chama teu render de “Documentos no sistema”
-    if (typeof renderDocsTable === "function") renderDocsTable();
-
-    closeUploadModal();
+    tbody.querySelectorAll("[data-reject-doc]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.dataset.rejectDoc);
+        if (!confirm("Rejeitar?")) return;
+        try { await apiPost("/api/documents/" + id + "/reject"); const d = DOCS.find(x => x.id === id); if (d) d.status = "rejected"; renderDocsTable(); }
+        catch (e) { alert("Erro ao rejeitar: " + e.message); }
+      });
+    });
   }
 
   // manual chunks criados (aparecem depois no histórico)
@@ -746,16 +880,7 @@
       btn.addEventListener('click', () => openDocModal(btn));
     });
 
-    // Aprovar (tabela) — delegation para funcionar mesmo se a tabela crescer
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-approve-doc]');
-      if (!btn) return;
-      const docId = btn.dataset.docId;
-      if (!docId) return;
-      approveDoc(docId);
-    });
-
-    // Aprovar (modal)
+    // Aprovar (modal) — mantido para docs com modal aberto
     document.getElementById('docApproveBtn')?.addEventListener('click', () => {
       if (!CURRENT_DOC_ID) return;
       approveDoc(CURRENT_DOC_ID);
@@ -774,17 +899,17 @@
       openUploadModal();
     });
 
-    // Render inicial do painel de frameworks (RF4)
-    renderFrameworks();
+    // Carregar documentos e frameworks da BD
+    loadDocs();
+    loadFrameworks();
 
     // Upload modal binds
     document.getElementById("uploadDocClose")?.addEventListener("click", closeUploadModal);
 
     document.getElementById("u_type")?.addEventListener("change", syncUploadTypeUI);
 
-    document.getElementById("u_save")?.addEventListener("click", () => {
-      saveUpload();
-    });
+    document.getElementById("u_save")?.addEventListener("click", () => saveUpload());
+    document.getElementById("uploadDocClose2")?.addEventListener("click", closeUploadModal);
 
     // clicar fora para fechar
     document.getElementById("uploadDocModal")?.addEventListener("click", (e) => {

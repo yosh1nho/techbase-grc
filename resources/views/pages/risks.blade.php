@@ -148,7 +148,11 @@
   {{-- ══ MODAL: Registar / Editar Risco ══ --}}
   <div id="riskAlertModal" class="modal-overlay is-hidden" aria-hidden="true">
     <div class="modal-card rk-risk-modal" role="dialog" aria-modal="true">
+    {{-- Hidden fields usados pelo JS para passar dados internos --}}
     <input type="hidden" id="ra_alertId" value="">
+    <input type="hidden" id="ra_id"      value="">
+    <input type="hidden" id="ra_alert"   value="">
+    <input type="hidden" id="ra_asset"   value="">
 
       {{-- Header --}}
       <div class="treat-modal-header">
@@ -210,7 +214,9 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="field">
               <label>Responsável do risco</label>
-              <input id="ra_owner" placeholder="ex.: João — IT Ops" />
+              <select id="ra_owner">
+                <option value="">Selecionar responsável...</option>
+              </select>            
             </div>
             <div class="field">
               <label>Data alvo</label>
@@ -240,21 +246,6 @@
             <textarea id="ra_actions" rows="3" placeholder="ex.: Bloquear IPs, ativar MFA, rate-limit..."></textarea>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field">
-              <label>Responsável pelo tratamento</label>
-              <input id="ra_action_owner" placeholder="ex.: Inês — SI" />
-            </div>
-            <div class="field">
-              <label>Estratégia</label>
-              <select id="ra_strategy">
-                <option>Mitigar/Tratar</option>
-                <option>Aceitar</option>
-                <option>Evitar</option>
-                <option>Transferir</option>
-              </select>
-            </div>
-          </div>
         </div>
 
         {{-- Col direita: Avaliação 5×5 + estado --}}
@@ -407,8 +398,9 @@
           </div>
           <div class="field">
             <label>Responsável</label>
-            <input id="ta_owner" placeholder="ex.: SOC / IT Ops" />
-          </div>
+            <select id="ta_owner">
+              <option value="">Selecionar responsável...</option>
+            </select>          </div>
           <div class="field">
             <label>Prioridade</label>
             <select id="ta_priority">

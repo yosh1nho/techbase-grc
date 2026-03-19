@@ -1,7 +1,11 @@
-import tiktoken
 from typing import List, Dict, Any
-#Script Chunker Generico
+
+# Script Chunker Generico
+# tiktoken e importado dentro da funcao para garantir que
+# TIKTOKEN_CACHE_DIR ja esta definido quando o import acontece.
+
 def chunk_by_tokens(text: str, max_tokens=450, overlap=60) -> List[Dict[str, Any]]:
+    import tiktoken  # import aqui, nao no topo do modulo
     enc = tiktoken.get_encoding("cl100k_base")
     toks = enc.encode(text)
     out = []

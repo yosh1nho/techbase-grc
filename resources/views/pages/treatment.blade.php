@@ -329,7 +329,9 @@
         <div class="ntm-row">
           <div class="ntm-field">
             <label class="ntm-label">Designado a</label>
-            <input id="tf_assigned" class="ntm-input" placeholder="Ex.: IT Ops, SecOps..." />
+            <select id="tf_assigned" class="ntm-input">
+              <option value="">Sem designado</option>
+            </select>
           </div>
           <div class="ntm-field">
             <label class="ntm-label">Prazo</label>
@@ -455,7 +457,9 @@
           </div>
           <div class="field">
             <label>Designado</label>
-            <input id="tkm_edit_assigned" placeholder="ex.: IT Ops..." />
+            <select id="tkm_edit_assigned">
+              <option value="">Sem designado</option>
+            </select>
           </div>
           <div class="field">
             <label>Prazo</label>

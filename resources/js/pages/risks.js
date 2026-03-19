@@ -26,6 +26,29 @@ function closeModal(id) { const el = document.getElementById(id); el?.classList.
 function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v || ""; }
 
+
+function setSelectVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = String(v ?? "");
+}
+
+function setSelectByText(id, text) {
+  const el = document.getElementById(id);
+  if (!el || !text) return;
+  const val = String(text);
+  // 1. match exacto por value
+  const byValue = [...el.options].find(o => o.value === val);
+  if (byValue) { el.value = byValue.value; return; }
+  // 2. match por texto visível
+  const byText = [...el.options].find(o => o.text === val);
+  if (byText) { el.value = byText.value; return; }
+  // 3. match parcial — "Luisa - IT" contém "luisa", email contém "luisa"
+  const lower = val.toLowerCase();
+  const byPartial = [...el.options].find(o =>
+    o.text.toLowerCase().includes(lower) || lower.includes(o.text.toLowerCase().split("@")[0])
+  );
+  if (byPartial) { el.value = byPartial.value; return; }
+}
 // ── AI Recommendation ─────────────────────────────────────
 function mockAIRecommendation(alert) {
   const asset = MOCK_ASSETS[alert.asset] || { criticality: "—", owner: "—", notes: "" };
@@ -192,6 +215,8 @@ async function clearRisks() {
     await deleteRisk(r.id);
   }
 }
+
+
 
 // ── Risk scoring ──────────────────────────────────────────
 function riskLevelFromScore(score) {
@@ -462,7 +487,7 @@ function openTreatmentModalFromRisk(r) {
   // limpar campos editáveis
   setVal("ta_plan_desc", "");
   setVal("ta_due", r.due || "");
-  setVal("ta_owner", r.riskOwner || "");
+  setSelectVal("ta_owner", r.riskOwner);
 
   openModal("treatmentAlertModal");
 }
@@ -491,7 +516,7 @@ function openRiskModalPrefilled() {
   setVal("ra_actions", selectedAI.actionsText);
   setVal("ra_threat", selectedAlert.category || "—");
   setVal("ra_vuln", "");
-  setVal("ra_owner", "");
+  setSelectVal("ra_owner", null);
   setVal("ra_due", "");
 
   document.getElementById("ra_c").checked = true;
@@ -500,7 +525,6 @@ function openRiskModalPrefilled() {
 
   setVal("ra_prob", "3");
   setVal("ra_impact", selectedAlert.severity === "critical" ? "4" : "3");
-  setVal("ra_strategy", "Mitigar/Tratar");
   setVal("ra_status", "Aberto");
 
   // alert preview
@@ -515,7 +539,6 @@ function openRiskModalPrefilled() {
 }
 
 function openRiskModalFromRisk(r) {
-
   setText("riskAlertTitle", `${r.asset} · ${r.description}`);
   setText("rk_id_disp", r.id);
   setText("rk_asset_disp", r.asset);
@@ -530,15 +553,13 @@ function openRiskModalFromRisk(r) {
   setVal("ra_prob", r.prob || 1);
   setVal("ra_impact", r.impact || 1);
 
-  setVal("ra_strategy", r.strategy || "Mitigar/Tratar");
   setVal("ra_status", r.status || "Aberto");
 
   // limpar campos que não vêm do backend
-  setVal("ra_owner", r.riskOwner || "");
+  setSelectByText("ra_owner", r.riskOwner);
   setVal("ra_threat", r.threat || "");
   setVal("ra_vuln", r.vulnerability || "");
   setVal("ra_actions", r.actions || "");
-  setVal("ra_action_owner", r.actionOwner || "");
   setVal("ra_due", r.due || "");
 
   document.getElementById("ra_c").checked = false;
@@ -547,7 +568,6 @@ function openRiskModalFromRisk(r) {
 
   const prev = document.getElementById("ra_alertPreview");
   if (prev) prev.textContent = "—";
-
   updateRiskScoreUI();
   openModal("riskAlertModal");
 }
@@ -760,15 +780,23 @@ function printCNCS() {
 }
 
 async function loadUsers() {
-
   const res = await fetch("/api/users");
   const users = await res.json();
+  console.log("users API:", users);
+  const selects = [
+    document.getElementById("ta_owner"),
+    document.getElementById("ra_owner"),
+    document.getElementById("ra_action_owner")
+  ];
 
-  const ownerSelect = document.getElementById("ta_owner");
-
-  ownerSelect.innerHTML = users
-    .map(u => `<option value="${u.id_user}">${u.email}</option>`)
-    .join("");
+  selects.forEach(select => {
+    if (!select) return;
+    select.innerHTML =
+      '<option value="">Selecionar responsável...</option>' +
+      users.map(u =>
+        `<option value="${u.id_user}" data-name="${u.name || u.email}">${u.name || u.email}</option>`
+      ).join("");
+  });
 }
 
 // ── Wire UI ───────────────────────────────────────────────
@@ -807,17 +835,15 @@ function wireUI() {
       description: desc,
       threat: document.getElementById("ra_threat").value.trim(),
       vulnerability: document.getElementById("ra_vuln").value.trim(),
-      riskOwner: document.getElementById("ra_owner").value.trim(),
+      riskOwner: Number(document.getElementById("ra_owner").value),
       cia: {
         c: document.getElementById("ra_c").checked,
         i: document.getElementById("ra_i").checked,
         a: document.getElementById("ra_a").checked,
       },
       prob, impact, score: prob * impact,
-      strategy: document.getElementById("ra_strategy").value,
       status: document.getElementById("ra_status").value,
       actions: document.getElementById("ra_actions").value.trim(),
-      actionOwner: document.getElementById("ra_action_owner").value.trim(),
       due: document.getElementById("ra_due").value.trim(),
       context: document.getElementById("ra_alertPreview")?.innerText || "",
       createdAt: new Date().toISOString(),
@@ -937,9 +963,11 @@ function wireUI() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadUsers();   // carregar users primeiro
+
   renderAlerts();
   renderRisks();
-  loadUsers();
+
   wireUI();
 });
