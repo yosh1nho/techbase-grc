@@ -4,7 +4,7 @@
 (() => {
   // ── CSRF helper ─────────────────────────────────────────────────────────────
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
-
+  let LAST_AI_TEXT = "";
   async function apiGet(url) {
     const r = await fetch(url, { headers: { Accept: "application/json" } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -140,6 +140,7 @@
   function openUploadModal() {
     const m = document.getElementById("uploadDocModal");
     if (!m) return;
+    m.style.display = "";        // limpa o display:none inline do HTML
     m.classList.add("open");
     m.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -149,6 +150,7 @@
     const m = document.getElementById("uploadDocModal");
     if (!m) return;
     m.classList.remove("open");
+    m.style.display = "";        // deixa o CSS controlar
     m.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
   }
@@ -172,6 +174,57 @@
     const block = document.getElementById("u_frameworkBlock");
     if (!block) return;
     block.style.display = (type === "framework") ? "block" : "none";
+  }
+
+  //Adiciona badge de assinatura digital
+  function signatureBadge(doc) {
+    // Aprovado sem assinatura → não conforme (prioridade máxima)
+    if (doc.non_compliant) {
+      return '<span class="tag warn" title="Aprovado sem assinatura digital — não conforme">⚠ Não conforme</span>';
+    }
+    // Aprovado com assinatura → conforme
+    if (doc.is_signed && doc.status === 'approved') {
+      return '<span class="tag ok" title="Assinado digitalmente">✓ Assinado</span>';
+    }
+    // Pendente/rejeitado sem assinatura → aviso simples
+    if (!doc.is_signed) {
+      return '<span class="tag bad" title="Sem assinatura digital">⚠ Não assinado</span>';
+    }
+    // Pendente com assinatura → info
+    return '<span class="tag" title="Assinatura detectada — aguarda aprovação">~ Assinado</span>';
+  }
+
+  //Re-upload de documento
+  async function reUploadDoc(docId) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,.docx,.txt,.md";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append("file", file);
+      showToast("info", "A fazer upload da nova versão...");
+      try {
+        const res = await fetch(`/api/documents/${docId}/re-upload`, {
+          method: "POST",
+          body: fd,
+          headers: { "X-CSRF-TOKEN": csrf() },
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.is_signed ? "ok" : "warn",
+            data.message || "Nova versão carregada.");
+          DOCS = await apiGet("/api/documents");
+          renderDocsTable();
+        } else {
+          showToast("err", data.message || "Erro no upload.");
+        }
+      } catch (err) {
+        showToast("err", "Erro ao fazer upload: " + err.message);
+      }
+    };
+    input.click();
   }
 
   // ── Upload de documento (real) ──────────────────────────────────────────────
@@ -212,6 +265,9 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
 
+      if (data.signature_warning) {
+        showFeedback("warn", data.signature_warning);
+      }
       if (type === "framework") {
         // Framework: aprovado imediatamente, recarrega lista de frameworks
         showFeedback("ok", data.ingest === "queued"
@@ -231,6 +287,7 @@
     }
   }
 
+  // Feedback dentro do modal de upload (u_feedback)
   function showFeedback(level, msg) {
     const fb = document.getElementById("u_feedback");
     if (!fb) return;
@@ -243,6 +300,36 @@
     fb.style.display = "block";
     fb.style.background = colors[level] || colors.info;
     fb.textContent = msg;
+  }
+
+  // Toast global — para feedback fora do modal de upload (aprovações, re-upload, etc.)
+  function showToast(level, msg, durationMs = 4000) {
+    let toast = document.getElementById("grc-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "grc-toast";
+      toast.style.cssText = [
+        "position:fixed;bottom:24px;right:24px;z-index:99999",
+        "padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500",
+        "max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.3)",
+        "transition:opacity .3s",
+      ].join(";");
+      document.body.appendChild(toast);
+    }
+    const colors = {
+      ok: "rgba(52,211,153,.15)",
+      warn: "rgba(251,191,36,.15)",
+      err: "rgba(248,113,113,.15)",
+      success: "rgba(52,211,153,.15)",
+      info: "rgba(96,165,250,.12)",
+    };
+    toast.style.background = colors[level] || colors.info;
+    toast.style.border = "1px solid rgba(255,255,255,.1)";
+    toast.style.color = "var(--color-text-primary)";
+    toast.style.opacity = "1";
+    toast.textContent = msg;
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.style.opacity = "0"; }, durationMs);
   }
 
   // ── Carregar frameworks da API ────────────────────────────────────────────
@@ -295,58 +382,404 @@
     const tbody = document.getElementById("docsTbody"), countEl = document.getElementById("docsCount");
     if (!tbody) return;
     if (countEl) countEl.textContent = DOCS.length;
-    if (!DOCS.length) { tbody.innerHTML = '<tr><td colspan="6" class="muted">Sem documentos registados.</td></tr>'; return; }
+    if (!DOCS.length) { tbody.innerHTML = '<tr><td colspan="7" class="muted">Sem documentos registados.</td></tr>'; return; }
+
     tbody.innerHTML = DOCS.map(d => {
       const nm = d.title || d.file_name || "--";
-      const sub = (d.file_name ? d.file_name : "") + (d.file_size ? " · " + _fmtSize(d.file_size) : "") + (d.origin ? " · " + d.origin.slice(0, 50) : "");
-      const dl = d.has_file ? '<a class="btn small" href="/api/documents/' + d.id + '/download" target="_blank">Download</a>'
+      const sub = (d.file_name ? d.file_name : "")
+        + (d.file_size ? " · " + _fmtSize(d.file_size) : "")
+        + (d.origin ? " · " + d.origin.slice(0, 50) : "");
+
+      const dl = d.has_file
+        ? '<a class="btn small" href="/api/documents/' + d.id + '/download" target="_blank">Download</a>'
         : '<button class="btn small" disabled>Sem ficheiro</button>';
-      const ap = d.status === "pending"
-        ? '<button class="btn ok small" data-approve-doc="' + d.id + '">Aprovar</button><button class="btn small" style="color:#f87171" data-reject-doc="' + d.id + '">Rejeitar</button>'
-        : "";
-      return '<tr data-doc-id="' + d.id + '">'
+
+      // Botão Ver sempre presente
+      let actionBtns = '<button class="btn small" data-view-doc="' + d.id + '">Ver</button> ' + dl;
+
+      if (d.status === "pending") {
+        actionBtns += ' <button class="btn ok small" data-approve-doc="' + d.id + '">Aprovar</button>';
+        actionBtns += ' <button class="btn small" style="color:#f87171" data-reject-doc="' + d.id + '">Rejeitar</button>';
+      }
+      if (d.status === "pending" || d.status === "rejected") {
+        actionBtns += ' <button class="btn small" data-reupload-doc="' + d.id + '" title="Carregar nova versão">Nova versão</button>';
+      }
+      // Apagar — disponível para todos os estados
+      actionBtns += ' <button class="btn small" style="color:#f87171;opacity:.8" data-delete-doc="' + d.id + '" title="Eliminar documento">Apagar</button>';
+
+      // Linha clicável — excepto na coluna de acções
+      return '<tr data-doc-id="' + d.id + '" data-clickrow="' + d.id + '" style="cursor:pointer">'
         + '<td><b>' + nm + '</b><div class="muted" style="font-size:11px">' + sub + '</div></td>'
-        + '<td>' + (d.type || "--") + '</td><td>' + (d.version || "--") + '</td>'
+        + '<td>' + (d.type || "--") + '</td>'
+        + '<td>' + (d.version || "--") + '</td>'
         + '<td data-doc-status-badge>' + _statusBadge(d.status) + '</td>'
+        + '<td>' + signatureBadge(d) + '</td>'
         + '<td class="muted">' + ((d.created_at || "--").toString().slice(0, 10)) + '</td>'
-        + '<td><div class="actions">' + dl + ap + '</div></td></tr>';
+        + '<td><div class="actions" onclick="event.stopPropagation()">' + actionBtns + '</div></td></tr>';
     }).join("");
+
+    // Clicar na linha abre o visualizador
+    tbody.querySelectorAll("tr[data-clickrow]").forEach(tr => {
+      tr.addEventListener("click", (e) => {
+        if (e.target.closest(".actions")) return;
+        const doc = DOCS.find(x => x.id === Number(tr.dataset.clickrow));
+        if (doc) openViewerModal(doc);
+      });
+      tr.addEventListener("mouseenter", () => tr.style.background = "rgba(255,255,255,.03)");
+      tr.addEventListener("mouseleave", () => tr.style.background = "");
+    });
+
+    // Botão Ver
+    tbody.querySelectorAll("[data-view-doc]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const doc = DOCS.find(x => x.id === Number(btn.dataset.viewDoc));
+        if (doc) openViewerModal(doc);
+      });
+    });
+
+    // Aprovar
     tbody.querySelectorAll("[data-approve-doc]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.approveDoc);
-        btn.disabled = true;
-        btn.textContent = "A aprovar...";
+        const doc = DOCS.find(x => x.id === id);
+        if (doc && !doc.is_signed) {
+          const ok = confirm(
+            "⚠ Este documento não tem assinatura digital.\n\n" +
+            "Se aprovar, ficará marcado como «não conforme» (non_compliant).\n\nContinuar mesmo assim?"
+          );
+          if (!ok) return;
+        }
+        btn.disabled = true; btn.textContent = "A aprovar...";
         try {
-          const res = await apiPost("/api/documents/" + id + "/approve");
-          const d = DOCS.find(x => x.id === id);
-          if (d) d.status = "approved";
+          const res = await apiPost("/api/documents/" + id + "/approve", { force: true });
+          if (doc) doc.status = "approved";
+          if (doc && res.non_compliant) doc.non_compliant = true;
           renderDocsTable();
-          // Feedback de indexação
-          if (res.ingest === "queued") {
-            const row = document.querySelector('[data-doc-id="' + id + '"]');
-            if (row) {
-              const cell = row.querySelector("td:first-child");
-              if (cell) {
-                const badge = document.createElement("div");
-                badge.style.cssText = "font-size:11px;color:var(--color-text-warning,#fbbf24);margin-top:3px";
-                badge.textContent = "A indexar no Pinecone...";
-                cell.appendChild(badge);
-                setTimeout(() => badge.remove(), 6000);
-              }
-            }
-          }
-        } catch (e) { alert("Erro ao aprovar: " + e.message); btn.disabled = false; btn.textContent = "Aprovar"; }
+          if (res.non_compliant) showToast("warn", "Aprovado mas marcado como não conforme (sem assinatura digital).");
+          else if (res.ingest === "queued") showToast("ok", "Aprovado. A indexar no Pinecone...");
+          else showToast("ok", res.message || "Documento aprovado.");
+        } catch (e) {
+          showToast("err", "Erro ao aprovar: " + e.message);
+          btn.disabled = false; btn.textContent = "Aprovar";
+        }
       });
     });
+
+    // Rejeitar
     tbody.querySelectorAll("[data-reject-doc]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.rejectDoc);
-        if (!confirm("Rejeitar?")) return;
-        try { await apiPost("/api/documents/" + id + "/reject"); const d = DOCS.find(x => x.id === id); if (d) d.status = "rejected"; renderDocsTable(); }
-        catch (e) { alert("Erro ao rejeitar: " + e.message); }
+        const reason = prompt("Motivo da rejeição (opcional):");
+        if (reason === null) return;
+        try {
+          await apiPost("/api/documents/" + id + "/reject", { reason: reason || null });
+          const d = DOCS.find(x => x.id === id);
+          if (d) d.status = "rejected";
+          renderDocsTable();
+          showToast("ok", "Documento rejeitado.");
+        } catch (e) { showToast("err", "Erro ao rejeitar: " + e.message); }
+      });
+    });
+
+    // Nova versão
+    tbody.querySelectorAll("[data-reupload-doc]").forEach(btn => {
+      btn.addEventListener("click", () => reUploadDoc(Number(btn.dataset.reuploadDoc)));
+    });
+
+    // Apagar documento (soft delete)
+    tbody.querySelectorAll("[data-delete-doc]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.dataset.deleteDoc);
+        const doc = DOCS.find(x => x.id === id);
+        const nm = doc?.title || doc?.file_name || `Documento #${id}`;
+        const isApproved = doc?.status === "approved";
+        const msg = isApproved
+          ? `⚠ "${nm}" está APROVADO.\n\nTem a certeza que quer eliminar um documento aprovado?\nEsta acção não pode ser desfeita.`
+          : `Eliminar "${nm}"?\n\nEsta acção não pode ser desfeita.`;
+        if (!confirm(msg)) return;
+        try {
+          await apiPost(`/api/documents/${id}/delete`);
+          DOCS = DOCS.filter(x => x.id !== id);
+          renderDocsTable();
+          showToast("ok", "Documento eliminado.");
+        } catch (e) {
+          showToast("err", "Erro ao eliminar: " + e.message);
+        }
       });
     });
   }
+
+  // ── Visualizador de documento ────────────────────────────────────────────────
+  function openViewerModal(doc) {
+    const m = document.getElementById("docViewerModal");
+    if (!m) return;
+
+    // Cabeçalho
+    document.getElementById("vwTitle").textContent = doc.title || doc.file_name || "—";
+    document.getElementById("vwType").textContent = doc.type || "—";
+    document.getElementById("vwVersion").textContent = doc.version || "—";
+    document.getElementById("vwStatus").innerHTML = _statusBadge(doc.status);
+    document.getElementById("vwSig").innerHTML = signatureBadge(doc);
+    document.getElementById("vwDate").textContent = (doc.created_at || "—").toString().slice(0, 10);
+    document.getElementById("vwUploader").textContent = doc.uploader || "—";
+
+    // SHA256
+    const sha = doc.sha256 || doc.attach_sha256 || null;
+    const shaEl = document.getElementById("vwSha");
+    if (shaEl) shaEl.textContent = sha ? sha.substring(0, 16) + "…" : "—";
+
+    // Motivo de rejeição
+    const rejEl = document.getElementById("vwRejection");
+    if (rejEl) {
+      rejEl.style.display = doc.rejection_reason ? "block" : "none";
+      if (doc.rejection_reason) rejEl.textContent = "Motivo da rejeição: " + doc.rejection_reason;
+    }
+
+    // Link de download
+    const dlBtn = document.getElementById("vwDownload");
+    if (dlBtn) {
+      if (doc.has_file) {
+        dlBtn.href = "/api/documents/" + doc.id + "/download";
+        dlBtn.style.display = "";
+      } else {
+        dlBtn.style.display = "none";
+      }
+    }
+
+    // Botão de aprovação — só pendentes
+    const apBtn = document.getElementById("vwApprove");
+    if (apBtn) {
+      apBtn.style.display = doc.status === "pending" ? "" : "none";
+      apBtn.onclick = () => {
+        closeViewerModal();
+        // Dispara clique no botão da tabela para reutilizar a lógica com confirmação
+        const tableBtn = document.querySelector('[data-approve-doc="' + doc.id + '"]');
+        if (tableBtn) tableBtn.click();
+      };
+    }
+
+    // Botão IA
+    const aiBtn = document.getElementById("vwAiAssist");
+    if (aiBtn) {
+      aiBtn.onclick = () => openAiAssistModal(doc);
+    }
+
+    // Preview do ficheiro
+    const area    = document.getElementById("vwPreviewArea");
+    const noFile  = document.getElementById("vwNoFile");
+    const docMsg  = document.getElementById("vwDocxMsg");
+
+    if (area)   { area.style.display = "none"; area.innerHTML = ""; }
+    if (noFile) noFile.style.display = "none";
+    if (docMsg) docMsg.style.display = "none";
+
+    // Botão de nova versão no viewer — sempre visível
+    const reupBtn = document.getElementById("vwReupload");
+    if (reupBtn) {
+      reupBtn.style.display = "";
+      reupBtn.onclick = () => { closeViewerModal(); reUploadDoc(doc.id); };
+    }
+
+    // ── Painel de sugestões RF16 ─────────────────────────────────────────────
+    const sugPanel   = document.getElementById("vwSuggestionsPanel");
+    const sugBody    = document.getElementById("vwSuggestionsBody");
+    const sugLoading = document.getElementById("vwSuggestionsLoading");
+    const sugMeta    = document.getElementById("vwSuggestionsMeta");
+    const reanalyse  = document.getElementById("vwReanalyse");
+
+    const analysableMimes = ["application/pdf", "text/plain",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    const canAnalyse = doc.has_file && (
+      analysableMimes.includes((doc.mime_type || "").toLowerCase()) ||
+      /\.(pdf|txt|md|docx)$/i.test(doc.file_name || "")
+    );
+
+    if (sugPanel) sugPanel.style.display = canAnalyse ? "block" : "none";
+    if (sugBody)  sugBody.innerHTML = "";
+    if (sugMeta)  sugMeta.style.display = "none";
+
+    if (canAnalyse) {
+      // Trigger análise automática
+      triggerAnalysis(doc.id, sugBody, sugLoading, sugMeta);
+
+      // Botão re-analisar
+      if (reanalyse) {
+        reanalyse.onclick = () => triggerAnalysis(doc.id, sugBody, sugLoading, sugMeta);
+      }
+    }
+
+    if (doc.has_file) {
+      const mime = (doc.mime_type || "").toLowerCase();
+      const name = (doc.file_name || "").toLowerCase();
+      const urlPrev = "/api/documents/" + doc.id + "/preview";   // inline — para o viewer
+      const urlDl = "/api/documents/" + doc.id + "/download";  // attachment — para download
+
+      if (mime === "application/pdf" || name.endsWith(".pdf")) {
+        if (area) {
+          area.style.display = "flex";
+          area.style.flexDirection = "column";
+          area.innerHTML =
+            '<object data="' + urlPrev + '" type="application/pdf" style="flex:1;width:100%;min-height:500px;border:none">' +
+            '<div style="padding:32px;text-align:center;color:var(--muted)">' +
+            '<div style="font-size:32px;margin-bottom:12px">📄</div>' +
+            '<p style="font-size:14px;margin-bottom:12px">O teu browser não suporta pré-visualização de PDF inline.</p>' +
+            '<a href="' + urlDl + '" target="_blank" class="btn ok" style="text-decoration:none">Abrir PDF numa nova aba</a>' +
+            '</div>' +
+            '</object>';
+        }
+      } else if (mime.startsWith("image/") || name.match(/\.(png|jpg|jpeg|webp|gif)$/)) {
+        if (area) {
+          area.style.display = "flex";
+          area.style.alignItems = "center";
+          area.style.justifyContent = "center";
+          area.style.padding = "20px";
+          area.innerHTML = '<img src="' + urlPrev + '" style="max-width:100%;max-height:560px;border-radius:10px;object-fit:contain" />';
+        }
+      } else if (mime.includes("wordprocessingml") || name.endsWith(".docx")) {
+        if (docMsg) docMsg.style.display = "block";
+        const dlDocx = document.getElementById("vwDocxDownload");
+        if (dlDocx) dlDocx.href = urlDl;
+      } else if (mime === "text/plain" || name.endsWith(".txt") || name.endsWith(".md")) {
+        if (area) {
+          area.style.display = "block";
+          area.style.overflow = "auto";
+          area.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">A carregar...</div>';
+          fetch(urlPrev)
+            .then(r => r.text())
+            .then(txt => {
+              area.innerHTML = '<pre style="white-space:pre-wrap;font-size:13px;line-height:1.6;padding:20px;margin:0;font-family:inherit">'
+                + txt.replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</pre>';
+            })
+            .catch(() => { area.innerHTML = '<p style="padding:20px;color:var(--muted)">Erro ao carregar texto.</p>'; });
+        }
+      } else {
+        if (noFile) noFile.style.display = "block";
+      }
+    } else {
+      if (noFile) noFile.style.display = "block";
+    }
+
+    m.style.display = "";
+    m.classList.add("open");
+    m.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeViewerModal() {
+    const m = document.getElementById("docViewerModal");
+    if (!m) return;
+    // Limpar preview (para parar PDFs a carregar em background)
+    const area = document.getElementById("vwPreviewArea");
+    if (area) area.innerHTML = "";
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  // ── Assistente IA (placeholder — ponto 2) ───────────────────────────────────
+  function openAiAssistModal(doc) {
+    const m = document.getElementById("aiAssistModal");
+    if (!m) return;
+
+    const docTitle = doc ? (doc.title || doc.file_name || "documento") : "novo documento";
+    document.getElementById("aiDocTitle").textContent = docTitle;
+
+    const out = document.getElementById("aiOutput");
+
+    // se já existia texto da IA, restaurar
+    if (LAST_AI_TEXT && out) {
+      out.value = LAST_AI_TEXT;
+    }
+
+    m.style.display = "";
+    m.classList.add("open");
+    m.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeAiAssistModal() {
+    const m = document.getElementById("aiAssistModal");
+    if (!m) return;
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  // Converte Markdown para texto limpo para textarea editável
+  function mdToPlainText(text) {
+    return text
+      .replace(/^### (.+)$/gm, "\n$1\n")
+      .replace(/^## (.+)$/gm, "\n$1\n")
+      .replace(/^# (.+)$/gm, "\n$1\n")
+      .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/^[\*\-] (.+)$/gm, "• $1")
+      .replace(/^(\d+)\. (.+)$/gm, "$1. $2")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/^---$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  async function runAiAssist() {
+    const prompt = document.getElementById("aiPromptInput")?.value?.trim();
+    const out = document.getElementById("aiOutput");
+    if (!prompt || !out) return;
+
+    out.value = "A gerar documento...";
+    out.disabled = true;
+    document.getElementById("aiRunBtn").disabled = true;
+
+    // Detectar tipo de documento a partir das sugestões rápidas seleccionadas
+    // (ou deixar 'custom' se foi instrução livre)
+    const docType = document.getElementById("aiDocType")?.value || "custom";
+
+    try {
+      const res = await fetch("/api/document-generator/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": csrf(),
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({
+          instruction: prompt,
+          doc_type: docType,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+
+      const text = data.content || data.answer || "";
+      const clean = mdToPlainText(text);
+      out.value = clean;
+      LAST_AI_TEXT = clean;
+      out.disabled = false;
+      out.focus();
+      out.setSelectionRange(0, 0);
+      out.scrollTop = 0;
+
+      // Mostrar controlos usados como referência (se disponíveis)
+      const ctrlEl = document.getElementById("aiControlsUsed");
+      if (ctrlEl && data.controls?.length) {
+        ctrlEl.textContent = "Controlos: " + data.controls.join(", ");
+        ctrlEl.style.display = "block";
+      } else if (ctrlEl) {
+        ctrlEl.style.display = "none";
+      }
+
+    } catch (e) {
+      out.value = "Erro: " + e.message;
+      out.disabled = false;
+    } finally {
+      document.getElementById("aiRunBtn").disabled = false;
+    }
+  }
+
+  // Chunks do sistema (vindos do Pinecone / RAG) — preenchidos por loadDocChunks()
+  let SYSTEM_CHUNKS = []; // {id, label, full, suggested}
 
   // manual chunks criados (aparecem depois no histórico)
   let MANUAL_CHUNKS = []; // {id,label,full,suggested}
@@ -381,17 +814,34 @@
     }
   }
 
-  function approveDoc(docId) {
-    // MOCK: ao aprovar, muda para Ativo.
-    setDocRowStatus(docId, 'Ativo');
+  async function approveDoc(docId) {
+    const doc = DOCS.find(x => x.id === docId);
 
-    // se o modal estiver aberto nesse doc, reflete lá também
-    if (CURRENT_DOC_ID === docId) {
-      const statusSel = document.getElementById('dStatus');
-      if (statusSel) statusSel.value = 'Ativo';
+    if (doc && !doc.is_signed) {
+      const ok = confirm(
+        "⚠ Este documento não tem assinatura digital.\n\n" +
+        "Se aprovar, ficará marcado como «não conforme».\n\nContinuar?"
+      );
+      if (!ok) return;
+    }
 
-      const approveBtn = document.getElementById('docApproveBtn');
-      if (approveBtn) approveBtn.style.display = 'none';
+    try {
+      const res = await apiPost("/api/documents/" + docId + "/approve", { force: true });
+      if (doc) {
+        doc.status = "approved";
+        if (res.non_compliant) doc.non_compliant = true;
+      }
+      setDocRowStatus(docId, "Aprovado");
+      if (CURRENT_DOC_ID === docId) {
+        const statusSel = document.getElementById("dStatus");
+        if (statusSel) statusSel.value = "Ativo";
+        const approveBtn = document.getElementById("docApproveBtn");
+        if (approveBtn) approveBtn.style.display = "none";
+      }
+      showToast(res.non_compliant ? "warn" : "ok",
+        res.message || "Documento aprovado.");
+    } catch (e) {
+      showToast("err", "Erro ao aprovar: " + e.message);
     }
   }
 
@@ -894,9 +1344,184 @@
       if (e.key === "Escape") closeFwModal();
     });
 
-    document.getElementById("btnOpenUploadDoc")?.addEventListener("click", () => {
-      resetUploadForm();
-      openUploadModal();
+    // Ambos os botões de upload abrem o mesmo modal
+    const openUploadHandler = () => { resetUploadForm(); openUploadModal(); };
+    document.getElementById("btnOpenUploadDoc")?.addEventListener("click", openUploadHandler);
+    document.getElementById("btnOpenUploadDoc2")?.addEventListener("click", openUploadHandler);
+
+    // Botão "Escrever com IA" dentro do modal de upload
+    document.getElementById("btnOpenAiInUpload")?.addEventListener("click", () => {
+      const name = document.getElementById("u_name")?.value?.trim() || "novo documento";
+      document.getElementById("aiDocTitle").textContent = name;
+      openAiAssistModal(null);
+    });
+
+    // Limpar IA
+    document.getElementById("aiClearBtn")?.addEventListener("click", () => {
+      const out = document.getElementById("aiOutput");
+      if (out) out.value = "";
+      document.getElementById("aiPromptInput").value = "";
+      const ctrlEl = document.getElementById("aiControlsUsed");
+      if (ctrlEl) ctrlEl.style.display = "none";
+    });
+
+    // Copiar texto da textarea (já editado)
+    document.getElementById("aiCopyBtn")?.addEventListener("click", () => {
+      const out = document.getElementById("aiOutput");
+      const txt = out?.value?.trim() || "";
+      if (!txt) { alert("Gera primeiro um texto com a IA."); return; }
+      navigator.clipboard.writeText(txt).then(() => showToast("ok", "Texto copiado."));
+    });
+
+    // "Usar no upload" — usa o valor actual da textarea (já pode estar editado)
+    document.getElementById("aiSaveAsDoc")?.addEventListener("click", async () => {
+
+      const out = document.getElementById("aiOutput");
+      const text = out?.value?.trim() || "";
+
+      if (!text) {
+        alert("Gera primeiro um texto com a IA.");
+        return;
+      }
+
+      const name = document.getElementById("u_name")?.value?.trim() || "documento-ia";
+      const type = document.getElementById("aiFileType")?.value || "txt";
+
+      const clean = name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      const fileName = clean + "." + type;
+
+      let file;
+
+      // TXT
+      if (type === "txt") {
+        file = new File([text], fileName, { type: "text/plain" });
+      }
+
+      // MARKDOWN
+      if (type === "md") {
+        file = new File([text], fileName, { type: "text/markdown" });
+      }
+
+      // DOCX (simples — Word abre como texto)
+      if (type === "docx") {
+        file = new File([text], fileName, {
+          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        });
+      }
+
+      // PDF
+      if (type === "pdf") {
+
+        const { jsPDF } = window.jspdf;
+
+        const pdf = new jsPDF({
+          unit: "pt",
+          format: "a4"
+        });
+
+        const margin = 60;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+
+        const contentWidth = pageWidth - margin * 2;
+
+        pdf.setFont("Times", "Normal");
+        pdf.setFontSize(12);
+
+        const lines = pdf.splitTextToSize(text, contentWidth);
+
+        let y = 120;
+        let page = 1;
+
+        function drawHeader() {
+
+          pdf.setFont("Times", "Bold");
+          pdf.setFontSize(16);
+
+          pdf.text("Política de Segurança da Informação", margin, 60);
+
+          pdf.setFontSize(10);
+          pdf.setFont("Times", "Normal");
+
+          pdf.text("Sistema Techbase GRC", margin, 80);
+
+          const today = new Date().toLocaleDateString();
+
+          pdf.text("Gerado em: " + today, pageWidth - margin, 80, { align: "right" });
+
+          pdf.setDrawColor(200);
+          pdf.line(margin, 90, pageWidth - margin, 90);
+
+        }
+
+        function drawFooter() {
+
+          pdf.setDrawColor(200);
+          pdf.line(margin, pageHeight - 50, pageWidth - margin, pageHeight - 50);
+
+          pdf.setFontSize(10);
+
+          pdf.text(
+            "Página " + page,
+            pageWidth / 2,
+            pageHeight - 30,
+            { align: "center" }
+          );
+
+        }
+
+        drawHeader();
+
+        lines.forEach(line => {
+
+          if (y > pageHeight - 80) {
+
+            drawFooter();
+
+            pdf.addPage();
+            page++;
+
+            drawHeader();
+            y = 120;
+
+          }
+
+          pdf.text(line, margin, y);
+          y += 16;
+
+        });
+
+        drawFooter();
+
+        const blob = pdf.output("blob");
+
+        file = new File([blob], fileName, { type: "application/pdf" });
+
+      }
+
+      const dt = new DataTransfer();
+      dt.items.add(file);
+
+      const fileInput = document.getElementById("u_file");
+      if (fileInput) fileInput.files = dt.files;
+
+      closeAiAssistModal();
+
+      showFeedback("ok", "Documento gerado. Revê e clica em 'Fazer upload'.");
+    });
+
+    document.getElementById("aiDownload")?.addEventListener("click", () => {
+
+      const text = document.getElementById("aiOutput").value;
+
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "documento.txt";
+      a.click();
+
     });
 
     // Carregar documentos e frameworks da BD
@@ -927,24 +1552,114 @@
       if (e.target.id === 'docModal') closeDocModal();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeDocModal();
+      if (e.key === 'Escape') {
+        // Fechar em cascata: AI → viewer → doc modal antigo
+        const ai = document.getElementById("aiAssistModal");
+        if (ai?.classList.contains("open")) { closeAiAssistModal(); return; }
+        const vw = document.getElementById("docViewerModal");
+        if (vw?.classList.contains("open")) { closeViewerModal(); return; }
+        closeDocModal();
+      }
+    });
+
+    // Visualizador de documento
+    document.getElementById("vwClose")?.addEventListener("click", closeViewerModal);
+    document.getElementById("docViewerModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "docViewerModal") closeViewerModal();
+    });
+
+    // Assistente IA
+    document.getElementById("aiClose")?.addEventListener("click", closeAiAssistModal);
+    document.getElementById("aiAssistModal")?.addEventListener("click", (e) => {
+      if (e.target.id === "aiAssistModal") closeAiAssistModal();
+    });
+    document.getElementById("aiRunBtn")?.addEventListener("click", runAiAssist);
+    // Ctrl+Enter no textarea também dispara
+    document.getElementById("aiPromptInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) runAiAssist();
     });
 
     document.getElementById('addAssocBtn')?.addEventListener('click', addNewAssocInline);
 
     document.getElementById('saveDocBtn')?.addEventListener('click', () => {
-      // Mock: sincroniza status selecionado no modal com a linha da tabela
       const statusSel = document.getElementById('dStatus');
       const newStatus = statusSel ? statusSel.value : null;
       if (CURRENT_DOC_ID && newStatus) setDocRowStatus(CURRENT_DOC_ID, newStatus);
-
-      // se o user mudou para Ativo no select, também esconde o botão aprovar
       const approveBtn = document.getElementById('docApproveBtn');
       if (approveBtn && newStatus) {
         approveBtn.style.display = (newStatus === 'Pendente') ? '' : 'none';
       }
-
       alert('Mock: alterações guardadas (status + associações + aprovações).');
     });
   });
+
+  // Exposta globalmente — usada pelos botões de sugestão rápida no blade
+  window.setAiTemplate = function (docType, promptText) {
+    const sel = document.getElementById("aiDocType");
+    if (sel) sel.value = docType;
+    const inp = document.getElementById("aiPromptInput");
+    if (inp) inp.value = promptText;
+    // Limpar output anterior
+    const out = document.getElementById("aiOutput");
+    if (out) out.value = "";
+    const ctrlEl = document.getElementById("aiControlsUsed");
+    if (ctrlEl) ctrlEl.style.display = "none";
+  };
+
+  // ── Sugestões automáticas de controlos (RF16) ──────────────────────────────
+
+  function triggerAnalysis(docId, container, loadingEl, metaEl) {
+    if (!container) return;
+    if (loadingEl) loadingEl.style.display = "block";
+    container.innerHTML = "";
+    loadDocumentSuggestions(docId, container, loadingEl, metaEl);
+  }
+
+  async function loadDocumentSuggestions(docId, container, loadingEl, metaEl) {
+    try {
+      const res = await fetch(`/api/documents/${docId}/analyse`, {
+        method: "POST",
+        headers: { "X-CSRF-TOKEN": csrf(), "Accept": "application/json" },
+      });
+      const data = await res.json();
+      if (loadingEl) loadingEl.style.display = "none";
+      if (!res.ok || !data.success) {
+        container.innerHTML = `<div class="muted" style="font-size:12px;padding:8px 0">${data.message || "Sem sugestões disponíveis."}</div>`;
+        return;
+      }
+      renderSuggestions(data.suggestions || [], container);
+      if (metaEl && data.meta) {
+        const mt = data.meta;
+        metaEl.style.display = "block";
+        metaEl.textContent = `${mt.chunks_sent||0} chunks · ${mt.total_hits||0} hits · ${(mt.text_length||0).toLocaleString()} chars` + (mt.error ? ` · ⚠ ${mt.error}` : "");
+      }
+    } catch (e) {
+      if (loadingEl) loadingEl.style.display = "none";
+      container.innerHTML = `<div class="muted" style="font-size:12px;padding:8px 0">Erro ao analisar: ${e.message}</div>`;
+    }
+  }
+
+  function renderSuggestions(suggestions, container) {
+    if (!suggestions.length) {
+      container.innerHTML = '<div class="muted" style="font-size:12px;padding:8px 0">Nenhum controlo identificado com confiança suficiente.</div>';
+      return;
+    }
+    const cvg = { high:{ cls:"ok", label:"Alta" }, medium:{ cls:"warn", label:"Média" }, low:{ cls:"", label:"Baixa" } };
+    container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:0 8px 8px 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Controlo</th>
+        <th style="text-align:left;padding:0 8px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Score</th>
+        <th style="text-align:left;padding:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Justificação</th>
+      </tr></thead>
+      <tbody>${suggestions.map(s => {
+        const c = cvg[s.coverage] || cvg.low;
+        const fw = s.framework ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">${s.framework}</span>` : "";
+        const just = s.justification || (s.top_snippet ? s.top_snippet.substring(0,100)+"…" : "—");
+        return `<tr>
+          <td style="padding:10px 8px 10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top"><b>${s.control_code}</b>${fw}<div style="font-size:11px;color:var(--muted)">${s.control_family||""}</div></td>
+          <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap"><span class="tag ${c.cls}" style="font-size:11px"><span class="s"></span>${s.score.toFixed(2)}</span><div style="font-size:10px;color:var(--muted);margin-top:3px">${c.label}</div></td>
+          <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;color:var(--muted);font-size:12px;line-height:1.4">${just}</td>
+        </tr>`;
+      }).join("")}</tbody></table>`;
+  }
 })();

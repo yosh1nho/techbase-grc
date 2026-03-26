@@ -1174,6 +1174,7 @@
         $navItems = [
             ['route' => 'dashboard', 'label' => 'Dashboard', 'badge' => 'RF18'],
             ['route' => 'assets', 'label' => 'Ativos', 'badge' => 'RF1'],
+            ['route' => 'compliance', 'label' => 'Compliance', 'badge' => 'RF4'],
             ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3'],
             ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6'],
             ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9'],
@@ -1201,6 +1202,7 @@
                 $navIcons = [
                 'dashboard'       => 'layout-dashboard',
                 'assets'          => 'server',
+                'compliance'      => 'check-square',
                 'docs'            => 'file-text',
                 'assessments'     => 'clipboard-check',
                 'risks'           => 'alert-triangle',

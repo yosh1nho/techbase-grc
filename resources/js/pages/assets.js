@@ -436,6 +436,12 @@
         );
     }
 
+
+    //Helpers mapear criticalidade
+    function mapCriticality(val) {
+        const map = { critical: "Crítico", high: "Alto", medium: "Médio", low: "Baixo" };
+        return map[val?.toLowerCase()] || val || "Médio";
+    }
     //========= Fetch de Ativos no API Fake do Acronis(só para mock)
     async function loadAssetsFromDB() {
 
@@ -461,7 +467,9 @@
                     subtitle: a.os_name || "Unknown OS",
 
                     type: type,
-                    criticity: a.criticity || "Médio",
+                    criticality: a.criticality || a.status || "medium",
+                    tags: a.tags || [],
+                    criticity: mapCriticality(a.criticality || a.status),
                     owner: a.owner || "—",
                     source: a.source || "manual",
 
@@ -961,6 +969,7 @@
                 ip: ip || null,
                 prob: prob,
                 impact: impact,
+                criticality: mapCriticality(criticity) || "medium",
                 notes: notes || null,
             };
 

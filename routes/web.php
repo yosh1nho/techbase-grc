@@ -10,6 +10,11 @@ use App\Http\Controllers\TreatmentPlanController;
 use App\Http\Controllers\TreatmentTaskController;
 use App\Http\Controllers\TreatmentCommentController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\ComplianceController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\CncsReportController;
+use App\Http\Controllers\DocumentGeneratorController;
+use App\Http\Controllers\DocumentAnalyserController;
 
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
@@ -77,7 +82,10 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/api/assets',               [AssetController::class, 'index']);
     Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis']);
     Route::post('/api/assets',              [AssetController::class, 'store']);
-
+    Route::get('/api/asset-tags',                          [AssetController::class, 'tags']);
+    Route::post('/api/assets/{id}/tags',                   [AssetController::class, 'addTags']);
+    Route::delete('/api/assets/{id}/tags/{tagId}',         [AssetController::class, 'removeTag']);
+    Route::patch('/api/assets/{id}/criticality',           [AssetController::class, 'updateCriticality']);
     // ── Chat ──────────────────────────────────────────────────────────────────
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 
@@ -86,7 +94,6 @@ Route::middleware('mock.auth')->group(function () {
     Route::post('/api/risks',             [RiskController::class, 'store']);
     Route::put('/api/risks/{id}',         [RiskController::class, 'update']);
     Route::delete('/api/risks/{id}',      [RiskController::class, 'destroy']);
-    Route::post('/api/risks/from-alert',  [RiskController::class, 'createFromAlert']);
 
     // ── Planos de tratamento ──────────────────────────────────────────────────
     Route::get('/api/treatment-plans',         [TreatmentPlanController::class, 'index']);
@@ -108,6 +115,9 @@ Route::middleware('mock.auth')->group(function () {
     Route::delete('/api/treatment-plans/{planId}/tasks/{taskId}',
         [TreatmentTaskController::class, 'destroy']);
 
+
+        
+
     // ── Documentos & Evidências ───────────────────────────────────────────────
     // GET  /api/documents               → listar todos (com ?status=pending|approved)
     // POST /api/documents/upload         → upload directo (framework → aprovado; doc → pending)
@@ -118,8 +128,15 @@ Route::middleware('mock.auth')->group(function () {
     Route::post('/api/documents/upload',              [DocumentController::class, 'upload']);
     Route::post('/api/documents/{id}/approve',        [DocumentController::class, 'approve']);
     Route::post('/api/documents/{id}/reject',         [DocumentController::class, 'reject']);
+    Route::get('/api/documents/{id}/preview', [DocumentController::class, 'preview']);
     Route::get('/api/documents/{id}/download',        [DocumentController::class, 'download']);
-
+    Route::post('/api/documents/{id}/delete', [DocumentController::class, 'delete']);
+    Route::post('/api/documents/{id}/re-upload',           [DocumentController::class, 'reUpload']);
+    Route::get('/api/document-generator/templates', [DocumentGeneratorController::class, 'templates']);
+    Route::post('/api/document-generator/generate',  [DocumentGeneratorController::class, 'generate']);
+ 
+    
+    
     // ── Comentários (nested sob tarefa) ──────────────────────────────────────
     // GET    /api/tasks/{taskId}/comments          → index
     // POST   /api/tasks/{taskId}/comments          → store (multipart com files[])
@@ -142,10 +159,69 @@ Route::middleware('mock.auth')->group(function () {
     Route::delete('/api/attachments/{attachmentId}',
         [TreatmentCommentController::class, 'destroyAttachment']);
 
+
+
+    //COMPLIANCE
+    // ── Nova página ───────────────────────────────────────────────────────────────
+    Route::get('/compliance', fn () => view('pages.compliance'))->name('compliance');
+
+    Route::get('/api/compliance', [ComplianceController::class, 'index']);
+
+    // KPIs para o dashboard (leve, sem estrutura de grupos/controlos)
+    // GET /api/compliance/summary
+    Route::get('/api/compliance/summary', [ComplianceController::class, 'summary']);
+
+    // Avaliar um controlo (criar/actualizar assessment)
+    // POST /api/compliance/assess
+    // Body: { control_id, status, notes?, evidence_link? }
+    Route::post('/api/compliance/assess', [ComplianceController::class, 'assess']);
+
+    // Histórico de avaliações de um controlo
+    // GET /api/compliance/{controlId}/history
+    Route::get('/api/compliance/{controlId}/history', [ComplianceController::class, 'history']);
+
+    // Listar documentos de evidência ligados a um controlo
+    // GET /api/compliance/{controlId}/evidences
+    Route::get('/api/compliance/{controlId}/evidences', [ComplianceController::class, 'evidences']);
+
+    // Ligar um documento a um controlo como evidência
+    // POST /api/compliance/{controlId}/link-doc
+    // Body: { doc_id }
+    Route::post('/api/compliance/{controlId}/link-doc', [ComplianceController::class, 'linkDoc']);
+
+    // Remover ligação documento ↔ controlo
+    // DELETE /api/compliance/{controlId}/link-doc/{docId}
+    Route::delete('/api/compliance/{controlId}/link-doc/{docId}', [ComplianceController::class, 'unlinkDoc']);
+
+
+    //Dashboard ───────────────────────────────────────────────
+    // KPIs completos (riscos + planos + compliance) — chamado pelo dashboard.js
+    Route::get('/api/dashboard',             [DashboardController::class, 'index']);
+ 
+    // Endpoints individuais (para refresh independente no futuro)
+    Route::get('/api/dashboard/risks',       [DashboardController::class, 'risks']);
+    Route::get('/api/dashboard/treatments',  [DashboardController::class, 'treatments']);
+    Route::get('/api/dashboard/compliance',  [DashboardController::class, 'compliance']);
+ 
+
+    // Relatórios ─────────────────────────────────────────────────────────────
+    // Listagem e CRUD de relatórios
+    Route::get('/api/cncs-reports',               [CncsReportController::class, 'index']);
+    Route::post('/api/cncs-reports',              [CncsReportController::class, 'store']);
+    Route::get('/api/cncs-reports/report-data',   [CncsReportController::class, 'reportData']);
+    Route::get('/api/cncs-reports/compliance-table', [CncsReportController::class, 'complianceTable']);
+    Route::get('/api/cncs-reports/{id}',          [CncsReportController::class, 'show']);
+    Route::put('/api/cncs-reports/{id}',          [CncsReportController::class, 'update']);
+    Route::post('/api/cncs-reports/{id}/submit',  [CncsReportController::class, 'submit']);
+    Route::delete('/api/cncs-reports/{id}',       [CncsReportController::class, 'destroy']);
+
     // ── Users (rota provisória) ───────────────────────────────────────────────
     Route::get('/api/users', function () {
         return DB::table('User')->select('id_user', 'name', 'email')->get();
     });
+
+    Route::post('/api/documents/{id}/analyse', [DocumentAnalyserController::class, 'analyse']);
+    
 
 });
 

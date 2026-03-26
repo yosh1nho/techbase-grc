@@ -39,7 +39,7 @@
         <a class="card dash-card link-card" href="{{ route('risks') }}" style="text-decoration:none">
             <h3>Riscos identificados</h3>
             <div style="display:flex;align-items:baseline;gap:10px;margin:6px 0 2px">
-                <p class="big" id="riskCount" style="margin:0">0</p>
+                <p class="big" id="friskCount" style="margin:0">0</p>
                 <span class="muted" style="font-size:13px">total</span>
             </div>
 
@@ -110,18 +110,71 @@
             <div class="hint" style="margin-top:10px">Clique para gerir planos de tratamento.</div>
         </a>
 
-        {{-- MATURIDADE --}}
-        <div class="card dash-card" role="button" tabindex="0" data-open-maturity>
-            <h3>Maturidade (QNRCS)</h3>
-            <p class="big">62%</p>
-            <p class="sub">Evolução: +6% vs. última avaliação</p>
-            <div class="kpirow">
-                <span class="chip ok">Covered: 41</span>
-                <span class="chip warn">Partial: 18</span>
-                <span class="chip bad">GAP: 12</span>
+        {{-- COMPLIANCE NIS2 --}}
+        <a class="card dash-card link-card" href="{{ route('compliance') }}?framework=NIS2" style="text-decoration:none">
+            <h3>Conformidade NIS2</h3>
+            <div style="display:flex;align-items:baseline;gap:8px;margin:6px 0 2px">
+                <p class="big" id="nis2Pct" style="margin:0">—</p>
+                <span class="muted" style="font-size:13px">ponderado</span>
             </div>
-            <div class="hint">Clique para detalhar por Ativo / Política.</div>
-        </div>
+        
+            {{-- barra de progresso --}}
+            <div style="height:6px;border-radius:99px;overflow:hidden;background:rgba(255,255,255,.08);margin:10px 0 8px">
+                <div id="nis2Bar" style="height:100%;border-radius:99px;transition:width .6s ease,background .4s;width:0%"></div>
+            </div>
+        
+            <div style="display:flex;gap:14px;font-size:12px">
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
+                    <span class="muted">Conforme</span> <b id="nis2Compliant">—</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#fbbf24;display:inline-block"></span>
+                    <span class="muted">Parcial</span> <b id="nis2Partial">—</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block"></span>
+                    <span class="muted">Não conf.</span> <b id="nis2NonCompliant">—</b>
+                </span>
+            </div>
+        
+            <div class="hint" style="margin-top:10px">
+                <span id="nis2Total">—</span> controlos · Clique para detalhar por artigo.
+            </div>
+        </a>
+        
+        {{-- COMPLIANCE QNRCS --}}
+        <a class="card dash-card link-card" href="{{ route('compliance') }}?framework=QNRCS" style="text-decoration:none">
+            <h3>Conformidade QNRCS</h3>
+            <div style="display:flex;align-items:baseline;gap:8px;margin:6px 0 2px">
+                <p class="big" id="qnrcsPct" style="margin:0">—</p>
+                <span class="muted" style="font-size:13px">ponderado</span>
+            </div>
+        
+            {{-- barra de progresso --}}
+            <div style="height:6px;border-radius:99px;overflow:hidden;background:rgba(255,255,255,.08);margin:10px 0 8px">
+                <div id="qnrcsBar" style="height:100%;border-radius:99px;transition:width .6s ease,background .4s;width:0%"></div>
+            </div>
+        
+            <div style="display:flex;gap:14px;font-size:12px">
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
+                    <span class="muted">Conforme</span> <b id="qnrcsCompliant">—</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#fbbf24;display:inline-block"></span>
+                    <span class="muted">Parcial</span> <b id="qnrcsPartial">—</b>
+                </span>
+                <span style="display:flex;align-items:center;gap:5px">
+                    <span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block"></span>
+                    <span class="muted">Não conf.</span> <b id="qnrcsNonCompliant">—</b>
+                </span>
+            </div>
+        
+            <div class="hint" style="margin-top:10px">
+                <span id="qnrcsTotal">—</span> controlos · Clique para detalhar por grupo.
+            </div>
+        </a>
 
     </div>
 
@@ -576,6 +629,7 @@
             docs: "{{ route('docs') }}",
             risks: "{{ route('risks') }}",
             treatment: "{{ route('treatment') }}",
+            compliance: "{{ route('compliance') }}",
         };
     </script>
 

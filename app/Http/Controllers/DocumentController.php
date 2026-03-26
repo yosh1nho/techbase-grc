@@ -12,177 +12,334 @@ use App\Jobs\IngestDocumentJob;
 
 class DocumentController extends Controller
 {
-    private const INGESTABLE_EXTS = ["pdf", "txt", "md", "docx"];
+    private const INGESTABLE_EXTS = ['pdf', 'txt', 'md', 'docx'];
 
     // =========================================================================
     // GET /api/documents
-    // ?status=pending|approved|rejected|all  (default: all)
-    // ?type=framework|evidence|policy|...    (opcional)
+    // Inclui agora: is_signed, signature_valid, non_compliant, sha256
     // =========================================================================
     public function index(Request $request): JsonResponse
     {
-        $query = DB::table("document as d")
-            ->leftJoin("User as uploader", "uploader.id_user", "=", "d.uploaded_by")
-            ->leftJoin("User as approver", "approver.id_user", "=", "d.approved_by")
-            ->leftJoin("attachment as a",  "a.id_attachment",  "=", "d.id_attachment")
-            ->leftJoin("treatmentcomment as tc", "tc.id_comment", "=", "d.promoted_from_comment")
-            ->leftJoin("treatmenttask as tt",    "tt.id_task",    "=", "tc.id_task")
-            ->leftJoin("risktreatmentplan as rtp","rtp.id_plan",  "=", "tt.id_plan")
-            ->leftJoin("risk as r",              "r.id_risk",     "=", "rtp.id_risk")
+        $query = DB::table('document as d')
+            ->leftJoin('User as uploader', 'uploader.id_user', '=', 'd.uploaded_by')
+            ->leftJoin('User as approver', 'approver.id_user', '=', 'd.approved_by')
+            ->leftJoin('attachment as a',  'a.id_attachment',  '=', 'd.id_attachment')
+            ->leftJoin('treatmentcomment as tc', 'tc.id_comment', '=', 'd.promoted_from_comment')
+            ->leftJoin('treatmenttask as tt',    'tt.id_task',    '=', 'tc.id_task')
+            ->leftJoin('risktreatmentplan as rtp', 'rtp.id_plan', '=', 'tt.id_plan')
+            ->leftJoin('risk as r',               'r.id_risk',    '=', 'rtp.id_risk')
             ->select([
-                "d.id_doc", "d.title", "d.type", "d.status", "d.version",
-                "d.file_path", "d.created_at", "d.approved_at",
-                "d.id_attachment", "d.promoted_from_comment",
-                "d.indexed_at", "d.chunk_count", "d.ingest_error",
-                "a.file_name", "a.original_name", "a.mime_type", "a.file_size",
-                "a.file_path as attach_path",
-                "uploader.name  as uploader_name",
-                "uploader.email as uploader_email",
-                "approver.name  as approver_name",
-                "r.id_risk", "r.title as risk_title",
-                "tt.id_task", "tt.title as task_title",
+                'd.id_doc', 'd.title', 'd.type', 'd.status', 'd.version',
+                'd.file_path', 'd.created_at', 'd.approved_at',
+                'd.id_attachment', 'd.promoted_from_comment',
+                'd.indexed_at', 'd.chunk_count', 'd.ingest_error',
+                // Novos campos de assinatura e conformidade
+                DB::raw("COALESCE(d.is_signed, false)      as is_signed"),
+                DB::raw("d.signature_valid"),
+                DB::raw("d.signature_info"),
+                DB::raw("COALESCE(d.non_compliant, false)  as non_compliant"),
+                DB::raw("d.rejection_reason"),
+                DB::raw("d.sha256"),
+                DB::raw("d.replaces_doc_id"),
+                'a.file_name', 'a.original_name', 'a.mime_type', 'a.file_size',
+                'a.file_path as attach_path',
+                'a.sha256    as attach_sha256',
+                'uploader.name  as uploader_name',
+                'uploader.email as uploader_email',
+                'approver.name  as approver_name',
+                'r.id_risk', 'r.title as risk_title',
+                'tt.id_task', 'tt.title as task_title',
             ])
-            ->whereNull("d.deleted_at");
+            ->whereNull('d.deleted_at');
 
-        if ($request->filled("status") && $request->status !== "all") {
-            $query->where("d.status", $request->status);
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('d.status', $request->status);
         }
-        if ($request->filled("type")) {
-            $query->where("d.type", $request->type);
+        if ($request->filled('type')) {
+            $query->where('d.type', $request->type);
         }
 
-        $docs = $query->orderByDesc("d.created_at")->get();
+        $docs = $query->orderByDesc('d.created_at')->get();
         return response()->json($docs->map(fn($d) => $this->formatDoc($d)));
     }
 
     // =========================================================================
     // POST /api/documents/upload
+    // Verifica assinatura digital em PDFs. Marca non_compliant se aprovado sem assinatura.
     // =========================================================================
     public function upload(Request $request): JsonResponse
     {
         $request->validate([
-            "file"    => ["required", "file", "max:51200"],
-            "title"   => ["required", "string", "max:255"],
-            "type"    => ["required", "string", "in:evidence,policy,procedure,report,framework"],
-            "version" => ["nullable", "string", "max:50"],
-            "date"    => ["nullable", "date"],
-            "source"  => ["nullable", "string", "max:100"],
-            "notes"   => ["nullable", "string"],
+            'file'    => ['required', 'file', 'max:51200'],
+            'title'   => ['required', 'string', 'max:255'],
+            'type'    => ['required', 'string', 'in:evidence,policy,procedure,report,framework'],
+            'version' => ['nullable', 'string', 'max:50'],
+            'date'    => ['nullable', 'date'],
+            'source'  => ['nullable', 'string', 'max:100'],
+            'notes'   => ['nullable', 'string'],
         ]);
 
-        $file        = $request->file("file");
-        $userId      = session("tb_user.id") ?? null;
-        $isFramework = $request->input("type") === "framework";
+        $file        = $request->file('file');
+        $userId      = session('tb_user.id') ?? null;
+        $isFramework = $request->input('type') === 'framework';
         $ext         = strtolower($file->getClientOriginalExtension());
 
+        // SHA-256 do ficheiro
+        $sha256 = hash_file('sha256', $file->getRealPath());
+
+        // Verificar assinatura digital (PDFs)
+        $signatureResult = $this->checkDigitalSignature($file, $ext);
+
         // Guardar ficheiro
-        $storedName = Str::uuid() . "." . $ext;
-        $yearMonth  = now()->format("Y/m");
-        $path       = $file->storeAs($yearMonth, $storedName, "attachments");
+        $storedName = Str::uuid() . '.' . $ext;
+        $yearMonth  = now()->format('Y/m');
+        $path       = $file->storeAs($yearMonth, $storedName, 'attachments');
 
         // Attachment
-        $attachmentId = DB::table("attachment")->insertGetId([
-            "file_name"  => $file->getClientOriginalName(),
-            "file_path"  => $path,
-            "mime_type"  => $file->getClientMimeType(),
-            "created_at" => now(),
-        ], "id_attachment");
+        $attachmentId = DB::table('attachment')->insertGetId([
+            'file_name'     => $file->getClientOriginalName(),
+            'original_name' => $file->getClientOriginalName(),
+            'stored_name'   => $storedName,
+            'file_path'     => $path,
+            'mime_type'     => $file->getMimeType() ?? 'application/octet-stream',
+            'file_size'     => $file->getSize(),
+            'sha256'        => $sha256,
+            'uploaded_by'   => $userId,
+            'created_at'    => now(),
+        ], 'id_attachment');
 
-        $status = $isFramework ? "approved" : "pending";
+        $status = $isFramework ? 'approved' : 'pending';
 
-        $docId = DB::table("document")->insertGetId([
-            "id_attachment" => $attachmentId,
-            "title"         => $request->input("title"),
-            "type"          => $request->input("type"),
-            "status"        => $status,
-            "version"       => $request->input("version", "1.0"),
-            "file_path"     => $path,
-            "uploaded_by"   => $userId,
-            "approved_by"   => $isFramework ? $userId : null,
-            "approved_at"   => $isFramework ? now() : null,
-            "created_at"    => now(),
-        ], "id_doc");
+        $docId = DB::table('document')->insertGetId([
+            'id_attachment'  => $attachmentId,
+            'title'          => $request->input('title'),
+            'type'           => $request->input('type'),
+            'status'         => $status,
+            'version'        => $request->input('version', '1.0'),
+            'file_path'      => $path,
+            'sha256'         => $sha256,
+            'is_signed'      => $signatureResult['is_signed'],
+            'signature_valid'=> $signatureResult['signature_valid'],
+            'signature_info' => $signatureResult['signature_info'],
+            // Se framework aprovado automaticamente sem assinatura → non_compliant
+            'non_compliant'  => ($isFramework && !$signatureResult['is_signed']),
+            'uploaded_by'    => $userId,
+            'approved_by'    => $isFramework ? $userId : null,
+            'approved_at'    => $isFramework ? now() : null,
+            'created_at'     => now(),
+        ], 'id_doc');
 
-        $ingestResult = "skipped";
-
+        $ingestResult = 'skipped';
         if (in_array($ext, self::INGESTABLE_EXTS) && $isFramework) {
-            IngestDocumentJob::dispatch(
-                $docId,
-                $path,
-                $request->input("title"),
-                "auto"
-            );
-            $ingestResult = "queued";
+            IngestDocumentJob::dispatch($docId, $path, $request->input('title'), 'auto');
+            $ingestResult = 'queued';
+        }
+
+        // Preparar aviso de assinatura para o frontend
+        $signatureWarning = null;
+        if (!$signatureResult['is_signed']) {
+            $signatureWarning = 'Este documento não contém assinatura digital. '
+                . ($isFramework
+                    ? 'Foi aprovado automaticamente mas marcado como não conforme.'
+                    : 'Ao ser aprovado sem assinatura ficará marcado como não conforme.');
+        } elseif ($signatureResult['is_signed'] && !$signatureResult['signature_valid']) {
+            $signatureWarning = 'O documento contém uma assinatura digital mas não foi possível validá-la. '
+                . 'Verifique antes de aprovar.';
         }
 
         return response()->json([
-            "success" => true,
-            "doc_id"  => $docId,
-            "status"  => $status,
-            "ingest"  => $ingestResult,
-            "message" => $isFramework
-                ? "Framework guardado e a indexar no Pinecone."
-                : "Documento enviado. Aguarda aprovação.",
+            'success'           => true,
+            'doc_id'            => $docId,
+            'status'            => $status,
+            'ingest'            => $ingestResult,
+            'is_signed'         => $signatureResult['is_signed'],
+            'signature_valid'   => $signatureResult['signature_valid'],
+            'signature_warning' => $signatureWarning,
+            'message'           => $isFramework
+                ? 'Framework guardado e a indexar no Pinecone.'
+                : 'Documento enviado. Aguarda aprovação.',
         ], 201);
     }
 
     // =========================================================================
     // POST /api/documents/{id}/approve
+    // Aprovação com suporte a non_compliant (aprovado sem assinatura).
+    // Body opcional: { force: true } — aprova mesmo sem assinatura
     // =========================================================================
-    public function approve(int $id): JsonResponse
+    public function approve(Request $request, int $id): JsonResponse
     {
-        $doc = DB::table("document as d")
-            ->leftJoin("attachment as a", "a.id_attachment", "=", "d.id_attachment")
-            ->select(["d.*", "a.file_path as attach_path", "a.original_name", "a.file_name"])
-            ->where("d.id_doc", $id)
+        $doc = DB::table('document as d')
+            ->leftJoin('attachment as a', 'a.id_attachment', '=', 'd.id_attachment')
+            ->select(['d.*', 'a.file_path as attach_path', 'a.original_name', 'a.file_name'])
+            ->where('d.id_doc', $id)
             ->first();
 
         if (!$doc) {
-            return response()->json(["success" => false, "message" => "Documento não encontrado."], 404);
+            return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
         }
-        if ($doc->status === "approved") {
-            return response()->json(["success" => false, "message" => "Documento já aprovado."], 409);
+        if ($doc->status === 'approved') {
+            return response()->json(['success' => false, 'message' => 'Documento já aprovado.'], 409);
         }
 
-        $userId = session("tb_user.id") ?? null;
-        DB::table("document")->where("id_doc", $id)->update([
-            "status"      => "approved",
-            "approved_by" => $userId,
-            "approved_at" => now(),
+        $isSigned = (bool) ($doc->is_signed ?? false);
+        $force    = (bool) $request->input('force', false);
+
+        // Se não está assinado e não veio force=true, avisa o frontend mas não bloqueia
+        // O admin decide — se confirmar, marca como non_compliant
+        $nonCompliant = !$isSigned;
+
+        $userId = session('tb_user.id') ?? null;
+
+        DB::table('document')->where('id_doc', $id)->update([
+            'status'        => 'approved',
+            'approved_by'   => $userId,
+            'approved_at'   => now(),
+            'non_compliant' => $nonCompliant,
         ]);
 
+        // Ingest Pinecone
         $filePath = $doc->attach_path ?? $doc->file_path ?? null;
         $ext      = $filePath ? strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) : null;
+        $ingest   = 'skipped';
 
         if ($filePath && in_array($ext, self::INGESTABLE_EXTS)) {
-            $docName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? "documento";
-            IngestDocumentJob::dispatch($id, $filePath, $docName, "auto");
-
-            return response()->json([
-                "success" => true,
-                "message" => "Aprovado. A indexar no Pinecone...",
-                "ingest"  => "queued",
-            ]);
+            $docName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? 'documento';
+            IngestDocumentJob::dispatch($id, $filePath, $docName, 'auto');
+            $ingest = 'queued';
         }
 
         return response()->json([
-            "success" => true,
-            "message" => "Documento aprovado.",
-            "ingest"  => "skipped",
+            'success'       => true,
+            'non_compliant' => $nonCompliant,
+            'message'       => $nonCompliant
+                ? 'Documento aprovado mas marcado como não conforme (sem assinatura digital).'
+                : 'Documento aprovado.',
+            'ingest'        => $ingest,
         ]);
     }
 
     // =========================================================================
     // POST /api/documents/{id}/reject
+    // Aceita agora motivo de rejeição.
+    // Body: { reason?: string }
     // =========================================================================
-    public function reject(int $id): JsonResponse
+    public function reject(Request $request, int $id): JsonResponse
     {
-        $doc = DB::table("document")->where("id_doc", $id)->first();
+        $doc = DB::table('document')->where('id_doc', $id)->first();
         if (!$doc) {
-            return response()->json(["success" => false, "message" => "Documento não encontrado."], 404);
+            return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
         }
-        DB::table("document")->where("id_doc", $id)->update(["status" => "rejected"]);
-        return response()->json(["success" => true]);
+        if ($doc->status === 'rejected') {
+            return response()->json(['success' => false, 'message' => 'Documento já rejeitado.'], 409);
+        }
+
+        DB::table('document')->where('id_doc', $id)->update([
+            'status'           => 'rejected',
+            'rejection_reason' => $request->input('reason'),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // =========================================================================
+    // POST /api/documents/{id}/delete
+    // Soft delete — só permite apagar documentos não aprovados.
+    // Documentos aprovados não devem ser eliminados (auditoria).
+    // =========================================================================
+    public function delete(int $id): JsonResponse
+    {
+        $doc = DB::table('document')->where('id_doc', $id)->whereNull('deleted_at')->first();
+
+        if (!$doc) {
+            return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
+        }
+
+        if ($doc->status === 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Documentos aprovados não podem ser eliminados. Rejeite primeiro se necessário.',
+            ], 409);
+        }
+
+        DB::table('document')->where('id_doc', $id)->update(['deleted_at' => now()]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // =========================================================================
+    // POST /api/documents/{id}/re-upload
+    // Re-upload de um documento (ex: após assinar digitalmente).
+    // Cria um novo documento ligado ao anterior via replaces_doc_id.
+    // O documento anterior NÃO é apagado — fica em histórico.
+    // =========================================================================
+    public function reUpload(Request $request, int $id): JsonResponse
+    {
+        $oldDoc = DB::table('document')->where('id_doc', $id)->whereNull('deleted_at')->first();
+        if (!$oldDoc) {
+            return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
+        }
+
+        $request->validate([
+            'file'    => ['required', 'file', 'max:51200'],
+            'version' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $file   = $request->file('file');
+        $userId = session('tb_user.id') ?? null;
+        $ext    = strtolower($file->getClientOriginalExtension());
+        $sha256 = hash_file('sha256', $file->getRealPath());
+
+        // Verificar assinatura do novo ficheiro
+        $signatureResult = $this->checkDigitalSignature($file, $ext);
+
+        // Guardar novo ficheiro
+        $storedName = Str::uuid() . '.' . $ext;
+        $yearMonth  = now()->format('Y/m');
+        $path       = $file->storeAs($yearMonth, $storedName, 'attachments');
+
+        $attachmentId = DB::table('attachment')->insertGetId([
+            'file_name'     => $file->getClientOriginalName(),
+            'original_name' => $file->getClientOriginalName(),
+            'stored_name'   => $storedName,
+            'file_path'     => $path,
+            'mime_type'     => $file->getMimeType() ?? 'application/octet-stream',
+            'file_size'     => $file->getSize(),
+            'sha256'        => $sha256,
+            'uploaded_by'   => $userId,
+            'created_at'    => now(),
+        ], 'id_attachment');
+
+        // Criar novo documento ligado ao anterior
+        $newVersion = $request->input('version') ?? $this->bumpVersion($oldDoc->version ?? '1.0');
+
+        $newDocId = DB::table('document')->insertGetId([
+            'id_attachment'  => $attachmentId,
+            'title'          => $oldDoc->title,
+            'type'           => $oldDoc->type,
+            'status'         => 'pending',   // volta a pendente — precisa nova aprovação
+            'version'        => $newVersion,
+            'file_path'      => $path,
+            'sha256'         => $sha256,
+            'is_signed'      => $signatureResult['is_signed'],
+            'signature_valid'=> $signatureResult['signature_valid'],
+            'signature_info' => $signatureResult['signature_info'],
+            'non_compliant'  => false,       // reset — aguarda avaliação na aprovação
+            'replaces_doc_id'=> $id,         // liga ao anterior
+            'uploaded_by'    => $userId,
+            'created_at'     => now(),
+        ], 'id_doc');
+
+        return response()->json([
+            'success'         => true,
+            'new_doc_id'      => $newDocId,
+            'replaces_doc_id' => $id,
+            'version'         => $newVersion,
+            'is_signed'       => $signatureResult['is_signed'],
+            'signature_valid' => $signatureResult['signature_valid'],
+            'message'         => $signatureResult['is_signed']
+                ? 'Nova versão carregada com assinatura digital. Aguarda aprovação.'
+                : 'Nova versão carregada sem assinatura digital. Aguarda aprovação.',
+        ], 201);
     }
 
     // =========================================================================
@@ -190,50 +347,172 @@ class DocumentController extends Controller
     // =========================================================================
     public function download(int $id)
     {
-        $doc = DB::table("document as d")
-            ->leftJoin("attachment as a", "a.id_attachment", "=", "d.id_attachment")
-            ->select(["d.id_doc", "d.title", "d.file_path", "a.file_path as attach_path", "a.original_name", "a.file_name"])
-            ->where("d.id_doc", $id)
+        $doc = DB::table('document as d')
+            ->leftJoin('attachment as a', 'a.id_attachment', '=', 'd.id_attachment')
+            ->select(['d.id_doc', 'd.title', 'd.file_path', 'a.file_path as attach_path', 'a.original_name', 'a.file_name'])
+            ->where('d.id_doc', $id)
             ->first();
 
-        if (!$doc) abort(404, "Documento não encontrado.");
+        if (!$doc) abort(404, 'Documento não encontrado.');
 
         $path        = $doc->attach_path ?? $doc->file_path;
-        $displayName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? "documento";
+        $displayName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? 'documento';
 
-        if (!$path || !Storage::disk("attachments")->exists($path)) {
-            abort(404, "Ficheiro não encontrado no servidor.");
+        if (!$path || !Storage::disk('attachments')->exists($path)) {
+            abort(404, 'Ficheiro não encontrado no servidor.');
         }
 
-        return Storage::disk("attachments")->download($path, $displayName);
+        return Storage::disk('attachments')->download($path, $displayName);
     }
 
     // =========================================================================
-    // Helper
+    // GET /api/documents/{id}/preview
+    // Serve o ficheiro com Content-Disposition: inline — para visualização
+    // directa no browser (object tag, img, pre). Não dispara download.
     // =========================================================================
+    public function preview(int $id)
+    {
+        $doc = DB::table('document as d')
+            ->leftJoin('attachment as a', 'a.id_attachment', '=', 'd.id_attachment')
+            ->select([
+                'd.id_doc', 'd.title', 'd.file_path',
+                'a.file_path as attach_path', 'a.original_name',
+                'a.file_name', 'a.mime_type',
+            ])
+            ->where('d.id_doc', $id)
+            ->first();
+
+        if (!$doc) abort(404, 'Documento não encontrado.');
+
+        $path        = $doc->attach_path ?? $doc->file_path;
+        $displayName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? 'documento';
+        $mime        = $doc->mime_type ?? 'application/octet-stream';
+
+        if (!$path || !Storage::disk('attachments')->exists($path)) {
+            abort(404, 'Ficheiro não encontrado no servidor.');
+        }
+
+        $fullPath = Storage::disk('attachments')->path($path);
+
+        return response()->file($fullPath, [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="' . rawurlencode($displayName) . '"',
+            'X-Frame-Options'     => 'SAMEORIGIN',
+            'Cache-Control'       => 'private, max-age=3600',
+        ]);
+    }
+
+    // =========================================================================
+    // Verificação de assinatura digital
+    // Suporte actual: PDFs (via iconv + parsing básico)
+    // Extensível: adicionar suporte a PKCS#7, docx, etc.
+    // =========================================================================
+    private function checkDigitalSignature($file, string $ext): array
+    {
+        $result = [
+            'is_signed'      => false,
+            'signature_valid' => null,   // null = não verificado; true/false = verificado
+            'signature_info'  => null,
+        ];
+
+        if ($ext !== 'pdf') {
+            return $result; // Apenas PDFs por agora
+        }
+
+        try {
+            $content = file_get_contents($file->getRealPath());
+            if ($content === false) return $result;
+
+            // Procurar marcadores de assinatura digital em PDFs:
+            // /Sig — campo de assinatura, /ByteRange — área de assinatura, /Contents — dados PKCS#7
+            $hasSigField   = str_contains($content, '/Sig')       || str_contains($content, '/ByteRange');
+            $hasSigContents= str_contains($content, '/Contents ') && str_contains($content, '/ByteRange');
+            $hasAcroSig    = str_contains($content, '/adbe.pkcs7') || str_contains($content, '/Adobe.PPKLite');
+
+            if (!$hasSigField && !$hasSigContents && !$hasAcroSig) {
+                return $result; // Sem assinatura
+            }
+
+            $result['is_signed'] = true;
+
+            // Tentar extrair informação básica do certificado
+            // (Validação completa exigiria openssl_pkcs7_verify ou biblioteca externa)
+            $sigInfo = [];
+
+            if (preg_match('/\/Name\s*\(([^)]+)\)/', $content, $m)) {
+                $sigInfo[] = 'Signatário: ' . $this->sanitizePdfString($m[1]);
+            }
+            if (preg_match('/\/M\s*\(D:(\d{14})/', $content, $m)) {
+                $sigInfo[] = 'Data: ' . substr($m[1], 0, 8) . ' ' . substr($m[1], 8, 6);
+            }
+            if (preg_match('/\/Reason\s*\(([^)]+)\)/', $content, $m)) {
+                $sigInfo[] = 'Motivo: ' . $this->sanitizePdfString($m[1]);
+            }
+
+            $result['signature_info']  = $sigInfo ? implode(' · ', $sigInfo) : 'Assinatura detectada';
+            // Marcar como não validado (null) — validação completa requer openssl
+            $result['signature_valid'] = null;
+
+        } catch (\Exception $e) {
+            Log::warning('Erro ao verificar assinatura digital', [
+                'file' => $file->getClientOriginalName(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
+    }
+
+    // =========================================================================
+    // Helpers privados
+    // =========================================================================
+
+    private function sanitizePdfString(string $s): string
+    {
+        // Remove caracteres não-ASCII e controlo que aparecem em strings PDF
+        return trim(preg_replace('/[^\x20-\x7E]/', '', $s));
+    }
+
+    private function bumpVersion(string $version): string
+    {
+        if (preg_match('/^(\d+)\.(\d+)$/', $version, $m)) {
+            return $m[1] . '.' . ((int) $m[2] + 1);
+        }
+        return $version . '.1';
+    }
+
     private function formatDoc($d): array
     {
-        $fileName = $d->original_name ?? $d->file_name ?? $d->title ?? "—";
+        $fileName = $d->original_name ?? $d->file_name ?? $d->title ?? '—';
         return [
-            "id"           => $d->id_doc,
-            "title"        => $d->title ?? $fileName,
-            "type"         => $d->type  ?? "evidence",
-            "status"       => $d->status ?? "pending",
-            "version"      => $d->version ?? "1.0",
-            "file_name"    => $fileName,
-            "mime_type"    => $d->mime_type ?? null,
-            "file_size"    => $d->file_size ?? null,
-            "created_at"   => $d->created_at,
-            "approved_at"  => $d->approved_at,
-            "indexed_at"   => $d->indexed_at ?? null,
-            "chunk_count"  => $d->chunk_count ?? null,
-            "ingest_error" => $d->ingest_error ?? null,
-            "uploader"     => $d->uploader_name ?? $d->uploader_email ?? "Utilizador",
-            "approver"     => $d->approver_name ?? null,
-            "origin"       => $d->risk_title
-                ? "Risco: {$d->risk_title}" . ($d->task_title ? " > {$d->task_title}" : "")
+            'id'               => $d->id_doc,
+            'title'            => $d->title ?? $fileName,
+            'type'             => $d->type   ?? 'evidence',
+            'status'           => $d->status ?? 'pending',
+            'version'          => $d->version ?? '1.0',
+            'file_name'        => $fileName,
+            'mime_type'        => $d->mime_type ?? null,
+            'file_size'        => $d->file_size ?? null,
+            'created_at'       => $d->created_at,
+            'approved_at'      => $d->approved_at,
+            'indexed_at'       => $d->indexed_at ?? null,
+            'chunk_count'      => $d->chunk_count ?? null,
+            'ingest_error'     => $d->ingest_error ?? null,
+            // Novos campos de assinatura
+            'is_signed'        => (bool) ($d->is_signed ?? false),
+            'signature_valid'  => isset($d->signature_valid) ? (bool) $d->signature_valid : null,
+            'signature_info'   => $d->signature_info ?? null,
+            'non_compliant'    => (bool) ($d->non_compliant ?? false),
+            'rejection_reason' => $d->rejection_reason ?? null,
+            'sha256'           => $d->sha256 ?? $d->attach_sha256 ?? null,
+            'replaces_doc_id'  => $d->replaces_doc_id ?? null,
+            // Relações
+            'uploader'         => $d->uploader_name ?? $d->uploader_email ?? 'Utilizador',
+            'approver'         => $d->approver_name ?? null,
+            'origin'           => $d->risk_title
+                ? "Risco: {$d->risk_title}" . ($d->task_title ? " > {$d->task_title}" : '')
                 : null,
-            "has_file"     => !empty($d->attach_path ?? $d->file_path),
+            'has_file'         => !empty($d->attach_path ?? $d->file_path),
         ];
     }
 }

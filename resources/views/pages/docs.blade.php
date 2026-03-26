@@ -16,68 +16,6 @@
             </div>
 
 
-            <div class="two" style="margin-top:10px">
-                <div class="panel">
-                    <h2>Upload + Versionamento</h2>
-                    <div class="row">
-                        <div class="field">
-                            <label>Tipo de documento</label>
-                            <select>
-                                <option>Política</option>
-                                <option>Procedimento</option>
-                                <option>Relatório</option>
-                                <option>Imagem</option>
-                                <option>PDF</option>
-                                <option value="framework">Framework / Norma oficial</option>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label>Ficheiro</label>
-                            <input placeholder="(mock) selecionar ficheiro..." />
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label>Descrição</label>
-                        <textarea placeholder="Ex.: Procedimento de inventário — versão 1.0"></textarea>
-                    </div>
-                    <div class="row">
-                        <button class="btn primary" type="button">Carregar</button>
-                        <button class="btn" type="button">Criar nova versão</button>
-                    </div>
-                    <p class="hint">Guardar: autor, data, versão, hash, tags, sistema origem.</p>
-                </div>
-
-                <div class="panel">
-                    <h2>Sugestões automáticas (RF16)</h2>
-                    <p class="muted">Após upload, o sistema sugere controlos potencialmente cobertos.</p>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Controlo</th>
-                                <th>Alinhamento</th>
-                                <th>Justificação</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><b>ID.GA-1</b>
-                                    <div class="muted">Inventário</div>
-                                </td>
-                                <td><span class="tag ok"><span class="s"></span> 0.82</span></td>
-                                <td class="muted">Menciona inventário, periodicidade e responsável.</td>
-                            </tr>
-                            <tr>
-                                <td><b>PR.IP-4</b>
-                                    <div class="muted">Backups</div>
-                                </td>
-                                <td><span class="tag warn"><span class="s"></span> 0.61</span></td>
-                                <td class="muted">Descreve backup, mas sem evidência de testes.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div style="height:12px"></div>
 
         <div class="panel" id="frameworkPanel">
@@ -124,12 +62,13 @@
                             <th>Tipo</th>
                             <th>Versão</th>
                             <th>Status</th>
+                            <th>Assinatura</th>
                             <th>Data</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody id="docsTbody">
-                        <tr><td colspan="6" class="muted">A carregar...</td></tr>
+                        <tr><td colspan="7" class="muted">A carregar...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -522,7 +461,7 @@
     </section>
 
     {{-- MODAL: Upload documento --}}
-<div id="uploadDocModal" class="modal-overlay is-hidden" aria-hidden="true">
+<div id="uploadDocModal" class="modal-overlay" aria-hidden="true" style="display:none">
   <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="uploadDocTitle">
     <div class="modal-header">
       <div>
@@ -561,6 +500,17 @@
           style="padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);color:inherit;width:100%;cursor:pointer" />
         <div class="hint" style="margin-top:4px">Formatos: PDF, TXT, DOCX. São indexados no Pinecone após aprovação (ou imediatamente se for Framework).</div>
       </div>
+
+      {{-- Opção alternativa: escrever com IA sem fazer upload de ficheiro --}}
+      <div style="display:flex;align-items:center;gap:10px;margin:4px 0 8px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span class="muted" style="font-size:12px;white-space:nowrap">ou</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <button type="button" class="btn" id="btnOpenAiInUpload" style="width:100%;justify-content:center;gap:8px">
+        ✦ Escrever com Assistente IA
+        <span class="muted" style="font-size:11px;font-weight:400">(gera texto, guarda como .txt pendente)</span>
+      </button>
 
       <div class="two">
         <div class="field">
@@ -648,10 +598,182 @@
 
 
 
+{{-- MODAL: Visualizador de documento --}}
+<div id="docViewerModal" class="modal-overlay" aria-hidden="true" style="display:none">
+  <div class="modal-card" role="dialog" aria-modal="true" style="width:min(1200px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+
+    {{-- Header --}}
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0">
+      <div style="min-width:0;flex:1">
+        <div class="muted" style="font-size:11px;margin-bottom:2px">Documento</div>
+        <div id="vwTitle" style="font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <span id="vwStatus"></span>
+          <span id="vwSig"></span>
+          <span class="muted" style="font-size:12px" id="vwType">—</span>
+          <span class="muted" style="font-size:12px">v<span id="vwVersion">—</span></span>
+          <span class="muted" style="font-size:12px"><span id="vwDate">—</span></span>
+          <span class="muted" style="font-size:12px">Por: <span id="vwUploader">—</span></span>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:4px">SHA256: <span id="vwSha" style="font-family:monospace">—</span></div>
+        <div id="vwRejection" style="display:none;margin-top:6px;padding:6px 10px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+        <button id="vwReupload" class="btn" type="button" title="Carregar nova versão">Nova versão</button>
+        <button id="vwAiAssist" class="btn" type="button" title="Assistente IA">✦ IA</button>
+        <a id="vwDownload" class="btn" target="_blank" style="text-decoration:none">Download</a>
+        <button id="vwApprove" class="btn ok" type="button" style="display:none">Aprovar</button>
+        <button id="vwClose" class="btn" type="button">Fechar</button>
+      </div>
+    </div>
+
+    {{-- Body: preview (esq) + sugestões RF16 (dir) --}}
+    <div style="display:flex;flex:1;min-height:0;overflow:hidden">
+
+      {{-- Coluna esquerda: preview do ficheiro --}}
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid rgba(255,255,255,.07)">
+
+        <div id="vwPreviewArea" style="display:none;flex:1;overflow:auto;min-height:0"></div>
+
+        {{-- DOCX --}}
+        <div id="vwDocxMsg" style="display:none;flex:1;padding:40px;text-align:center;color:var(--muted)">
+          <div style="font-size:48px;margin-bottom:16px">📄</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:8px">Ficheiro Word (.docx)</div>
+          <p style="font-size:13px">Não é possível pré-visualizar ficheiros Word directamente no browser.</p>
+          <a id="vwDocxDownload" class="btn ok" style="text-decoration:none;margin-top:12px;display:inline-block" target="_blank">Download para visualizar</a>
+        </div>
+
+        {{-- Sem ficheiro --}}
+        <div id="vwNoFile" style="display:none;flex:1;padding:40px;text-align:center;color:var(--muted)">
+          <div style="font-size:48px;margin-bottom:16px">📭</div>
+          <div style="font-size:15px;font-weight:600">Sem ficheiro associado</div>
+          <p style="font-size:13px">Este documento não tem ficheiro no servidor.</p>
+        </div>
+
+      </div>
+
+      {{-- Coluna direita: Sugestões RF16 --}}
+      <div id="vwSuggestionsPanel" style="display:none;width:340px;flex-shrink:0;overflow-y:auto;padding:16px;background:rgba(0,0,0,.06)">
+
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px">Sugestões automáticas</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">
+          Controlos potencialmente cobertos por este documento, detectados via análise semântica (Pinecone / RF16).
+        </div>
+
+        {{-- Estado: a analisar --}}
+        <div id="vwSuggestionsLoading" style="display:none;text-align:center;padding:24px 0">
+          <div style="font-size:22px;margin-bottom:8px">🔍</div>
+          <div class="muted" style="font-size:12px">A analisar controlos cobertos...</div>
+        </div>
+
+        {{-- Corpo das sugestões (tabela injectada pelo JS) --}}
+        <div id="vwSuggestionsBody"></div>
+
+        {{-- Meta info --}}
+        <div id="vwSuggestionsMeta" style="display:none;margin-top:12px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.1);font-size:11px;color:var(--muted)"></div>
+
+        {{-- Botão re-analisar --}}
+        <div style="margin-top:12px">
+          <button id="vwReanalyse" class="btn small" type="button" style="width:100%;justify-content:center">↺ Re-analisar</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{{-- MODAL: Assistente IA (Ponto 2 — Geração de políticas) --}}
+<div id="aiAssistModal" class="modal-overlay" aria-hidden="true" style="display:none">
+  <div class="modal-card" role="dialog" aria-modal="true" style="width:min(800px,96vw);max-height:90vh;overflow:auto">
+
+    <div class="modal-header">
+      <div>
+        <div class="muted" style="font-size:11px;margin-bottom:2px">Assistente IA</div>
+        <div style="font-size:17px;font-weight:700">Gerar / Rever documento</div>
+        <div class="muted" style="font-size:12px;margin-top:3px">Documento: <b id="aiDocTitle">—</b></div>
+      </div>
+      <button id="aiClose" class="btn" type="button">Fechar</button>
+    </div>
+
+    <div style="padding:16px 0 0">
+      <div style="padding:12px 16px;border-radius:10px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.18);margin-bottom:16px;font-size:13px;line-height:1.6">
+        A IA usa os teus frameworks indexados (NIS2, QNRCS) como contexto para gerar texto alinhado com os controlos.
+        O resultado pode ser copiado para o campo de texto ou guardado directamente como documento pendente de aprovação.
+      </div>
+
+      {{-- Tipo de documento (select que envia para o generator) --}}
+      <div class="field" style="margin-bottom:12px">
+        <label>Tipo de documento</label>
+        <select id="aiDocType" style="width:100%">
+          <option value="password_policy">Política de Gestão de Passwords</option>
+          <option value="backup_procedure">Procedimento de Backup e Recuperação</option>
+          <option value="access_control_policy">Política de Controlo de Acessos</option>
+          <option value="incident_response">Plano de Resposta a Incidentes</option>
+          <option value="asset_inventory">Procedimento de Inventário de Ativos</option>
+          <option value="vulnerability_management">Política de Gestão de Vulnerabilidades</option>
+          <option value="custom">Documento personalizado (instrução livre)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Sugestões rápidas</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn small" type="button" onclick="setAiTemplate('password_policy','Gera uma Política de Gestão de Passwords. Inclui requisitos mínimos de complexidade, periodicidade de renovação, uso de gestor de passwords e processo de reset seguro.')">Política de Passwords</button>
+          <button class="btn small" type="button" onclick="setAiTemplate('backup_procedure','Gera um Procedimento de Backup e Recuperação. Inclui frequência das cópias, local de armazenamento (local e offsite), testes periódicos de restauro, RTO e RPO definidos.')">Proc. de Backup</button>
+          <button class="btn small" type="button" onclick="setAiTemplate('access_control_policy','Gera uma Política de Controlo de Acessos baseada no princípio do menor privilégio. Inclui gestão de contas, revisão periódica de acessos e processo de offboarding.')">Controlo de Acessos</button>
+          <button class="btn small" type="button" onclick="setAiTemplate('incident_response','Gera um Plano de Resposta a Incidentes de Segurança. Inclui classificação de incidentes, papéis e responsabilidades, fluxo de resposta e requisitos de notificação NIS2.')">Resposta a Incidentes</button>
+          <button class="btn small" type="button" onclick="setAiTemplate('custom','Revê o seguinte texto e identifica lacunas face aos controlos do QNRCS e NIS2. Sugere melhorias concretas.')">Rever / Melhorar</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:12px">
+        <label>Instrução adicional <span class="muted" style="font-weight:400">(opcional — personaliza o documento gerado)</span></label>
+        <textarea id="aiPromptInput" rows="3"
+          placeholder="Ex.: Inclui cláusula sobre autenticação biométrica. O público-alvo são utilizadores não técnicos."
+          style="width:100%;resize:vertical"></textarea>
+        <div class="hint">Ctrl+Enter para gerar.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button id="aiRunBtn" class="btn ok" type="button">✦ Gerar documento</button>
+        <div class="field">
+        <label>Formato do ficheiro</label>
+        <select id="aiFileType">
+        <option value="txt">TXT</option>
+        <option value="pdf">PDF</option>
+        <option value="md">Markdown</option>
+        <option value="docx">Word (.docx)</option>
+        </select>
+        </div>
+        <button class="btn" type="button" id="aiClearBtn">Limpar</button>
+      </div>
+
+      {{-- Controlos usados na geração --}}
+      <div id="aiControlsUsed" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;padding:6px 10px;border-radius:8px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.15)"></div>
+
+      {{-- Resultado editável --}}
+      <div class="muted" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">
+        Resultado <span style="font-weight:400;text-transform:none;letter-spacing:0">(editável antes de guardar)</span>
+      </div>
+      <textarea id="aiOutput"
+        rows="14"
+        placeholder="O documento gerado aparecerá aqui. Podes editar antes de guardar."
+        style="width:100%;resize:vertical;font-size:13px;line-height:1.6;font-family:monospace;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,.06);padding:14px;color:inherit"></textarea>
+
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn" type="button" id="aiCopyBtn">Copiar texto</button>
+        <button class="btn" id="aiDownload">Download</button>
+        <button class="btn ok" type="button" id="aiSaveAsDoc">Usar no upload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     @push('scripts')
-
         @vite(['resources/js/pages/docs.js'])
-
     @endpush
 
 @endsection

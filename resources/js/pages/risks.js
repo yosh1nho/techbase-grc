@@ -133,6 +133,7 @@ async function loadRisks() {
     threat: r.threat,
     vulnerability: r.vulnerability,
     riskOwner: r.risk_owner,
+    riskOwnerId: r.risk_owner_id,
     actions: r.actions,
     due: r.due,
 
@@ -148,29 +149,8 @@ function loadTreatments() { try { return JSON.parse(localStorage.getItem("tb_moc
 
 async function createRisk(data) {
 
-  const res = await fetch("/api/risks/from-alert", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content
-    },
-    body: JSON.stringify({
-      hostname: data.asset,
-      title: data.title,
-      description: data.description,
+  window.location.href = `${ROUTES.treatment || '/tratamento'}?from=alert&alert_id=${alert.id}`;
 
-      threat: data.threat,
-      vulnerability: data.vulnerability,
-      risk_owner: data.risk_owner,
-      actions: data.actions,
-      due: data.due,
-
-      probability: data.probability ?? 3,
-      impact: data.impact ?? 3
-    })
-  });
-
-  return await res.json();
 }
 
 function saveTreatment(plan) {

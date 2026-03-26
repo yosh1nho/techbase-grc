@@ -647,6 +647,89 @@
             </div>
         </div>
 
+        {{-- Step 2B: Dados do incidente --}}
+        <div class="cncs-step" id="step2b">
+            <div class="cncs-step-head" data-toggle="step2b">
+                <span class="cncs-step-num">2b</span>
+                <span class="cncs-step-title">Dados do incidente</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+        
+                {{-- Incidente urgente com tooltip --}}
+                <div class="field-group">
+                    <label style="display:flex;align-items:center;gap:6px">
+                        Incidente grave (Art. 23.º NIS2)
+                        <span id="urgentInfoIcon" style="cursor:help;color:var(--muted);display:inline-flex">
+                            <i data-lucide="info" style="width:13px;height:13px"></i>
+                        </span>
+                    </label>
+        
+                    {{-- Tooltip --}}
+                    <div id="urgentTooltip" style="
+                        display:none;
+                        background:var(--panel);
+                        border:1px solid rgba(251,191,36,.3);
+                        border-radius:10px;
+                        padding:10px 13px;
+                        font-size:12px;
+                        line-height:1.5;
+                        color:var(--warn);
+                        margin-bottom:8px;
+                    ">
+                        <b>Incidente grave / urgente</b><br>
+                        Incidente com impacto relevante ou substancial que deve ser notificado ao
+                        CNCS nos prazos previstos (alerta inicial: 24h; notificação: 72h; relatório final: 1 mês).
+                        Ver Art. 23.º da Diretiva NIS2 (2022/2555).
+                    </div>
+        
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <label style="
+                            display:flex;align-items:center;gap:8px;
+                            cursor:pointer;font-size:13px;font-weight:500;
+                            text-transform:none;letter-spacing:0;color:var(--text)
+                        ">
+                            <input type="checkbox" id="cncsIsUrgent" style="width:16px;height:16px;accent-color:var(--warn)">
+                            Marcar como incidente grave
+                        </label>
+                    </div>
+                    <div class="field-hint">Ao marcar, o relatório ficará assinalado com flag de urgência.</div>
+                </div>
+        
+                {{-- Tipo de incidente --}}
+                <div class="field-group">
+                    <label>Tipo de incidente</label>
+                    <select id="cncsIncidentType">
+                        <option value="">— Selecionar —</option>
+                        <option value="ransomware">Ransomware</option>
+                        <option value="malware">Malware</option>
+                        <option value="phishing">Phishing</option>
+                        <option value="ddos">DDoS</option>
+                        <option value="unauthorized_access">Acesso não autorizado</option>
+                        <option value="data_breach">Fuga de dados</option>
+                        <option value="service_disruption">Indisponibilidade de serviço</option>
+                        <option value="backup_failure">Falha de backup</option>
+                        <option value="other">Outro</option>
+                    </select>
+                </div>
+        
+                {{-- Secção 5 — dados manuais (utilizadores + duração) --}}
+                <div class="field-row">
+                    <div class="field-group">
+                        <label>Utilizadores afetados</label>
+                        <input type="number" id="cncsUsersAffected" placeholder="Ex: 1500" min="0" />
+                        <div class="field-hint">Soma dos incidentes relevantes.</div>
+                    </div>
+                    <div class="field-group">
+                        <label>Duração total (horas)</label>
+                        <input type="number" id="cncsDuration" placeholder="Ex: 14.5" min="0" step="0.5" />
+                        <div class="field-hint">Soma das janelas de indisponibilidade.</div>
+                    </div>
+                </div>
+        
+            </div>
+        </div>
+
         {{-- Step 3: Dados de fecho --}}
         <div class="cncs-step" id="step3">
             <div class="cncs-step-head" data-toggle="step3">
@@ -828,6 +911,76 @@
                     <div class="muted" style="font-size:12px">—</div>
                 </div>
             </div>
+
+
+            {{-- Secção: Conformidade NIS2 / QNRCS --}}
+        <div class="pv-section">
+            <div class="pv-section-label">
+                <i data-lucide="shield-check" style="width:12px;height:12px"></i>
+                Conformidade — NIS2 &amp; QNRCS
+            </div>
+        
+            {{-- Filtros --}}
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+                <div class="field-group" style="min-width:160px">
+                    <label>Framework</label>
+                    <select id="complianceFrameworkFilter">
+                        <option value="all">Todos</option>
+                        <option value="NIS2">NIS2</option>
+                        <option value="QNRCS">QNRCS</option>
+                    </select>
+                </div>
+                <div class="field-group" style="min-width:200px">
+                    <label>Estado</label>
+                    <select id="complianceStatusFilter">
+                        <option value="compliant,partial">Conformes e parciais</option>
+                        <option value="compliant">Apenas conformes</option>
+                        <option value="partial">Apenas parciais</option>
+                        <option value="non_compliant">Não conformes</option>
+                        <option value="all">Todos os estados</option>
+                    </select>
+                </div>
+            </div>
+        
+            {{-- Loading spinner --}}
+            <div id="complianceLoading" style="display:none;align-items:center;gap:10px;padding:20px 0;color:var(--muted);font-size:13px">
+                <div class="pv-spinner"></div> A carregar controlos...
+            </div>
+        
+            {{-- Tabela --}}
+            <div style="overflow-x:auto">
+                <table class="pv-table" style="min-width:700px">
+                    <thead>
+                        <tr>
+                            <th style="white-space:nowrap">Controlo</th>
+                            <th>Grupo</th>
+                            <th>Descrição</th>
+                            <th>Estado</th>
+                            <th>Notas</th>
+                            <th style="white-space:nowrap">Avaliado por</th>
+                        </tr>
+                    </thead>
+                    <tbody id="complianceTbody">
+                        <tr>
+                            <td colspan="6" class="muted" style="text-align:center;padding:24px;font-size:12px">
+                                A carregar...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        
+            {{-- Paginador --}}
+            <div id="compliancePager" style="
+                display:flex;align-items:center;justify-content:space-between;
+                padding:12px 0 0;gap:12px;flex-wrap:wrap
+            "></div>
+        
+            <p class="field-hint" style="margin-top:8px">
+                Apenas controlos avaliados são listados. Para avaliar controlos, acede ao módulo
+                <a href="{{ route('compliance') }}" style="color:var(--info)">Compliance</a>.
+            </p>
+        </div>
 
             {{-- Secção 8 — Outra informação --}}
             <div class="pv-section">
