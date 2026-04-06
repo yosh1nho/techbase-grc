@@ -172,10 +172,6 @@
   <button id="ldUploadBtn" class="btn ok small">Upload & ligar</button>
 </div>
 
-    <div id="ldDocsList">
-      <div class="muted" style="font-size:13px;padding:8px">A carregar documentos...</div>
-    </div>
-
   </div>
 </div>
 
