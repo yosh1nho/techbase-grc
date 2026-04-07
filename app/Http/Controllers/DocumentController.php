@@ -242,6 +242,39 @@ class DocumentController extends Controller
     }
 
     // =========================================================================
+    // POST /api/documents/{id}/obsolete
+    // Marca como obsoleto e limpa Pinecone.
+    // =========================================================================
+    public function obsolete(int $id): JsonResponse
+    {
+        $doc = DB::table('document')->where('id_doc', $id)->first();
+        if (!$doc) {
+            return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
+        }
+
+        DB::table('document')->where('id_doc', $id)->update([
+            'status' => 'obsolete',
+        ]);
+
+        $pythonBin = env('PYTHON_BIN', 'python');
+        $scriptPath = base_path('rag/purge_doc.py');
+        if (file_exists($scriptPath)) {
+            $cmd = escapeshellarg($pythonBin) . ' ' . escapeshellarg($scriptPath) . ' --tenant "default" --doc-id ' . escapeshellarg((string)$id);
+            $envVars = array_merge(getenv(), [
+                'PINECONE_API_KEY' => env('PINECONE_API_KEY', ''),
+                'PINECONE_INDEX'   => env('PINECONE_INDEX', ''),
+            ]);
+            $process = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $envVars);
+            if (is_resource($process)) {
+                fclose($pipes[0]); fclose($pipes[1]); fclose($pipes[2]);
+                proc_close($process);
+            }
+        }
+
+        return response()->json(['success' => true, 'message' => 'Marcado como obsoleto e removido da pesquisa.']);
+    }
+
+    // =========================================================================
     // POST /api/documents/{id}/delete
     // Soft delete — só permite apagar documentos não aprovados.
     // Documentos aprovados não devem ser eliminados (auditoria).
@@ -311,23 +344,40 @@ class DocumentController extends Controller
 
         // Criar novo documento ligado ao anterior
         $newVersion = $request->input('version') ?? $this->bumpVersion($oldDoc->version ?? '1.0');
+        $isFramework = ($oldDoc->type === 'framework');
+        $status = $isFramework ? 'approved' : 'pending';
 
         $newDocId = DB::table('document')->insertGetId([
             'id_attachment'  => $attachmentId,
             'title'          => $oldDoc->title,
             'type'           => $oldDoc->type,
-            'status'         => 'pending',   // volta a pendente — precisa nova aprovação
+            'status'         => $status,
             'version'        => $newVersion,
             'file_path'      => $path,
             'sha256'         => $sha256,
             'is_signed'      => $signatureResult['is_signed'],
             'signature_valid'=> $signatureResult['signature_valid'],
             'signature_info' => $signatureResult['signature_info'],
-            'non_compliant'  => false,       // reset — aguarda avaliação na aprovação
+            'non_compliant'  => false,
             'replaces_doc_id'=> $id,         // liga ao anterior
             'uploaded_by'    => $userId,
+            'approved_by'    => $isFramework ? $userId : null,
+            'approved_at'    => $isFramework ? now() : null,
             'created_at'     => now(),
         ], 'id_doc');
+
+        if ($isFramework) {
+            // Frameworks são logo ingeridos e o antigo fica obsoleto
+            if (in_array($ext, self::INGESTABLE_EXTS)) {
+                IngestDocumentJob::dispatch($newDocId, $path, $oldDoc->title, 'auto');
+            }
+            $this->obsolete($id); // limpa do pinecone e marca obsoleto
+            $msg = 'Nova versão (v' . $newVersion . ') carregada e indexada. Versão antiga obsoleta.';
+        } else {
+            $msg = $signatureResult['is_signed']
+                ? 'Nova versão carregada com assinatura digital. Aguarda aprovação.'
+                : 'Nova versão carregada sem assinatura digital. Aguarda aprovação.';
+        }
 
         return response()->json([
             'success'         => true,
@@ -336,9 +386,7 @@ class DocumentController extends Controller
             'version'         => $newVersion,
             'is_signed'       => $signatureResult['is_signed'],
             'signature_valid' => $signatureResult['signature_valid'],
-            'message'         => $signatureResult['is_signed']
-                ? 'Nova versão carregada com assinatura digital. Aguarda aprovação.'
-                : 'Nova versão carregada sem assinatura digital. Aguarda aprovação.',
+            'message'         => $msg,
         ], 201);
     }
 

@@ -321,6 +321,55 @@
         }
     }
 
+    // Função para carregar os riscos do ativo aberto
+    async function loadAssetRisks(assetId) {
+        const list = document.getElementById("assetRiskTreatList");
+        if (!list) return;
+
+        list.innerHTML = '<div class="muted" style="font-size:12px; padding: 12px; text-align: center;">A carregar riscos...</div>';
+
+        try {
+            const res = await fetch("/api/risks", { headers: { Accept: "application/json" } });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const allRisks = await res.json();
+            const assetRisks = allRisks.filter(r => r.id_asset == assetId);
+
+            if (assetRisks.length === 0) {
+                list.innerHTML = '<div class="muted" style="font-size:12px; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: center; border: 1px dashed var(--border);">Nenhum risco registado para este ativo.</div>';
+                return;
+            }
+
+            list.innerHTML = assetRisks.map(r => {
+                const score = r.score ?? (r.probability * r.impact) ?? 1;
+
+                // Cores baseadas no score
+                let lvlColor = "#34d399"; // Baixo
+                if (score >= 17) lvlColor = "#f87171"; // Muito Alto
+                else if (score >= 10) lvlColor = "#fb923c"; // Alto
+                else if (score >= 5) lvlColor = "#fbbf24"; // Médio
+
+                return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px;">
+                <div>
+                    <div style="font-size:13px; font-weight:600; margin-bottom:4px; color: var(--text-primary);">${r.title || r.description || "Risco sem título"}</div>
+                    <div style="font-size:11px; color: var(--muted); display: flex; gap: 6px; align-items: center;">
+                        <span style="display:inline-block; padding: 2px 8px; border-radius: 99px; background: rgba(148,163,184,.12); color:#94a3b8;">${r.status}</span>
+                        <span>${r.threat ? `• ⚡ ${r.threat}` : ''}</span>
+                    </div>
+                </div>
+                <div style="text-align:right">
+                    <span style="display:inline-block; padding: 4px 10px; border-radius: 99px; font-size:11px; font-weight:700; background: ${lvlColor}15; color: ${lvlColor}">
+                        Score: ${score}
+                    </span>
+                </div>
+            </div>`;
+            }).join("");
+
+        } catch (e) {
+            list.innerHTML = `<div style="color:#f87171; font-size:12px; padding: 12px; text-align: center;">Erro ao carregar riscos: ${e.message}</div>`;
+        }
+    }
+
     // ========= computed summary =========
     function summarizeControls(asset) {
         const total = asset.controls.length || 0;
@@ -387,7 +436,11 @@
             const matchesSrc = src === "all" || (a.source || "manual") === src;
             let matchesControl = true;
             if (st !== "all") {
-                matchesControl = a.controls.some((c) => c.declaredStatus === st);
+                if (!a.controls || a.controls.length === 0) {
+                    matchesControl = true;
+                } else {
+                    matchesControl = a.controls.some((c) => c.declaredStatus === st);
+                }
             }
             return matchesQ && matchesCrit && matchesType && matchesSrc && matchesControl;
         });
@@ -407,8 +460,25 @@
             const score = (a.prob || 0) * (a.impact || 0);
             const cls = classify(score); // cls.label -> "Baixo/Médio/Alto/Muito Alto"
 
+            let tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
+            if (a.tags && a.tags.length > 0) {
+                const tagsArray = Array.isArray(a.tags) ? a.tags : String(a.tags).split(',');
+
+                tagsHtml = tagsArray
+                    .map(t => {
+                        const tagName = typeof t === 'object' ? (t.name || '') : String(t);
+                        const tagColor = typeof t === 'object' && t.color ? t.color : '#60a5fa';
+                        return tagName.trim() !== '' 
+                            ? `<span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${tagColor}15; color: ${tagColor}; font-size: 10px; margin-right: 4px; border: 1px solid ${tagColor}30;">${tagName.trim()}</span>` 
+                            : '';
+                    })
+                    .join('');
+                if (!tagsHtml.trim()) tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
+            }
+
             const sourceClass = a.source === 'acronis' ? 'src-acronis' : 'src-manual';
             const sourceLbl = a.source === 'acronis' ? 'Acronis' : 'Manual';
+
             tr.innerHTML = `
       <td>
         <div class="asset-name">${a.hostname}</div>
@@ -416,7 +486,7 @@
       </td>
       <td>${a.type}</td>
       <td>${criticityTag(a.criticity)}</td>
-      <td><span class="src-badge ${sourceClass}">${sourceLbl}</span></td>
+      <td>${tagsHtml}</td> <td><span class="src-badge ${sourceClass}">${sourceLbl}</span></td>
       <td>${a.owner}</td>
       <td>
         <span style="font-weight:600;color:${cls.cellClass === 'high' || cls.cellClass === 'vhigh' ? 'var(--bad)' : cls.cellClass === 'med' ? 'var(--warn)' : 'var(--ok)'}">${cls.label}</span>
@@ -824,6 +894,7 @@
         renderControlsList(asset);
         renderAiSuggestions(asset);
         renderRiskTreat(asset);
+        loadAssetRisks(assetId);
 
         // update controls tab badge
         const badge = $("#tabBadgeControls");
@@ -893,6 +964,7 @@
         $("#fName").value = "";
         $("#fType").value = "Servidor";
         $("#fIp").value = "";
+        $("#fTags").value = "";
         toggleIpFieldByType($("#fType").value);
         $("#fCrit").value = "Médio";
         $("#fOwner").value = "";
@@ -927,6 +999,8 @@
         $("#fType").value = a.type;
         $("#fIp").value = a.ip || "";
         toggleIpFieldByType($("#fType").value);
+        const tagsStr = Array.isArray(a.tags) ? a.tags.join(', ') : (a.tags || "");
+        $("#fTags").value = tagsStr;
         $("#fCrit").value = a.criticity;
         $("#fOwner").value = a.owner;
         $("#fProb").value = String(a.prob);
@@ -957,6 +1031,7 @@
         const impact = Number($("#fImpact").value);
         const notes = $("#fNotes").value.trim();
         const ip = ($("#fIp")?.value || "").trim();
+        const tags = ($("#fTags")?.value || "").trim();
         if (!editingAssetId) {
             // ── Persiste na base de dados ──
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
@@ -971,6 +1046,7 @@
                 impact: impact,
                 criticality: mapCriticality(criticity) || "medium",
                 notes: notes || null,
+                tags: tags
             };
 
             try {
@@ -1135,8 +1211,13 @@
         const status = canOverrideStatus() ? $("#acStatus").value : iaStatusFromConfidence(confidence);
         const note = $("#acNote").value.trim();
 
-        a.controls.unshift({ key, status, confidence, note, evidences: [] });
-
+        a.controls.unshift({
+            key,
+            declaredStatus: status,
+            confidence,
+            note,
+            evidences: []
+        });
         renderAssetsTable();
         renderControlsList(a);
         renderAiSuggestions(a);
@@ -1325,6 +1406,15 @@
         $$(".am-tab").forEach(tab => {
             tab.addEventListener("click", () => activateTab(tab.dataset.tab));
         });
+
+        const btnCreateRisk = $("#btnCreateRiskFromAssetTab");
+        if (btnCreateRisk) {
+            btnCreateRisk.addEventListener("click", () => {
+                if (currentAssetId) {
+                    goTo(`/riscos?new_risk_for=${currentAssetId}`);
+                }
+            });
+        }
     }
 
     document.addEventListener("DOMContentLoaded", init);

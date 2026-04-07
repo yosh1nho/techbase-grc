@@ -62,6 +62,7 @@
   let USERS = [];
   let CURRENT_RISK = null;  // risco aberto no modal (null = novo)
   let AI_SUGGESTION = null; // última sugestão da IA
+  let TREAT_AI_SUGGESTION = null;
 
   let filters = { q: "", level: "all", status: "all" };
 
@@ -493,8 +494,115 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
     showToast("ok", "Sugestões da IA aplicadas.");
   }
 
+  // ── IA: sugerir plano de tratamento ──────────────────────────────────────────
+  async function runTreatAiAnalysis() {
+    const riskId = document.getElementById("treatModal").dataset.riskId;
+    const risk = RISKS.find(r => r.id_risk == riskId);
+    if (!risk) return;
+
+    const asset = ASSETS.find(a => a.id_asset == risk.id_asset);
+
+    // O teu toque de génio: Procurar outros riscos abertos para o mesmo ativo
+    const otherRisks = RISKS.filter(r =>
+      r.id_asset == risk.id_asset &&
+      r.id_risk != risk.id_risk &&
+      (r.status === "Aberto" || r.status === "Em tratamento")
+    );
+
+    const aiOut = document.getElementById("tmAiOutput");
+    const aiAct = document.getElementById("tmAiActions");
+    const btn = document.getElementById("tmAiBtn");
+
+    aiOut.style.display = "block";
+    aiOut.innerHTML = '<span class="muted">A desenhar plano com IA...</span>';
+    aiAct.style.display = "none";
+    btn.disabled = true;
+
+    // Construção do Prompt
+    let prompt = `Sou um especialista de cibersegurança e GRC. Ajuda-me a desenhar um plano de tratamento para este risco:\n`;
+    prompt += `- Risco: ${risk.title || risk.description}\n`;
+    prompt += `- Ameaça: ${risk.threat || "Não definida"}\n`;
+    prompt += `- Vulnerabilidade: ${risk.vulnerability || "Não definida"}\n`;
+
+    if (asset) {
+      prompt += `- Ativo: ${asset.display_name || asset.hostname} (Criticidade: ${asset.criticality || "Média"})\n\n`;
+    }
+
+    if (otherRisks.length > 0) {
+      prompt += `Contexto Crítico: Este ativo também possui os seguintes riscos abertos:\n`;
+      otherRisks.forEach(r => {
+        prompt += `  • ${r.title || r.description} (Score: ${r.score})\n`;
+      });
+      prompt += `\nLevando estes outros riscos em consideração para criar sinergias de mitigação, responde com:\n`;
+    } else {
+      prompt += `Responde com:\n`;
+    }
+
+    prompt += `1. Passos recomendados para o plano de tratamento (em bullets práticos).\n`;
+    prompt += `2. A prioridade sugerida no exato formato "Prioridade: [Alta, Média ou Baixa]".`;
+
+    try {
+      const res = await fetch("/chat/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": csrf(), Accept: "application/json" },
+        body: JSON.stringify({ question: prompt }),
+      });
+      const data = await res.json();
+      const text = data.answer || data.content || data.message || "";
+
+      // Extrair a prioridade da resposta
+      let priority = "Média";
+      const priorityMatch = text.match(/Prioridade:\s*(Alta|Média|Media|Baixa)/i);
+      if (priorityMatch) {
+        priority = priorityMatch[1].replace("Media", "Média"); // Normaliza ausência de acento
+      }
+
+      // Remover a linha da prioridade do texto para não poluir a caixa de descrição
+      const descText = text.replace(/Prioridade:\s*(Alta|Média|Media|Baixa).*/i, "").trim();
+
+      TREAT_AI_SUGGESTION = { desc: descText, priority: priority };
+
+      aiOut.innerHTML = `<div style="white-space:pre-wrap;font-size:12px;line-height:1.7">${text
+        .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        }</div>`;
+
+      aiAct.style.display = "flex";
+
+    } catch (e) {
+      aiOut.innerHTML = `<span style="color:#f87171">Erro: ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function applyTreatAiSuggestion() {
+    if (!TREAT_AI_SUGGESTION) return;
+
+    const descEl = document.getElementById("tm_desc");
+    if (descEl) descEl.value = TREAT_AI_SUGGESTION.desc;
+
+    const prioEl = document.getElementById("tm_priority");
+    if (prioEl && TREAT_AI_SUGGESTION.priority) {
+      // Encontrar a opção correspondente e selecioná-la
+      for (let i = 0; i < prioEl.options.length; i++) {
+        if (prioEl.options[i].text.toLowerCase() === TREAT_AI_SUGGESTION.priority.toLowerCase()) {
+          prioEl.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    showToast("ok", "Plano sugerido pela IA aplicado.");
+  }
   // ── Modal de tratamento ───────────────────────────────────────────────────────
   function openTreatModal(risk) {
+    // Esconder IA do modal de tratamento
+    TREAT_AI_SUGGESTION = null;
+    const aiOut = document.getElementById("tmAiOutput");
+    const aiAct = document.getElementById("tmAiActions");
+    if (aiOut) aiOut.style.display = "none";
+    if (aiAct) aiAct.style.display = "none";
     const lvl = riskLevel(risk.score ?? 1);
 
     document.getElementById("tmTitle").textContent = risk.title || risk.description || "—";
@@ -605,6 +713,9 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
 
     // Modal risco — IA
     document.getElementById("rmAiBtn")?.addEventListener("click", runAiAnalysis);
+    // Modal tratamento — IA
+    document.getElementById("tmAiBtn")?.addEventListener("click", runTreatAiAnalysis);
+    document.getElementById("tmAiApply")?.addEventListener("click", applyTreatAiSuggestion);
     document.getElementById("rmAiApply")?.addEventListener("click", applyAiSuggestion);
 
     // Modal tratamento — fechar
@@ -629,6 +740,23 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
     if (params.get("from") === "alert") {
       // Redirigir para page de tratamento — a lógica de alertas foi removida
       window.history.replaceState({}, "", window.location.pathname);
+    }
+    const newRiskAsset = params.get("new_risk_for");
+    if (newRiskAsset) {
+      window.history.replaceState({}, "", window.location.pathname);
+      // Espera garantir o carregamento do estado antes de abrir
+      const checkAndOpen = setInterval(() => {
+        if (ASSETS && ASSETS.length > 0) {
+          clearInterval(checkAndOpen);
+          openRiskModal();
+          const sel = document.getElementById("rm_asset");
+          if (sel) {
+            sel.value = newRiskAsset;
+            sel.dispatchEvent(new Event("change"));
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkAndOpen), 5000);
     }
   });
 

@@ -502,7 +502,7 @@
       </div>
 
       {{-- Opção alternativa: escrever com IA sem fazer upload de ficheiro --}}
-      <div style="display:flex;align-items:center;gap:10px;margin:4px 0 8px">
+      <div id="u_aiDivider" style="display:flex;align-items:center;gap:10px;margin:4px 0 8px">
         <div style="flex:1;height:1px;background:var(--border)"></div>
         <span class="muted" style="font-size:12px;white-space:nowrap">ou</span>
         <div style="flex:1;height:1px;background:var(--border)"></div>
@@ -512,7 +512,7 @@
         <span class="muted" style="font-size:11px;font-weight:400">(gera texto, guarda como .txt pendente)</span>
       </button>
 
-      <div class="two">
+      <div id="u_globalVersionBlock" class="two">
         <div class="field">
           <label>Versão <span class="muted" style="font-weight:400">(opcional)</span></label>
           <input id="u_version" placeholder="ex.: v1.0" />
@@ -580,7 +580,11 @@
         <div id="fwM_notes" class="chunk-preview">—</div>
 
         <div style="height:12px"></div>
-        <button class="btn" type="button">Atualizar versão (mock)</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <input type="file" id="fwUpdateFileInput" accept=".pdf,.txt,.md,.docx" style="display:none">
+            <button class="btn" type="button" id="fwUpdateVersBtn">Atualizar versão</button>
+            <button class="btn" style="color:#f87171" id="fwObsoleteBtn" type="button">Marcar Obsoleto</button>
+        </div>
       </div>
 
       <div class="panel">

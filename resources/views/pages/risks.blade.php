@@ -260,12 +260,22 @@
 
     <div class="treat-modal-body" style="overflow-y:auto;flex:1">
       <div class="treat-modal-col">
-        <div class="treat-ai-box" style="margin-bottom:14px">
-          <div class="treat-ai-header">Risco a tratar</div>
+<div class="treat-ai-box" style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="treat-ai-header" style="margin:0">Risco a tratar</div>
+            <button id="tmAiBtn" class="btn small" type="button">✦ Sugerir Plano (IA)</button>
+          </div>
+          
           <div id="tmRiskDesc" style="font-size:13px;font-weight:600;margin-bottom:6px">—</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;margin-top:6px">
             <div><div class="muted" style="font-size:10px;margin-bottom:2px">Ameaça</div><div id="tmThreat" style="font-weight:600">—</div></div>
             <div><div class="muted" style="font-size:10px;margin-bottom:2px">Vulnerabilidade</div><div id="tmVuln" style="font-weight:600">—</div></div>
+          </div>
+
+          {{-- Output da IA para o Plano --}}
+          <div id="tmAiOutput" style="display:none;margin-top:12px;border-radius:8px;background:rgba(255,255,255,.05);padding:10px;font-size:12px;line-height:1.6;max-height:180px;overflow-y:auto;border:1px solid rgba(96,165,250,.3)"></div>
+          <div id="tmAiActions" style="display:none;margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button id="tmAiApply" class="btn small ok" type="button">↓ Aplicar sugestão</button>
           </div>
         </div>
 

@@ -128,6 +128,7 @@ Route::middleware('mock.auth')->group(function () {
     Route::post('/api/documents/upload',              [DocumentController::class, 'upload']);
     Route::post('/api/documents/{id}/approve',        [DocumentController::class, 'approve']);
     Route::post('/api/documents/{id}/reject',         [DocumentController::class, 'reject']);
+    Route::post('/api/documents/{id}/obsolete',       [DocumentController::class, 'obsolete']);
     Route::get('/api/documents/{id}/preview', [DocumentController::class, 'preview']);
     Route::get('/api/documents/{id}/download',        [DocumentController::class, 'download']);
     Route::post('/api/documents/{id}/delete', [DocumentController::class, 'delete']);

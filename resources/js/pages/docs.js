@@ -120,6 +120,17 @@
     document.getElementById("fwM_notes").textContent = fw.notes || "—";
     document.getElementById("fwM_pdf").src = fw.fileUrl || "";
 
+    const btnObsolete = document.getElementById("fwObsoleteBtn");
+    const btnUpdate = document.getElementById("fwUpdateVersBtn");
+    
+    if (btnObsolete) {
+        btnObsolete.dataset.fwId = fw.id;
+        btnObsolete.style.display = "block";
+    }
+    if (btnUpdate) {
+        btnUpdate.style.display = "block";
+    }
+
     m.classList.add("open");
     m.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -172,8 +183,12 @@
   function syncUploadTypeUI() {
     const type = document.getElementById("u_type").value;
     const block = document.getElementById("u_frameworkBlock");
-    if (!block) return;
-    block.style.display = (type === "framework") ? "block" : "none";
+    const aiBtn = document.getElementById("btnOpenAiInUpload");
+    const aiDiv = document.getElementById("u_aiDivider");
+
+    if (block) block.style.display = (type === "framework") ? "block" : "none";
+    if (aiBtn) aiBtn.style.display = (type === "framework") ? "none" : "flex";
+    if (aiDiv) aiDiv.style.display = (type === "framework") ? "none" : "flex";
   }
 
   //Adiciona badge de assinatura digital
@@ -336,7 +351,7 @@
   async function loadFrameworks() {
     try {
       const data = await apiGet("/api/documents?type=framework&status=approved");
-      // Combinar com frameworks estáticos (QNRCS, NIS2 pré-carregados) se não vierem da BD
+
       const fromApi = data.map(d => ({
         id: "api-" + d.id,
         name: d.title || d.file_name,
@@ -346,10 +361,19 @@
         status: d.status === "approved" ? "Oficial" : d.status,
         notes: d.origin || "",
       }));
-      // Só substitui se vier algo da API, senão mantém os estáticos do seed
-      if (fromApi.length > 0) FRAMEWORKS = fromApi;
+
+      // CORREÇÃO: Filtramos os frameworks estáticos (ex: F1, F2).
+      // Se da API já vier um framework com o MESMO nome (ex: update do utilizador), omitimos o estático!
+      const staticFrameworks = FRAMEWORKS.filter(f => {
+          if (String(f.id).startsWith("api-")) return false;
+          // Verificar se foi "overridden" por um da API
+          const hasOverride = fromApi.some(apiFw => apiFw.name.trim().toLowerCase() === f.name.trim().toLowerCase());
+          return !hasOverride;
+      });
+
+      FRAMEWORKS = [...staticFrameworks, ...fromApi];
+
     } catch (e) {
-      // Silencioso — frameworks estáticos continuam a funcionar
       console.warn("loadFrameworks:", e.message);
     }
     renderFrameworks();
@@ -565,11 +589,11 @@
     }
 
     // Preview do ficheiro
-    const area    = document.getElementById("vwPreviewArea");
-    const noFile  = document.getElementById("vwNoFile");
-    const docMsg  = document.getElementById("vwDocxMsg");
+    const area = document.getElementById("vwPreviewArea");
+    const noFile = document.getElementById("vwNoFile");
+    const docMsg = document.getElementById("vwDocxMsg");
 
-    if (area)   { area.style.display = "none"; area.innerHTML = ""; }
+    if (area) { area.style.display = "none"; area.innerHTML = ""; }
     if (noFile) noFile.style.display = "none";
     if (docMsg) docMsg.style.display = "none";
 
@@ -581,11 +605,11 @@
     }
 
     // ── Painel de sugestões RF16 ─────────────────────────────────────────────
-    const sugPanel   = document.getElementById("vwSuggestionsPanel");
-    const sugBody    = document.getElementById("vwSuggestionsBody");
+    const sugPanel = document.getElementById("vwSuggestionsPanel");
+    const sugBody = document.getElementById("vwSuggestionsBody");
     const sugLoading = document.getElementById("vwSuggestionsLoading");
-    const sugMeta    = document.getElementById("vwSuggestionsMeta");
-    const reanalyse  = document.getElementById("vwReanalyse");
+    const sugMeta = document.getElementById("vwSuggestionsMeta");
+    const reanalyse = document.getElementById("vwReanalyse");
 
     const analysableMimes = ["application/pdf", "text/plain",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
@@ -595,8 +619,8 @@
     );
 
     if (sugPanel) sugPanel.style.display = canAnalyse ? "block" : "none";
-    if (sugBody)  sugBody.innerHTML = "";
-    if (sugMeta)  sugMeta.style.display = "none";
+    if (sugBody) sugBody.innerHTML = "";
+    if (sugMeta) sugMeta.style.display = "none";
 
     if (canAnalyse) {
       // Trigger análise automática
@@ -1530,6 +1554,76 @@
 
     // Upload modal binds
     document.getElementById("uploadDocClose")?.addEventListener("click", closeUploadModal);
+    
+    document.getElementById("fwUpdateVersBtn")?.addEventListener("click", () => {
+        document.getElementById("fwUpdateFileInput")?.click();
+    });
+
+    document.getElementById("fwUpdateFileInput")?.addEventListener("change", async (e) => {
+        if (!e.target.files.length) return;
+        const file = e.target.files[0];
+        const fwIdStr = document.getElementById("fwObsoleteBtn").dataset.fwId;
+        const isStatic = !fwIdStr.startsWith('api-');
+        
+        let versionTitle = document.getElementById("fwModalTitle").textContent;
+        const version = prompt(`Qual a nova versão de ${versionTitle}? (deixa em branco para incrementar automaticamente)`, "");
+        if (version === null) {
+            e.target.value = "";
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append("file", file);
+        if (version.trim()) fd.append("version", version.trim());
+        
+        // Se for um framework estático, em vez de re-upload, criamos um novo a partir deste
+        let url = `/api/documents/${fwIdStr.replace('api-', '')}/re-upload`;
+        if (isStatic) {
+            url = `/api/documents/upload`;
+            fd.append("title", versionTitle);
+            fd.append("type", "framework");
+        }
+        
+        const btn = document.getElementById("fwUpdateVersBtn");
+        btn.disabled = true;
+        btn.textContent = "A carregar...";
+
+        try {
+            const res = await apiPost(url, fd);
+            showToast("ok", res.message || "Nova versão carregada com sucesso.");
+            closeFwModal();
+            loadFrameworks();
+        } catch (err) {
+            showToast("err", "Erro: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Atualizar versão";
+            e.target.value = "";
+        }
+    });
+
+    document.getElementById("fwObsoleteBtn")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        const fwIdStr = btn.dataset.fwId;
+        if (!fwIdStr || !fwIdStr.startsWith('api-')) return showToast("warn", "Apenas frameworks registados podem ser marcados como obsoletos.");
+        
+        const realId = fwIdStr.replace('api-', '');
+        if (!confirm("Tem a certeza que quer marcar esta norma como OBSOLETA?\nEla desaparecerá da lista e deixará de ser usada pela IA (Pinecone).")) return;
+        
+        btn.disabled = true;
+        btn.textContent = "A processar...";
+        try {
+            const res = await apiPost(`/api/documents/${realId}/obsolete`);
+            showToast("ok", res.message || "Marcado como obsoleto.");
+            closeFwModal();
+            loadFrameworks();
+        } catch (err) {
+            showToast("err", "Erro: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Marcar Obsoleto";
+        }
+    });
 
     document.getElementById("u_type")?.addEventListener("change", syncUploadTypeUI);
 
@@ -1631,7 +1725,7 @@
       if (metaEl && data.meta) {
         const mt = data.meta;
         metaEl.style.display = "block";
-        metaEl.textContent = `${mt.chunks_sent||0} chunks · ${mt.total_hits||0} hits · ${(mt.text_length||0).toLocaleString()} chars` + (mt.error ? ` · ⚠ ${mt.error}` : "");
+        metaEl.textContent = `${mt.chunks_sent || 0} chunks · ${mt.total_hits || 0} hits · ${(mt.text_length || 0).toLocaleString()} chars` + (mt.error ? ` · ⚠ ${mt.error}` : "");
       }
     } catch (e) {
       if (loadingEl) loadingEl.style.display = "none";
@@ -1644,7 +1738,7 @@
       container.innerHTML = '<div class="muted" style="font-size:12px;padding:8px 0">Nenhum controlo identificado com confiança suficiente.</div>';
       return;
     }
-    const cvg = { high:{ cls:"ok", label:"Alta" }, medium:{ cls:"warn", label:"Média" }, low:{ cls:"", label:"Baixa" } };
+    const cvg = { high: { cls: "ok", label: "Alta" }, medium: { cls: "warn", label: "Média" }, low: { cls: "", label: "Baixa" } };
     container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr>
         <th style="text-align:left;padding:0 8px 8px 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Controlo</th>
@@ -1652,14 +1746,14 @@
         <th style="text-align:left;padding:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Justificação</th>
       </tr></thead>
       <tbody>${suggestions.map(s => {
-        const c = cvg[s.coverage] || cvg.low;
-        const fw = s.framework ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">${s.framework}</span>` : "";
-        const just = s.justification || (s.top_snippet ? s.top_snippet.substring(0,100)+"…" : "—");
-        return `<tr>
-          <td style="padding:10px 8px 10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top"><b>${s.control_code}</b>${fw}<div style="font-size:11px;color:var(--muted)">${s.control_family||""}</div></td>
+      const c = cvg[s.coverage] || cvg.low;
+      const fw = s.framework ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">${s.framework}</span>` : "";
+      const just = s.justification || (s.top_snippet ? s.top_snippet.substring(0, 100) + "…" : "—");
+      return `<tr>
+          <td style="padding:10px 8px 10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top"><b>${s.control_code}</b>${fw}<div style="font-size:11px;color:var(--muted)">${s.control_family || ""}</div></td>
           <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap"><span class="tag ${c.cls}" style="font-size:11px"><span class="s"></span>${s.score.toFixed(2)}</span><div style="font-size:10px;color:var(--muted);margin-top:3px">${c.label}</div></td>
           <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;color:var(--muted);font-size:12px;line-height:1.4">${just}</td>
         </tr>`;
-      }).join("")}</tbody></table>`;
+    }).join("")}</tbody></table>`;
   }
 })();

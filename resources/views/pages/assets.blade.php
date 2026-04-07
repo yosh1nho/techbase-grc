@@ -112,6 +112,7 @@
                 <th>Ativo</th>
                 <th>Tipo</th>
                 <th>Criticidade</th>
+                <th>Tags</th>
                 <th>Origem</th>
                 <th>Responsável</th>
                 <th>Risco</th>
@@ -337,16 +338,25 @@
             <div id="assetControlsList" class="controls-list"></div>
         </div>
 
-        {{-- TAB: RISK --}}
+{{-- TAB: RISK --}}
         <div class="am-tab-panel" id="tab-risk">
-            <div class="tab-panel-header">
+            <div class="tab-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <div>
                     <div class="tab-panel-title">Riscos &amp; Planos de tratamento</div>
                     <div class="tab-panel-sub">Riscos identificados e respectivos planos em curso</div>
                 </div>
-                <button class="btn-ghost btn-sm" type="button" id="btnGoRisksForAsset">↗ Módulo de riscos</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-ghost btn-sm" type="button" id="btnGoRisksForAsset">↗ Módulo de riscos</button>
+                    
+                    <button id="btnCreateRiskFromAssetTab" class="btn small" type="button" style="display:inline-flex; align-items:center; gap:6px; color: #fb923c; border-color: rgba(251,146,60,0.5); background: rgba(251,146,60,0.1);">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                        Criar Risco
+                    </button>
+                </div>
             </div>
-            <div id="assetRiskTreatList"></div>
+            
+            {{-- A lista onde o JS vai injetar os riscos --}}
+            <div id="assetRiskTreatList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
         {{-- TAB: AI --}}
@@ -419,6 +429,11 @@
                 <div id="ipFieldWrap" class="field" style="display:none;">
                     <label>Endereço IP</label>
                     <input id="fIp" placeholder="ex.: 192.168.10.1" />
+                </div>
+                
+                <div class="field">
+                    <label>Tags (separadas por vírgula)</label>
+                    <input id="fTags" class="search-input" placeholder="Ex.: Produção, PCI-DSS, Firewall" />
                 </div>
 
                 <div class="field-grid-2">

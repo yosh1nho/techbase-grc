@@ -66,18 +66,18 @@ class IngestDocumentJob implements ShouldQueue
         }
 
         $namespace = (string) $this->docId;
-
+        $tenantNamespace = 'default';
         $args = [
             $pythonBin,
             $scriptPath,
             '--file',     $absolutePath,
-            '--tenant',   $namespace,
-            '--doc-id',   $namespace,
+            '--tenant',   $tenantNamespace,
+            '--doc-id',   (string) $this->docId,
             '--doc-name', $this->docName,
             '--profile',  $this->profile,
         ];
 
-        $envVars = array_merge($_ENV, [
+        $envVars = array_merge(getenv(), [
             'PINECONE_API_KEY' => env('PINECONE_API_KEY', ''),
             'PINECONE_INDEX'   => env('PINECONE_INDEX', ''),
         ]);
@@ -162,7 +162,7 @@ class IngestDocumentJob implements ShouldQueue
     private function saveChunks(array $result): void
     {
         $totalChunks = (int)($result['chunks']   ?? 0);
-        $namespace   = $result['namespace'] ?? (string) $this->docId;
+        $namespace   = $result['namespace'] ?? 'default';
 
         DB::table('document_chunk')->where('id_doc', $this->docId)->delete();
 
