@@ -14,14 +14,18 @@
         <p class="pg-sub">Gerir, classificar e associar controlos de conformidade aos ativos da organização.</p>
     </div>
     <div class="pg-header-actions">
+        @permission('assets.sync')
         <button class="btn-ghost" type="button" id="btnSyncAcronis">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Sync Acronis
         </button>
+        @endpermission
+        @permission('assets.create')
         <button class="btn-primary" type="button" id="btnOpenCreateAsset">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Registar ativo
         </button>
+        @endpermission
     </div>
 </div>
 
@@ -151,8 +155,11 @@
                     </div>
                 </div>
             </div>
+            
             <div class="am-header-actions">
+                @permission('assets.edit')
                 <button class="btn-sm" type="button" id="btnEditAsset">✎ Editar</button>
+                @endpermission
                 <button class="btn-sm btn-close-modal" type="button" id="assetModalClose">✕</button>
             </div>
         </div>
@@ -164,7 +171,9 @@
                 Controlos
                 <span class="tab-badge" id="tabBadgeControls">0</span>
             </button>
+            @permission('risk.view')
             <button class="am-tab" data-tab="risk">Risco &amp; Tratamento</button>
+            @endpermission
             <button class="am-tab" data-tab="ai">
                 Sugestões IA
                 <span class="tab-badge tab-badge-ai">IA</span>
@@ -339,6 +348,7 @@
         </div>
 
 {{-- TAB: RISK --}}
+
         <div class="am-tab-panel" id="tab-risk">
             <div class="tab-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <div>
@@ -358,6 +368,7 @@
             {{-- A lista onde o JS vai injetar os riscos --}}
             <div id="assetRiskTreatList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
+
 
         {{-- TAB: AI --}}
         <div class="am-tab-panel" id="tab-ai">
@@ -645,14 +656,14 @@
     padding: 12px 16px; border-bottom: 1px solid var(--modal-border);
     flex-wrap: wrap;
 }
-.search-wrap {
+.table-toolbar .search-wrap {
     position: relative; flex: 1; min-width: 200px;
 }
-.search-icon {
+.table-toolbar .search-icon {
     position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
     color: var(--muted); pointer-events: none;
 }
-.search-input {
+.table-toolbar .search-input {
     width: 100%; padding: 7px 10px 7px 32px;
     border: 1px solid var(--modal-border); border-radius: 8px;
     background: rgba(255,255,255,.04); color: var(--text);
@@ -992,6 +1003,15 @@
     .kpi-strip { grid-template-columns: 1fr 1fr; }
     .ov-grid   { grid-template-columns: 1fr; }
     .edit-two  { grid-template-columns: 1fr; }
+}
+
+.modal-card {
+    position: relative;
+    z-index: 1;
+}
+
+.modal-overlay {
+    z-index: 99999;
 }
 </style>
 

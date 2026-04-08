@@ -56,17 +56,25 @@
     function openModal(id) {
         const m = $(id);
         if (!m) return;
-        m.classList.add("open");
+
+        m.classList.add("open"); // O teu CSS precisa da classe "open"
         m.setAttribute("aria-hidden", "false");
-        document.body.style.overflow = "hidden";
+        document.body.style.overflow = "hidden"; // Bloqueia o fundo
     }
+
 
     function closeModal(id) {
         const m = $(id);
         if (!m) return;
+
+        // Tira o foco para evitar o erro de acessibilidade do Chrome
+        if (document.activeElement && m.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
+
         m.classList.remove("open");
         m.setAttribute("aria-hidden", "true");
-        document.body.style.overflow = "";
+        document.body.style.overflow = ""; // Liberta o fundo
     }
 
     function normalize(s) {
@@ -468,8 +476,8 @@
                     .map(t => {
                         const tagName = typeof t === 'object' ? (t.name || '') : String(t);
                         const tagColor = typeof t === 'object' && t.color ? t.color : '#60a5fa';
-                        return tagName.trim() !== '' 
-                            ? `<span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${tagColor}15; color: ${tagColor}; font-size: 10px; margin-right: 4px; border: 1px solid ${tagColor}30;">${tagName.trim()}</span>` 
+                        return tagName.trim() !== ''
+                            ? `<span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${tagColor}15; color: ${tagColor}; font-size: 10px; margin-right: 4px; border: 1px solid ${tagColor}30;">${tagName.trim()}</span>`
                             : '';
                     })
                     .join('');
@@ -520,6 +528,15 @@
             const res = await fetch("/api/assets");
 
             const data = await res.json();
+
+            if (!res.ok) {
+                console.error("Bloqueado pelo backend:", data);
+                const tbody = document.getElementById("assetsTbody");
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--bad); padding:20px;">Bloqueado: ${data.message}</td></tr>`;
+                }
+                return;
+            }
 
             assets = data.map((a) => {
 
@@ -1299,29 +1316,45 @@
         // Render inicial com dados mock enquanto o fetch não termina
         renderAssetsTable();
 
-        // Carrega ativos do Acronis (substitui o mock ao terminar)
+        // Carrega ativos reais da API
         loadAssetsFromDB();
 
-        // filters
-        $("#assetSearch").addEventListener("input", renderAssetsTable);
-        $("#critFilter").addEventListener("change", renderAssetsTable);
-        $("#typeFilter").addEventListener("change", renderAssetsTable);
-        $("#controlStatusFilter").addEventListener("change", renderAssetsTable);
+        // 🛡️ HELPER À PROVA DE BALA: 
+        // Só adiciona o evento se o elemento existir no HTML (não estiver bloqueado pelo RBAC)
+        const bindClick = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("click", fn); };
+        const bindChange = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("change", fn); };
+        const bindInput = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("input", fn); };
 
-        $("#btnSyncAcronis").addEventListener("click", syncAcronis);
-        // open create asset
-        $("#btnOpenCreateAsset").addEventListener("click", openCreateAsset);
+        // Filtros da tabela
+        bindInput("#assetSearch", renderAssetsTable);
+        bindChange("#critFilter", renderAssetsTable);
+        bindChange("#typeFilter", renderAssetsTable);
+        bindChange("#controlStatusFilter", renderAssetsTable);
+        bindChange("#sourceFilter", renderAssetsTable);
 
-        // close modals
-        $("#assetModalClose").addEventListener("click", () => closeModal("#assetModal"));
-        $("#assetEditClose").addEventListener("click", () => closeModal("#assetEditModal"));
-        $("#addControlClose").addEventListener("click", () => closeModal("#addControlModal"));
+        // Botões de Ação (Que podem estar escondidos pelo RBAC!)
+        bindClick("#btnSyncAcronis", syncAcronis);
+        bindClick("#btnOpenCreateAsset", openCreateAsset);
+        bindClick("#btnEditAsset", () => { if (currentAssetId) openEditAsset(currentAssetId); });
+        bindClick("#btnAddControlToAsset", () => { if (currentAssetId) openAddControlModal(currentAssetId); });
+        bindClick("#btnCreateRiskFromAssetTab", () => { if (currentAssetId) goTo(`/riscos?new_risk_for=${currentAssetId}`); });
 
-        // click outside closes
-        $("#assetModal").addEventListener("click", (e) => { if (e.target.id === "assetModal") closeModal("#assetModal"); });
-        $("#assetEditModal").addEventListener("click", (e) => { if (e.target.id === "assetEditModal") closeModal("#assetEditModal"); });
-        $("#addControlModal").addEventListener("click", (e) => { if (e.target.id === "addControlModal") closeModal("#addControlModal"); });
+        // Fechar Modais
+        bindClick("#assetModalClose", () => closeModal("#assetModal"));
+        bindClick("#assetEditClose", () => closeModal("#assetEditModal"));
+        bindClick("#addControlClose", () => closeModal("#addControlModal"));
 
+        // Fechar clicando fora da caixa
+        const mAsset = $("#assetModal");
+        if (mAsset) mAsset.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModal("#assetModal"); });
+
+        const mEdit = $("#assetEditModal");
+        if (mEdit) mEdit.addEventListener("click", (e) => { if (e.target.id === "assetEditModal") closeModal("#assetEditModal"); });
+
+        const mCtrl = $("#addControlModal");
+        if (mCtrl) mCtrl.addEventListener("click", (e) => { if (e.target.id === "addControlModal") closeModal("#addControlModal"); });
+
+        // Fechar com a tecla ESC
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
                 closeModal("#assetModal");
@@ -1329,92 +1362,50 @@
                 closeModal("#addControlModal");
             }
         });
-        $("#fType").addEventListener("change", () => {
-            toggleIpFieldByType($("#fType").value);
+
+        // Eventos gerais dos formulários
+        bindChange("#fType", () => toggleIpFieldByType($("#fType")?.value));
+        bindClick("#btnAddControlConfirm", addControlConfirm);
+        bindClick("#btnAddControlCancel", () => closeModal("#addControlModal"));
+        bindClick("#btnSaveAsset", saveAssetFromForm);
+        bindClick("#btnDeleteAsset", deleteAssetMock);
+        bindClick("#btnAddControlInline", addControlToCreatePreview);
+
+        // Tooltips e guards do RBAC nos controlos
+        bindChange("#fControlPick", () => syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText")));
+        if ($("#fControlStatus")) applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+
+        bindChange("#acControl", () => {
+            syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
+            const a = assets.find(x => String(x.id) === String(addControlAssetId));
+            if (!a) return;
+            const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
+            if (!canOverrideStatus()) {
+                const acStatus = $("#acStatus");
+                if (acStatus) acStatus.value = ai.suggestedStatus;
+            }
+            updateDiffChip($("#acStatus")?.value, ai.suggestedStatus, $("#acAiDiffChip"));
         });
 
-
-        // edit button inside details modal
-        $("#btnEditAsset").addEventListener("click", () => {
-            if (!currentAssetId) return;
-            openEditAsset(currentAssetId);
+        bindChange("#acStatus", () => {
+            const a = assets.find(x => String(x.id) === String(addControlAssetId));
+            if (!a) return;
+            const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
+            updateDiffChip($("#acStatus")?.value, ai.suggestedStatus, $("#acAiDiffChip"));
         });
 
-        // “associar controlo” inside details modal
-        $("#btnAddControlToAsset").addEventListener("click", () => {
-            if (!currentAssetId) return;
-            openAddControlModal(currentAssetId);
-        });
+        if ($("#acStatus")) applyStatusGuard($("#acStatus"), $("#acStatusHint"));
 
-        $("#btnAddControlConfirm").addEventListener("click", addControlConfirm);
-        $("#btnAddControlCancel").addEventListener("click", () => closeModal("#addControlModal"));
+        // Botões de navegação (Mock)
+        bindClick("#btnGoRisks", () => goTo("/riscos"));
+        bindClick("#btnGoDocs", () => goTo("/documentos"));
+        bindClick("#btnGoAssessments", () => goTo("/avaliacoes"));
+        bindClick("#btnGoRisksForAsset", () => goTo(`/riscos?asset=${currentAssetId}`));
 
-        // create/edit modal save/delete
-        $("#btnSaveAsset").addEventListener("click", saveAssetFromForm);
-        $("#btnDeleteAsset").addEventListener("click", deleteAssetMock);
-
-        // add control in create modal
-        $("#btnAddControlInline").addEventListener("click", addControlToCreatePreview);
-
-
-        // RBAC guard + tooltips dos controlos
-        if ($("#fControlPick")) {
-            $("#fControlPick").addEventListener("change", () => {
-                syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
-            });
-        }
-
-        if ($("#fControlStatus")) {
-            // aplicar guard na primeira carga (caso o modal já esteja aberto)
-            applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
-        }
-
-        if ($("#acControl")) {
-            $("#acControl").addEventListener("change", () => {
-                syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
-                const a = assets.find(x => x.id === addControlAssetId);
-                if (!a) return;
-                const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-                if (!canOverrideStatus()) {
-                    $("#acStatus").value = ai.suggestedStatus;
-                }
-                updateDiffChip($("#acStatus").value, ai.suggestedStatus, $("#acAiDiffChip"));
-            });
-        }
-
-        if ($("#acStatus")) {
-            $("#acStatus").addEventListener("change", () => {
-                const a = assets.find(x => x.id === addControlAssetId);
-                if (!a) return;
-                const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-                updateDiffChip($("#acStatus").value, ai.suggestedStatus, $("#acAiDiffChip"));
-            });
-
-            applyStatusGuard($("#acStatus"), $("#acStatusHint"));
-        }
-
-        // nav mock buttons
-        $("#btnGoRisks").addEventListener("click", () => goTo("/riscos"));
-        $("#btnGoDocs").addEventListener("click", () => goTo("/documentos"));
-        $("#btnGoAssessments").addEventListener("click", () => goTo("/avaliacoes"));
-
-        // source filter
-        const srcF = $("#sourceFilter");
-        if (srcF) srcF.addEventListener("change", renderAssetsTable);
-
-        // tab switching inside asset modal
+        // Abas dentro do Modal do ativo
         $$(".am-tab").forEach(tab => {
             tab.addEventListener("click", () => activateTab(tab.dataset.tab));
         });
-
-        const btnCreateRisk = $("#btnCreateRiskFromAssetTab");
-        if (btnCreateRisk) {
-            btnCreateRisk.addEventListener("click", () => {
-                if (currentAssetId) {
-                    goTo(`/riscos?new_risk_for=${currentAssetId}`);
-                }
-            });
-        }
     }
 
     document.addEventListener("DOMContentLoaded", init);

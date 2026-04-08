@@ -15,6 +15,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CncsReportController;
 use App\Http\Controllers\DocumentGeneratorController;
 use App\Http\Controllers\DocumentAnalyserController;
+use App\Http\Controllers\RbacController;
+use Illuminate\Support\Facades\Hash;
 
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
@@ -29,30 +31,56 @@ Route::get('/debug-session', function () {
 });
 
 // Login (mock)
+// Login (Real usando a Base de Dados)
 Route::post('/login', function (Request $request) {
+    // 1. Validar as credenciais submetidas no formulário
     $data = $request->validate([
         'email'    => ['required', 'email'],
         'password' => ['required', 'string'],
     ]);
 
-    $users = [
-        'admin@techbase.local'  => ['name' => 'Admin',       'role' => 'Admin',       'password' => 'admin123'],
-        'grc@techbase.local'    => ['name' => 'GRC Manager', 'role' => 'GRC Manager', 'password' => 'grc123'],
-        'viewer@techbase.local' => ['name' => 'Viewer',      'role' => 'Viewer',      'password' => 'viewer123'],
-    ];
+    // 2. Procurar o utilizador na tabela 'User' pelo email
+    $user = DB::table('User')->where('email', $data['email'])->first();
 
-    $u = $users[$data['email']] ?? null;
-    if (!$u || $u['password'] !== $data['password']) {
-        return back()->withErrors(['email' => 'Credenciais inválidas.'])->withInput();
+    // 3. Verificar se o utilizador existe e a password bate certo
+    if ($user && Hash::check($data['password'], $user->password)) {
+
+        // 4. Buscar Role ativa (agora pedimos também o id_role!)
+        $role = DB::table('userrole')
+            ->join('role', 'userrole.id_role', '=', 'role.id_role')
+            ->where('userrole.id_user', $user->id_user)
+            ->where('userrole.status', 'active')
+            ->select('role.id_role', 'role.name') // 👈 IMPORTANTE: precisamos do id_role
+            ->first();
+
+        // 5. Buscar o array de permissões associadas a esta Role
+        $permissions = [];
+        if ($role) {
+            $permissions = DB::table('role_permission')
+                ->join('permission', 'role_permission.id_permission', '=', 'permission.id_permission')
+                ->where('role_permission.id_role', $role->id_role)
+                ->pluck('permission.key')
+                ->toArray();
+        }
+
+        // 6. Guardar na sessão (agora com as PERMISSIONS!)
+        session([
+            'tb_user' => [
+                'id'          => $user->id_user,
+                'email'       => $user->email,
+                'name'        => $user->name,
+                'role'        => $role ? $role->name : 'Sem Acesso',
+                'permissions' => $permissions, // 👈 O SEGREDO ESTAVA AQUI!
+            ]
+        ]);
+
+        return redirect()->route('dashboard');
     }
 
-    session(['tb_user' => [
-        'email' => $data['email'],
-        'name'  => $u['name'],
-        'role'  => $u['role'],
-    ]]);
-
-    return redirect()->route('dashboard');
+    // 7. Erro de credenciais
+    return back()->withErrors([
+        'email' => 'As credenciais fornecidas não estão corretas.',
+    ])->onlyInput('email');
 })->name('login.post');
 
 // Logout
@@ -80,12 +108,12 @@ Route::middleware('mock.auth')->group(function () {
 
     // ── Ativos ────────────────────────────────────────────────────────────────
     Route::get('/api/assets',               [AssetController::class, 'index']);
-    Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis']);
-    Route::post('/api/assets',              [AssetController::class, 'store']);
-    Route::get('/api/asset-tags',                          [AssetController::class, 'tags']);
-    Route::post('/api/assets/{id}/tags',                   [AssetController::class, 'addTags']);
-    Route::delete('/api/assets/{id}/tags/{tagId}',         [AssetController::class, 'removeTag']);
-    Route::patch('/api/assets/{id}/criticality',           [AssetController::class, 'updateCriticality']);
+    Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis'])->middleware(CheckPermission::class.':assets.sync');
+    Route::post('/api/assets',              [AssetController::class, 'store'])->middleware(CheckPermission::class.':assets.create');
+    Route::get('/api/asset-tags',                          [AssetController::class, 'tags'])->middleware(CheckPermission::class.':assets.view');
+    Route::post('/api/assets/{id}/tags',                   [AssetController::class, 'addTags'])->middleware(CheckPermission::class.':assets.edit');
+    Route::delete('/api/assets/{id}/tags/{tagId}',         [AssetController::class, 'removeTag'])->middleware(CheckPermission::class.':assets.edit');
+    Route::patch('/api/assets/{id}/criticality',           [AssetController::class, 'updateCriticality'])->middleware(CheckPermission::class.':assets.edit');
     // ── Chat ──────────────────────────────────────────────────────────────────
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 
@@ -226,6 +254,21 @@ Route::middleware('mock.auth')->group(function () {
 
 });
 
+// ── RBAC ─────────────────────────────────────────────────────────
+Route::prefix('api/rbac')->group(function () {
+    Route::get('/roles', [RbacController::class, 'roles']);
+    Route::post('/roles', [RbacController::class, 'createRole']);
+    Route::put('/roles/{id}', [RbacController::class, 'updateRole']);
+    Route::delete('/roles/{id}', [RbacController::class, 'deleteRole']);
+    Route::patch('/roles/{id}/toggle', [RbacController::class, 'toggleRole']);
+    
+    Route::get('/permissions', [RbacController::class, 'permissions']);
+    
+    Route::get('/users', [RbacController::class, 'users']);
+    Route::post('/users', [RbacController::class, 'createUser']); 
+    Route::put('/users/{id}/role', [RbacController::class, 'assignRole']);
+    Route::patch('/users/{id}/toggle', [RbacController::class, 'toggleUser']);
+});
 // ── Debug ─────────────────────────────────────────────────────────────────────
 Route::get('/debug-session', function () { dd(session()->all()); });
 Route::get('/_debug/php', function () {

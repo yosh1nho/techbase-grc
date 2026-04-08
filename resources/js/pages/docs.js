@@ -4,6 +4,11 @@
 (() => {
   // ── CSRF helper ─────────────────────────────────────────────────────────────
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
+
+  // Função auxiliar para verificar permissões
+  const hasPerm = (p) => {
+    return window.TB_PERMISSIONS && window.TB_PERMISSIONS.includes(p);
+  };
   let LAST_AI_TEXT = "";
   async function apiGet(url) {
     const r = await fetch(url, { headers: { Accept: "application/json" } });
@@ -122,13 +127,13 @@
 
     const btnObsolete = document.getElementById("fwObsoleteBtn");
     const btnUpdate = document.getElementById("fwUpdateVersBtn");
-    
+
     if (btnObsolete) {
-        btnObsolete.dataset.fwId = fw.id;
-        btnObsolete.style.display = "block";
+      btnObsolete.dataset.fwId = fw.id;
+      btnObsolete.style.display = "block";
     }
     if (btnUpdate) {
-        btnUpdate.style.display = "block";
+      btnUpdate.style.display = "block";
     }
 
     m.classList.add("open");
@@ -365,10 +370,10 @@
       // CORREÇÃO: Filtramos os frameworks estáticos (ex: F1, F2).
       // Se da API já vier um framework com o MESMO nome (ex: update do utilizador), omitimos o estático!
       const staticFrameworks = FRAMEWORKS.filter(f => {
-          if (String(f.id).startsWith("api-")) return false;
-          // Verificar se foi "overridden" por um da API
-          const hasOverride = fromApi.some(apiFw => apiFw.name.trim().toLowerCase() === f.name.trim().toLowerCase());
-          return !hasOverride;
+        if (String(f.id).startsWith("api-")) return false;
+        // Verificar se foi "overridden" por um da API
+        const hasOverride = fromApi.some(apiFw => apiFw.name.trim().toLowerCase() === f.name.trim().toLowerCase());
+        return !hasOverride;
       });
 
       FRAMEWORKS = [...staticFrameworks, ...fromApi];
@@ -418,19 +423,26 @@
         ? '<a class="btn small" href="/api/documents/' + d.id + '/download" target="_blank">Download</a>'
         : '<button class="btn small" disabled>Sem ficheiro</button>';
 
-      // Botão Ver sempre presente
+
+      // Botão Ver e Download sempre presentes
       let actionBtns = '<button class="btn small" data-view-doc="' + d.id + '">Ver</button> ' + dl;
 
-      if (d.status === "pending") {
+      // Aprovar / Rejeitar (Requer: docs.approve_links)
+      if (d.status === "pending" && hasPerm('docs.approve_links')) {
         actionBtns += ' <button class="btn ok small" data-approve-doc="' + d.id + '">Aprovar</button>';
         actionBtns += ' <button class="btn small" style="color:#f87171" data-reject-doc="' + d.id + '">Rejeitar</button>';
       }
-      if (d.status === "pending" || d.status === "rejected") {
+
+      // Nova versão (Requer: docs.version)
+      if ((d.status === "pending" || d.status === "rejected") && hasPerm('docs.version')) {
         actionBtns += ' <button class="btn small" data-reupload-doc="' + d.id + '" title="Carregar nova versão">Nova versão</button>';
       }
-      // Apagar — disponível para todos os estados
-      actionBtns += ' <button class="btn small" style="color:#f87171;opacity:.8" data-delete-doc="' + d.id + '" title="Eliminar documento">Apagar</button>';
 
+      // Apagar (Assumindo que vai usar docs.edit ou criar docs.delete)
+      // Se não tiver criado a docs.delete, substitua por hasPerm('docs.edit') ou tire a condição
+      if (hasPerm('docs.edit')) {
+        actionBtns += ' <button class="btn small" style="color:#f87171;opacity:.8" data-delete-doc="' + d.id + '" title="Eliminar documento">Apagar</button>';
+      }
       // Linha clicável — excepto na coluna de acções
       return '<tr data-doc-id="' + d.id + '" data-clickrow="' + d.id + '" style="cursor:pointer">'
         + '<td><b>' + nm + '</b><div class="muted" style="font-size:11px">' + sub + '</div></td>'
@@ -1554,75 +1566,75 @@
 
     // Upload modal binds
     document.getElementById("uploadDocClose")?.addEventListener("click", closeUploadModal);
-    
+
     document.getElementById("fwUpdateVersBtn")?.addEventListener("click", () => {
-        document.getElementById("fwUpdateFileInput")?.click();
+      document.getElementById("fwUpdateFileInput")?.click();
     });
 
     document.getElementById("fwUpdateFileInput")?.addEventListener("change", async (e) => {
-        if (!e.target.files.length) return;
-        const file = e.target.files[0];
-        const fwIdStr = document.getElementById("fwObsoleteBtn").dataset.fwId;
-        const isStatic = !fwIdStr.startsWith('api-');
-        
-        let versionTitle = document.getElementById("fwModalTitle").textContent;
-        const version = prompt(`Qual a nova versão de ${versionTitle}? (deixa em branco para incrementar automaticamente)`, "");
-        if (version === null) {
-            e.target.value = "";
-            return;
-        }
+      if (!e.target.files.length) return;
+      const file = e.target.files[0];
+      const fwIdStr = document.getElementById("fwObsoleteBtn").dataset.fwId;
+      const isStatic = !fwIdStr.startsWith('api-');
 
-        const fd = new FormData();
-        fd.append("file", file);
-        if (version.trim()) fd.append("version", version.trim());
-        
-        // Se for um framework estático, em vez de re-upload, criamos um novo a partir deste
-        let url = `/api/documents/${fwIdStr.replace('api-', '')}/re-upload`;
-        if (isStatic) {
-            url = `/api/documents/upload`;
-            fd.append("title", versionTitle);
-            fd.append("type", "framework");
-        }
-        
-        const btn = document.getElementById("fwUpdateVersBtn");
-        btn.disabled = true;
-        btn.textContent = "A carregar...";
+      let versionTitle = document.getElementById("fwModalTitle").textContent;
+      const version = prompt(`Qual a nova versão de ${versionTitle}? (deixa em branco para incrementar automaticamente)`, "");
+      if (version === null) {
+        e.target.value = "";
+        return;
+      }
 
-        try {
-            const res = await apiPost(url, fd);
-            showToast("ok", res.message || "Nova versão carregada com sucesso.");
-            closeFwModal();
-            loadFrameworks();
-        } catch (err) {
-            showToast("err", "Erro: " + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Atualizar versão";
-            e.target.value = "";
-        }
+      const fd = new FormData();
+      fd.append("file", file);
+      if (version.trim()) fd.append("version", version.trim());
+
+      // Se for um framework estático, em vez de re-upload, criamos um novo a partir deste
+      let url = `/api/documents/${fwIdStr.replace('api-', '')}/re-upload`;
+      if (isStatic) {
+        url = `/api/documents/upload`;
+        fd.append("title", versionTitle);
+        fd.append("type", "framework");
+      }
+
+      const btn = document.getElementById("fwUpdateVersBtn");
+      btn.disabled = true;
+      btn.textContent = "A carregar...";
+
+      try {
+        const res = await apiPost(url, fd);
+        showToast("ok", res.message || "Nova versão carregada com sucesso.");
+        closeFwModal();
+        loadFrameworks();
+      } catch (err) {
+        showToast("err", "Erro: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Atualizar versão";
+        e.target.value = "";
+      }
     });
 
     document.getElementById("fwObsoleteBtn")?.addEventListener("click", async (e) => {
-        const btn = e.currentTarget;
-        const fwIdStr = btn.dataset.fwId;
-        if (!fwIdStr || !fwIdStr.startsWith('api-')) return showToast("warn", "Apenas frameworks registados podem ser marcados como obsoletos.");
-        
-        const realId = fwIdStr.replace('api-', '');
-        if (!confirm("Tem a certeza que quer marcar esta norma como OBSOLETA?\nEla desaparecerá da lista e deixará de ser usada pela IA (Pinecone).")) return;
-        
-        btn.disabled = true;
-        btn.textContent = "A processar...";
-        try {
-            const res = await apiPost(`/api/documents/${realId}/obsolete`);
-            showToast("ok", res.message || "Marcado como obsoleto.");
-            closeFwModal();
-            loadFrameworks();
-        } catch (err) {
-            showToast("err", "Erro: " + err.message);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = "Marcar Obsoleto";
-        }
+      const btn = e.currentTarget;
+      const fwIdStr = btn.dataset.fwId;
+      if (!fwIdStr || !fwIdStr.startsWith('api-')) return showToast("warn", "Apenas frameworks registados podem ser marcados como obsoletos.");
+
+      const realId = fwIdStr.replace('api-', '');
+      if (!confirm("Tem a certeza que quer marcar esta norma como OBSOLETA?\nEla desaparecerá da lista e deixará de ser usada pela IA (Pinecone).")) return;
+
+      btn.disabled = true;
+      btn.textContent = "A processar...";
+      try {
+        const res = await apiPost(`/api/documents/${realId}/obsolete`);
+        showToast("ok", res.message || "Marcado como obsoleto.");
+        closeFwModal();
+        loadFrameworks();
+      } catch (err) {
+        showToast("err", "Erro: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Marcar Obsoleto";
+      }
     });
 
     document.getElementById("u_type")?.addEventListener("change", syncUploadTypeUI);

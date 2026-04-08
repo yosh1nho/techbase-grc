@@ -39,12 +39,6 @@
         <button class="btn primary" type="submit">Entrar</button>
       </div>
 
-      <div class="muted" style="margin-top:12px; font-size:12px; line-height:1.55;">
-        Mock users:
-        <b>admin@techbase.local</b> / <b>admin123</b> •
-        <b>grc@techbase.local</b> / <b>grc123</b> •
-        <b>viewer@techbase.local</b> / <b>viewer123</b>
-      </div>
     </form>
   </div>
 @endsection

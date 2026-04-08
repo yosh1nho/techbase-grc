@@ -2,6 +2,7 @@
 @section('title', 'Documentos & Evidências • Techbase GRC')
 
 @section('content')
+
     <section id="page-docs" class="page">
         <div class="card">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap">
@@ -11,7 +12,9 @@
             </div>
 
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+              @permission('docs.upload')  
                 <button id="btnOpenUploadDoc" class="btn ok" type="button">+ Upload documento</button>
+              @endpermission
             </div>
             </div>
 
@@ -582,8 +585,12 @@
         <div style="height:12px"></div>
         <div style="display:flex; gap:10px; flex-wrap:wrap">
             <input type="file" id="fwUpdateFileInput" accept=".pdf,.txt,.md,.docx" style="display:none">
+            @permission('frameworks.edit')
             <button class="btn" type="button" id="fwUpdateVersBtn">Atualizar versão</button>
+            @endpermission
+            @permission('frameworks.edit')
             <button class="btn" style="color:#f87171" id="fwObsoleteBtn" type="button">Marcar Obsoleto</button>
+            @endpermission
         </div>
       </div>
 
@@ -592,9 +599,6 @@
         <iframe id="fwM_pdf" src=""
           style="width:100%; height:520px; border:1px solid rgba(255,255,255,.10); border-radius:12px; background:rgba(0,0,0,.12)">
         </iframe>
-        <div class="hint" style="margin-top:8px">
-          Se não abrir, confirma que o PDF está em <b>public/mock/frameworks/</b>.
-        </div>
       </div>
     </div>
   </div>
@@ -623,10 +627,16 @@
         <div id="vwRejection" style="display:none;margin-top:6px;padding:6px 10px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap">
+        @permission('docs.version')
         <button id="vwReupload" class="btn" type="button" title="Carregar nova versão">Nova versão</button>
+        @endpermission
+        @permission('docs.edit')
         <button id="vwAiAssist" class="btn" type="button" title="Assistente IA">✦ IA</button>
+        @endpermission
         <a id="vwDownload" class="btn" target="_blank" style="text-decoration:none">Download</a>
+        @permission('docs.approve_links')
         <button id="vwApprove" class="btn ok" type="button" style="display:none">Aprovar</button>
+        @endpermission
         <button id="vwClose" class="btn" type="button">Fechar</button>
       </div>
     </div>

@@ -9,7 +9,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-   @stack('styles') 
+   
+   <script>
+        // Passa o array de permissões da sessão do Laravel para uma variável global JS
+        window.TB_PERMISSIONS = @json(session('tb_user.permissions', []));
+    </script>
+    @stack('styles') 
     {{-- Mock CSS inline (depois podes migrar para Vite/Tailwind) --}}
     <style>
         :root{
@@ -1166,26 +1171,27 @@
 </head>
 
 <body>
-    @php
+@php
         $org = $org ?? 'Exemplo';
         $framework = $framework ?? 'QNRCS';
         $fwVersion = $fwVersion ?? '2.1';
 
+        // 👇 Adicionámos a coluna 'perm' com a permissão exigida para cada menu
         $navItems = [
-            ['route' => 'dashboard', 'label' => 'Dashboard', 'badge' => 'RF18'],
-            ['route' => 'assets', 'label' => 'Ativos', 'badge' => 'RF1'],
-            ['route' => 'compliance', 'label' => 'Compliance', 'badge' => 'RF4'],
-            ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3'],
-            ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6'],
-            ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9'],
-            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11'],
-            ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13'],
-            ['route' => 'chat', 'label' => 'Chat de Governação', 'badge' => 'RF14–RF15'],
-            ['route' => 'audit', 'label' => 'Auditoria', 'badge' => 'RNF5'],
-            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19'],
-            ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'badge' => 'RF20'],
+            ['route' => 'dashboard', 'label' => 'Dashboard', 'badge' => 'RF18', 'perm' => null], // Sem restrição
+            ['route' => 'assets', 'label' => 'Ativos', 'badge' => 'RF1', 'perm' => 'assets.view'],
+            ['route' => 'compliance', 'label' => 'Compliance', 'badge' => 'RF4', 'perm' => 'compliance.view'],
+            ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3', 'perm' => 'docs.view'],
+            ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6', 'perm' => 'assessments.view'],
+            ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9', 'perm' => 'risk.view'],
+            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11', 'perm' => 'risk.plan.manage'],
+            ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13', 'perm' => 'assessments.view'],
+            ['route' => 'chat', 'label' => 'Chat de Governação', 'badge' => 'RF14–RF15', 'perm' => 'chat.use'],
+            ['route' => 'audit', 'label' => 'Auditoria', 'badge' => 'RNF5', 'perm' => 'audit.view'],
+            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'], // O NOSSO ECRÃ!
+            ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'badge' => 'RF20', 'perm' => 'compliance.view'],
         ];
-      @endphp
+    @endphp
 
     <div class="app">
         <aside class="sidebar">
@@ -1197,24 +1203,41 @@
                 </div>
             </div>
 
-            <nav class="nav"> @foreach($navItems as $item)
+<nav class="nav"> 
+            @php 
+                // 1. Garantir que vamos buscar as permissões ao sítio certo da sessão
+                $tbUser = session('tb_user');
+                // 2. Forçar que seja sempre um array simples (lista de strings)
+                $userPerms = is_array($tbUser) && isset($tbUser['permissions']) 
+                             ? (array) $tbUser['permissions'] 
+                             : [];
+            @endphp
+
+            @foreach($navItems as $item)
                 @php
-                $navIcons = [
-                'dashboard'       => 'layout-dashboard',
-                'assets'          => 'server',
-                'compliance'      => 'check-square',
-                'docs'            => 'file-text',
-                'assessments'     => 'clipboard-check',
-                'risks'           => 'alert-triangle',
-                'treatment'      => 'list-checks',
-                'questionnaire'   => 'file-pen-line',
-                'chat'            => 'messages-square',
-                'audit'           => 'scroll-text',
-                'rbac'            => 'shield-check',
-                'relatorios-cncs'            => 'file-output',
-                ];
+                    // 👇 Condição corrigida:
+                    // Se o item exige permissão E essa permissão NÃO ESTÁ no array de permissões do utilizador
+                    if (!empty($item['perm']) && !in_array($item['perm'], $userPerms, true)) {
+                        continue; // Salta este item!
+                    }
+
+                    $navIcons = [
+                        'dashboard'       => 'layout-dashboard',
+                        'assets'          => 'server',
+                        'compliance'      => 'check-square',
+                        'docs'            => 'file-text',
+                        'assessments'     => 'clipboard-check',
+                        'risks'           => 'alert-triangle',
+                        'treatment'       => 'list-checks',
+                        'questionnaire'   => 'file-pen-line',
+                        'chat'            => 'messages-square',
+                        'audit'           => 'scroll-text',
+                        'rbac'            => 'shield-check',
+                        'relatorios-cncs' => 'file-output',
+                    ];
                     $icon = $navIcons[$item['route']] ?? '·';
                 @endphp
+                
                 <a href="{{ route($item['route']) }}"
                     class="{{ request()->routeIs($item['route']) ? 'active' : '' }}"
                     title="{{ $item['label'] }}">

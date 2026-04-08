@@ -253,6 +253,7 @@
 
         // Controlos dentro do grupo
         const body = grpEl.querySelector("[data-body]");
+
         group.controls.forEach(ctrl => {
           const dotCls = STATUS_DOT[ctrl.status] || "dot-none";
           const hasNotes = ctrl.notes ? `<span class="muted" style="font-size:11px;margin-left:4px" title="${ctrl.notes}">📝</span>` : "";
@@ -264,6 +265,13 @@
           const row = document.createElement("div");
           row.className = "cpl-control-row";
           row.dataset.controlId = ctrl.id;
+
+          // RBAC: Verifica permissão na global window.TB_PERMISSIONS
+          const podeAvaliar = window.TB_PERMISSIONS && window.TB_PERMISSIONS.includes('compliance.manage');
+          const btnAvaliarHtml = podeAvaliar
+            ? `<button class="btn small" type="button">Avaliar</button>`
+            : '';
+
           row.innerHTML = `
             <div class="cpl-status-dot ${dotCls}"></div>
             <div style="flex:1;min-width:0">
@@ -277,18 +285,35 @@
             </div>
             <div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
               ${assessedBy}
-              <button class="btn small" type="button">Avaliar</button>
+              ${btnAvaliarHtml}
             </div>`;
 
-          // Clique na linha ou no botão → abrir modal
-          const openAssess = () => openAssessModal(ctrl);
-          row.querySelector(".btn").addEventListener("click", (e) => { e.stopPropagation(); openAssess(); });
-          row.addEventListener("click", openAssess);
+          // Apenas adiciona os eventos de clique se o utilizador tiver permissão
+          if (podeAvaliar) {
+            const openAssess = () => openAssessModal(ctrl);
 
+            // Procura o botão e adiciona o evento
+            const btnEl = row.querySelector(".btn");
+            if (btnEl) {
+              btnEl.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openAssess();
+              });
+            }
+
+            // Permite clicar na linha inteira para abrir o modal
+            row.addEventListener("click", openAssess);
+            row.style.cursor = "pointer";
+          } else {
+            // Sem permissão, a linha não faz nada
+            row.style.cursor = "default";
+          }
+
+          // Anexa a linha ao corpo do grupo (Uma única vez!)
           body.appendChild(row);
         });
 
-        // Toggle do grupo
+        // Toggle do grupo (abrir/fechar acordeão)
         grpEl.querySelector("[data-toggle]").addEventListener("click", () => {
           const b = grpEl.querySelector("[data-body]");
           const a = grpEl.querySelector("[data-arrow]");

@@ -388,6 +388,10 @@
                 <input id="auEmail" type="email" placeholder="maria@empresa.pt" />
             </div>
             <div class="field" style="margin-top:10px;">
+                <label>Password <span style="color:var(--bad);">*</span></label>
+                <input id="auPassword" type="password" placeholder="Senha inicial" />
+            </div>
+            <div class="field" style="margin-top:10px;">
                 <label>Papel</label>
                 <select id="auRole"></select>
             </div>
