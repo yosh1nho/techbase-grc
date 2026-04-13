@@ -3,6 +3,8 @@
 
 (() => {
   // ── Helpers ─────────────────────────────────────────────────────────────────
+  // Função auxiliar para verificar permissões globais
+  const hasPerm = (p) => window.TB_PERMISSIONS && window.TB_PERMISSIONS.includes(p);
   const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content ?? "";
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
@@ -179,6 +181,19 @@
       const asset = r.asset_name || r.hostname || "—";
       const owner = r.owner_name || r.risk_owner || "—";
       const due = r.due ? r.due.slice(0, 10) : "—";
+      const btnText = hasPerm('risk.edit') ? 'Editar' : 'Ver';
+
+      let actionBtns = `<button class="btn small" data-edit="${r.id_risk}">${btnText}</button>`;
+
+      // Só mostra o botão de Criar Plano se tiver permissão (ajuste o nome da permissão se necessário)
+      if (hasPerm('risk.plan.manage')) {
+        actionBtns += ` <button class="btn small ok" data-treat="${r.id_risk}">Plano</button>`;
+      }
+
+      // Só mostra o botão de Apagar se tiver permissão
+      if (hasPerm('risk.delete')) {
+        actionBtns += ` <button class="btn small" style="color:#f87171;opacity:.8" data-del="${r.id_risk}">Apagar</button>`;
+      }
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -202,20 +217,21 @@
         <td class="muted" style="font-size:12px">${due}</td>
         <td>
           <div style="display:flex;gap:6px">
-            <button class="btn small" data-edit="${r.id_risk}">Editar</button>
-            <button class="btn small ok" data-treat="${r.id_risk}">Plano</button>
-            <button class="btn small" style="color:#f87171;opacity:.8" data-del="${r.id_risk}">Apagar</button>
+             ${actionBtns}
           </div>
         </td>`;
 
       // Editar
       tr.querySelector("[data-edit]").addEventListener("click", () => openRiskModal(r));
 
-      // Criar plano de tratamento
-      tr.querySelector("[data-treat]").addEventListener("click", () => openTreatModal(r));
+      // Editar / Ver (este existe sempre porque criaste-o em actionBtns logo no início)
+      tr.querySelector("[data-edit]")?.addEventListener("click", () => openRiskModal(r));
 
-      // Apagar
-      tr.querySelector("[data-del]").addEventListener("click", async () => {
+      // Criar plano de tratamento (Só adiciona o evento se o botão existir)
+      tr.querySelector("[data-treat]")?.addEventListener("click", () => openTreatModal(r));
+
+      // Apagar (Só adiciona o evento se o botão existir)
+      tr.querySelector("[data-del]")?.addEventListener("click", async () => {
         const nm = r.title || r.description || `Risco #${r.id_risk}`;
         if (!confirm(`Apagar "${nm}"? Esta acção não pode ser desfeita.`)) return;
         try {
@@ -276,11 +292,24 @@
   function openRiskModal(risk = null) {
     CURRENT_RISK = risk;
     AI_SUGGESTION = null;
-
+    const canEdit = hasPerm('risk.edit');
     const isNew = !risk;
     document.getElementById("rmTitle").textContent = isNew ? "Novo risco" : (risk.title || risk.description || "Editar risco");
     document.getElementById("rmRef").textContent = isNew ? "Novo risco" : `ID #${risk.id_risk}`;
 
+    // Bloquear inputs, selects e textareas
+    const modalInputs = document.querySelectorAll('#riskModal input, #riskModal select, #riskModal textarea');
+    modalInputs.forEach(input => {
+      input.disabled = !canEdit;
+      input.style.opacity = canEdit ? '1' : '0.7';
+      input.style.cursor = canEdit ? '' : 'not-allowed';
+    });
+
+    //Mostrar/Esconder o botão de Guardar
+    const btnSave = document.getElementById("rmSaveBtn");
+    if (btnSave) {
+      btnSave.style.display = canEdit ? 'inline-flex' : 'none';
+    }
     // Limpar / preencher campos
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ""; };
 

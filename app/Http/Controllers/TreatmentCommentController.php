@@ -154,7 +154,7 @@ class TreatmentCommentController extends Controller
             'files.*'   => ['file', 'max:20480'], // 20 MB por ficheiro
         ]);
 
-        $userId = session('tb_user.id') ?? null;
+        $userId = session('tb_user.id_user') ?? session('tb_user.id') ?? null;
 
         // Criar o comentário
         $commentId = DB::table('treatmentcomment')->insertGetId([

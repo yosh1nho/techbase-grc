@@ -110,9 +110,9 @@
 #page-assessments .fw-summary b { color: var(--a-accent); }
 
 /* ─── Asset dropdown ─── */
-#page-assessments .dd-wrap { position: relative; }
+#page-assessments .dd-wrap { position: relative; z-index: 100; }
 #page-assessments .asset-dd {
-    position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 60;
+    position: absolute; left: 0; right: 0; top: calc(100% + 5px); z-index: 100;
     display: none; max-height: 240px; overflow: auto; padding: 5px;
     border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
     box-shadow: 0 14px 40px rgba(0,0,0,.45);
@@ -125,9 +125,11 @@
 #page-assessments .asset-opt:hover { background: var(--a-glow); border-color: rgba(79,156,249,.2); }
 #page-assessments .aopt-icon {
     width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
-    display: grid; place-items: center; font-size: 14px;
+    display: grid; place-items: center;
     background: var(--a-glow); border: 1px solid rgba(79,156,249,.2);
+    color: var(--a-accent);
 }
+#page-assessments .aopt-icon svg { width: 16px; height: 16px; stroke-width: 2.2px; }
 #page-assessments .aopt-name { font-size: 13px; font-weight: 500; color: var(--text); }
 #page-assessments .aopt-sub  { font-size: 11px; color: var(--muted); }
 

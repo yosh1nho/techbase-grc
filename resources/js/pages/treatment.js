@@ -17,6 +17,17 @@ function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.content ?? "";
 }
 
+// ── Permissões helper ────────────────────────────────────────────────────────
+const hasPerm = (p) => window.TB_PERMISSIONS && window.TB_PERMISSIONS.includes(p);
+
+
+//Helper para pegar as iniciais dos nome
+function getInitials(name) {
+    if (!name) return "U";
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+}
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
 async function api(method, url, body = null) {
     const opts = {
@@ -353,6 +364,28 @@ function openDetail(id) {
 
     renderTasksTab(p.id);
     switchTab("details");
+    // ── INÍCIO DO BLOQUEIO DE PERMISSÕES DO PLANO ──
+    const canEditPlan = hasPerm('treatment.manage');
+
+    //Bloquear inputs, selects e textareas do plano
+    const planInputs = document.querySelectorAll('#treatDetailModal input, #treatDetailModal select, #treatDetailModal textarea');
+    planInputs.forEach(input => {
+        // Exceção: não bloquear a barra de pesquisa de tarefas, se houver
+        if (input.id === 'treatTaskSearch') return;
+
+        input.disabled = !canEditPlan;
+        input.style.opacity = canEditPlan ? '1' : '0.7';
+        input.style.cursor = canEditPlan ? '' : 'not-allowed';
+    });
+
+    //Mostrar/Esconder botão Guardar
+    const tdSave = document.getElementById("td_save");
+    if (tdSave) tdSave.style.display = canEditPlan ? 'inline-flex' : 'none';
+
+    //Mostrar/Esconder botão de Apagar (se existir)
+    const tdDelete = document.getElementById("td_delete");
+    if (tdDelete) tdDelete.style.display = (canEditPlan && hasPerm('treatment.edit')) ? 'inline-flex' : 'none';
+    // ── FIM DO BLOQUEIO ──
     openModal("treatDetailModal");
 }
 
@@ -378,6 +411,10 @@ async function saveDetail() {
 
 // ── Tasks tab ─────────────────────────────────────────────────────────────────
 async function renderTasksTab(planId) {
+    const btnAddTask = document.getElementById("td_addTask");
+    if (btnAddTask) {
+        btnAddTask.style.display = hasPerm("treatment.taskEdit") ? "inline-flex" : "none";
+    }
     const list = document.getElementById("td_tasks_list");
     const countEl = document.getElementById("td_task_count");
     if (!list) return;
@@ -512,7 +549,10 @@ async function openTaskModal(taskId, planId) {
 
     document.getElementById("tkm_plan_ref").textContent = `TP-${planId}`;
     document.getElementById("tkm_title").textContent = title;
-
+    const composerAvatar = document.getElementById("tkm_composer_avatar");
+    if (composerAvatar) {
+        composerAvatar.textContent = getInitials(window.TB_USER?.name || "Utilizador");
+    }
     // Buscar detalhes completos da tarefa via API
     try {
         const tasks = await GET(`/api/treatment-plans/${planId}/tasks`);
@@ -535,6 +575,27 @@ async function openTaskModal(taskId, planId) {
     }
 
     closeModal("treatDetailModal");
+    // ── INÍCIO DO BLOQUEIO DE PERMISSÕES DA TAREFA ──
+    const canEditTask = hasPerm('treatment.taskEdit');
+
+    // 1. Bloquear campos
+    const taskInputs = document.querySelectorAll('#taskDetailModal input, #taskDetailModal select, #taskDetailModal textarea');
+    taskInputs.forEach(input => {
+        input.disabled = !canEditTask;
+        input.style.opacity = canEditTask ? '1' : '0.7';
+        input.style.cursor = canEditTask ? '' : 'not-allowed';
+    });
+
+    // 2. Mostrar/Esconder Guardar e Apagar Tarefa
+    const tkSave = document.getElementById("tk_save");
+    if (tkSave) tkSave.style.display = canEditTask ? 'inline-flex' : 'none';
+
+    const tkDelete = document.getElementById("tk_delete"); // Se tiveres botão de apagar tarefa
+    if (tkDelete) tkDelete.style.display = canEditTask ? 'inline-flex' : 'none';
+    // ── FIM DO BLOQUEIO ──
+
+    const m = document.getElementById("taskDetailModal");
+    m.classList.remove("is-hidden");
     openModal("taskDetailModal");
     await renderComments(taskId);
     clearAttachPreview();
@@ -567,7 +628,7 @@ async function renderComments(taskId) {
 
     list.innerHTML = comments.map((c, ci) => `
         <div class="comment-item" data-comment-id="${c.id}" data-comment-idx="${ci}">
-            <div class="comment-avatar">${ownerInitials(c.author)}</div>
+            <div class="comment-avatar">${getInitials(c.author || "Utilizador")}</div>
             <div class="comment-body">
                 <div class="comment-header">
                     <span class="comment-author">${c.author || "Utilizador"}</span>
@@ -795,6 +856,17 @@ document.addEventListener("DOMContentLoaded", () => {
     wireNewTaskForm();
     wireTaskModal();
 
+    // Esconder botão de Novo Plano se não tiver permissão
+    const btnCreatePlan = document.getElementById("btnCreatePlan"); // Ajusta o ID se for diferente no teu Blade
+    if (btnCreatePlan) {
+        btnCreatePlan.style.display = hasPerm("treatment.create") ? "inline-flex" : "none";
+    }
+
+    // Esconder a Tab de Tarefas se não tiver permissão de sequer ver tarefas
+    const tabTasksBtn = document.querySelector('.treat-tab-btn[data-tab="tasks"]');
+    if (tabTasksBtn) {
+        tabTasksBtn.style.display = hasPerm("treatment.task") ? "inline-flex" : "none";
+    }
     // Filtros
     document.getElementById("treatSearch")?.addEventListener("input", e => {
         filterSearch = e.target.value; render();

@@ -59,7 +59,9 @@
         <option value="Mitigado">Mitigado</option>
         <option value="Aceito">Aceito</option>
       </select>
+      @permission('risk.create')
       <button id="btnNewRisk" class="btn ok" type="button">+ Novo risco</button>
+      @endpermission
     </div>
   </div>
 
@@ -153,8 +155,10 @@
         {{-- Painel IA --}}
         <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            @permission('risk.edit')
             <div class="rk-section-label" style="margin:0">Assistente IA</div>
             <button id="rmAiBtn" class="btn small" type="button">✦ Analisar com IA</button>
+            @endpermission
           </div>
           <div id="rmAiOutput" style="display:none;border-radius:10px;border:1px solid rgba(96,165,250,.2);background:rgba(96,165,250,.05);padding:12px;font-size:12px;line-height:1.6;max-height:200px;overflow-y:auto"></div>
           <div id="rmAiActions" style="display:none;margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">

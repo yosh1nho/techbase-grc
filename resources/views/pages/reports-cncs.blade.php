@@ -1,8 +1,59 @@
 @extends('layouts.app')
-@section('title', 'Relatório Anual CNCS • Techbase GRC')
+@section('title', 'Relatório CNCS • Techbase GRC')
 
 @push('styles')
 <style>
+/* ── Report type toggle ──────────────────────────────────────────────────── */
+.report-toggle-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.report-toggle-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: background .18s, color .18s;
+    font-family: var(--font);
+}
+
+.report-toggle-btn:first-child {
+    border-right: 1px solid var(--line);
+}
+
+.report-toggle-btn.active-annual {
+    background: rgba(96,165,250,.12);
+    color: var(--info);
+}
+
+.report-toggle-btn.active-24h {
+    background: rgba(239,68,68,.12);
+    color: #f87171;
+}
+
+.report-toggle-btn svg,
+.report-toggle-btn i[data-lucide] {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
 /* ── Page layout ─────────────────────────────────────────────────────────── */
 .cncs-root {
     display: grid;
@@ -39,6 +90,23 @@
     color: var(--muted);
     font-size: 12.5px;
     line-height: 1.5;
+}
+
+/* ── Badge de urgência 24h ───────────────────────────────────────────────── */
+.badge-24h {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    background: rgba(239,68,68,.12);
+    border: 1px solid rgba(239,68,68,.25);
+    color: #f87171;
+    font-family: var(--font-mono);
 }
 
 /* Step blocks */
@@ -83,6 +151,12 @@
     background: rgba(45,212,191,.12);
     border-color: rgba(45,212,191,.22);
     color: var(--ok);
+}
+
+.cncs-step-num.red {
+    background: rgba(239,68,68,.12);
+    border-color: rgba(239,68,68,.22);
+    color: #f87171;
 }
 
 .cncs-step-title {
@@ -156,6 +230,13 @@
     line-height: 1.55;
 }
 
+.field-group.urgent-field input:focus,
+.field-group.urgent-field select:focus,
+.field-group.urgent-field textarea:focus {
+    border-color: rgba(239,68,68,.4);
+    box-shadow: 0 0 0 3px rgba(239,68,68,.06);
+}
+
 .field-hint {
     font-size: 11px;
     color: var(--muted);
@@ -196,6 +277,11 @@
     justify-content: space-between;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.cncs-preview-topbar.topbar-24h {
+    border-bottom-color: rgba(239,68,68,.25);
+    background: rgba(239,68,68,.04);
 }
 
 .cncs-preview-title {
@@ -241,6 +327,7 @@
 .kpi-chip.warn { border-color: rgba(251,191,36,.22); background: rgba(251,191,36,.07); }
 .kpi-chip.ok   { border-color: rgba(45,212,191,.22); background: rgba(45,212,191,.07); }
 .kpi-chip.bad  { border-color: rgba(251,113,133,.22); background: rgba(251,113,133,.07); }
+.kpi-chip.urgent { border-color: rgba(239,68,68,.25); background: rgba(239,68,68,.08); color: #f87171; }
 
 /* ── Preview body ────────────────────────────────────────────────────────── */
 .cncs-preview-body {
@@ -269,6 +356,13 @@
     flex: 1;
     height: 1px;
     background: var(--line);
+}
+
+.pv-section-label.red-line {
+    color: #f87171;
+}
+.pv-section-label.red-line::after {
+    background: rgba(239,68,68,.2);
 }
 
 /* Inline stat boxes */
@@ -307,6 +401,11 @@
     color: var(--muted);
     margin-top: 4px;
     line-height: 1.4;
+}
+
+.pv-stat-box.urgent-box {
+    border-color: rgba(239,68,68,.2);
+    background: rgba(239,68,68,.05);
 }
 
 /* Quarter table */
@@ -528,6 +627,7 @@
 .tag.ok   { background: rgba(45,212,191,.10); color: var(--ok); }
 .tag.warn { background: rgba(251,191,36,.10);  color: var(--warn); }
 .tag.bad  { background: rgba(251,113,133,.10); color: var(--bad); }
+.tag.urgent-tag { background: rgba(239,68,68,.10); color: #f87171; }
 
 /* Loading state */
 .pv-loading {
@@ -552,6 +652,60 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── 24h notificação: barra de progresso ─────────────────────────────────── */
+.notif-progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(239,68,68,.2);
+}
+
+.notif-progress-segment {
+    height: 5px;
+    flex: 1;
+    background: rgba(255,255,255,.06);
+    transition: background .3s;
+}
+
+.notif-progress-segment.done {
+    background: #ef4444;
+}
+
+/* ── Urgency banner ──────────────────────────────────────────────────────── */
+.urgency-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(239,68,68,.3);
+    background: rgba(239,68,68,.07);
+    font-size: 12.5px;
+    color: #f87171;
+    line-height: 1.45;
+}
+
+.urgency-banner .ub-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(239,68,68,.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.urgency-timer {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 16px;
+    color: #f87171;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
     .cncs-root { grid-template-columns: 1fr; }
@@ -569,14 +723,28 @@
 
 @section('content')
 
+{{-- ═══════════════════════════════════════════
+     BARRA DE ALTERNÂNCIA DE TIPO DE RELATÓRIO
+════════════════════════════════════════════ --}}
+<div class="report-toggle-bar">
+    <button id="tabBtnAnnual" class="report-toggle-btn active-annual">
+        <i data-lucide="file-bar-chart-2"></i>
+        Relatório Anual CNCS
+    </button>
+    <button id="tabBtn24h" class="report-toggle-btn">
+        <i data-lucide="alarm-clock"></i>
+        Alerta de Incidente (Notificação 24h)
+    </button>
+</div>
+
 <div class="cncs-root">
 
     {{-- ════════════════════════════════════════════
-         COLUNA ESQUERDA — Parâmetros + secções manuais
+         FORMULÁRIO ANUAL (visível por defeito)
     ══════════════════════════════════════════════ --}}
-    <div class="cncs-sidebar">
+    <div id="formAnnual" class="cncs-sidebar" style="display:flex;">
 
-        {{-- Cabeçalho --}}
+        {{-- Cabeçalho anual --}}
         <div class="cncs-header">
             <h2>Relatório Anual CNCS</h2>
             <p>Modelo RF20 — gerado automaticamente a partir dos dados do sistema. Revisa e exporta em PDF.</p>
@@ -793,12 +961,420 @@
             </div>
         </div>
 
-    </div>{{-- /cncs-sidebar --}}
+    </div>{{-- /formAnnual --}}
 
     {{-- ════════════════════════════════════════════
-         COLUNA DIREITA — Pré-visualização estruturada
+         FORMULÁRIO 24H (oculto por defeito)
     ══════════════════════════════════════════════ --}}
-    <div class="cncs-preview">
+    <div id="form24h" class="cncs-sidebar" style="display:none;">
+
+        {{-- Cabeçalho 24h --}}
+        <div class="cncs-header" style="border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04);">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                <div>
+                    <h2 style="display:flex;align-items:center;gap:8px;">
+                        <i data-lucide="alarm-clock" style="width:16px;height:16px;color:#f87171;flex-shrink:0;"></i>
+                        Notificação Inicial de Incidente
+                    </h2>
+                    <p>Alerta 24h conforme Art. 23.º da Diretiva NIS2 (2022/2555) e Decreto-Lei n.º 125/2025. Submeter ao CNCS dentro de 24 horas após deteção.</p>
+                </div>
+            </div>
+
+            {{-- Contactos CNCS --}}
+            <div style="margin-top:12px;padding:10px 12px;border-radius:8px;border:1px solid rgba(239,68,68,.2);background:rgba(239,68,68,.06);font-size:11.5px;color:var(--text);">
+                <div style="font-weight:700;color:#f87171;margin-bottom:5px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">📞 Contactos CNCS</div>
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                    <span>📧 <a href="mailto:incidentes@cncs.gov.pt" style="color:#f87171;">incidentes@cncs.gov.pt</a></span>
+                    <span>📞 <span style="font-family:var(--font-mono);font-weight:700;">+351 210 012 000</span> <span style="color:var(--muted)">(24/7)</span></span>
+                    <span>🌐 <a href="https://www.cncs.gov.pt" target="_blank" style="color:#f87171;">www.cncs.gov.pt</a></span>
+                </div>
+            </div>
+
+            {{-- Progresso das secções --}}
+            <div style="margin-top:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Progresso</span>
+                    <span id="notifProgressLabel" style="font-size:11px;font-family:var(--font-mono);color:#f87171;font-weight:700;">0 / 7 secções</span>
+                </div>
+                <div class="notif-progress-bar" id="notifProgressBar">
+                    <div class="notif-progress-segment" id="npSeg1"></div>
+                    <div class="notif-progress-segment" id="npSeg2"></div>
+                    <div class="notif-progress-segment" id="npSeg3"></div>
+                    <div class="notif-progress-segment" id="npSeg4"></div>
+                    <div class="notif-progress-segment" id="npSeg5"></div>
+                    <div class="notif-progress-segment" id="npSeg6"></div>
+                    <div class="notif-progress-segment" id="npSeg7"></div>
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 1 — Identificação da Entidade --}}
+        <div class="cncs-step open" id="n24Step1">
+            <div class="cncs-step-head" data-toggle="n24Step1">
+                <span class="cncs-step-num red">1</span>
+                <span class="cncs-step-title">Identificação da Entidade</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-group urgent-field">
+                    <label>Nome da entidade</label>
+                    <input id="n24Entity" placeholder="Ex.: Clínica Central, SA" />
+                </div>
+                <div class="field-group urgent-field">
+                    <label>NIF / NIPC</label>
+                    <input id="n24Nif" placeholder="Ex.: 500 000 000" />
+                </div>
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>Setor de atividade</label>
+                        <select id="n24Sector">
+                            <option value="">— Selecionar —</option>
+                            <option value="saude">Saúde</option>
+                            <option value="energia">Energia</option>
+                            <option value="transportes">Transportes</option>
+                            <option value="financas">Banca / Finanças</option>
+                            <option value="digital">Infraestrutura digital</option>
+                            <option value="agua">Água</option>
+                            <option value="alimentacao">Alimentação</option>
+                            <option value="administracao">Administração pública</option>
+                            <option value="espacial">Espacial</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Tipo de entidade</label>
+                        <select id="n24EntityType">
+                            <option value="">— Selecionar —</option>
+                            <option value="essencial">Entidade Essencial</option>
+                            <option value="importante">Entidade Importante</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Responsável de segurança / CISO</label>
+                    <input id="n24SecurityOfficer" placeholder="Nome completo" />
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Email de contacto</label>
+                    <input type="email" id="n24ContactEmail" placeholder="ciso@empresa.pt" />
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Telefone de contacto</label>
+                    <input type="tel" id="n24ContactPhone" placeholder="+351 200 000 000" />
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 2 — Deteção do Incidente --}}
+        <div class="cncs-step" id="n24Step2">
+            <div class="cncs-step-head" data-toggle="n24Step2">
+                <span class="cncs-step-num red">2</span>
+                <span class="cncs-step-title">Deteção do Incidente</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>Data e hora de deteção</label>
+                        <input type="datetime-local" id="n24DetectedAt" />
+                        <div class="field-hint">Quando o incidente foi identificado.</div>
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Data e hora de início (estimada)</label>
+                        <input type="datetime-local" id="n24StartedAt" />
+                        <div class="field-hint">Início estimado do incidente.</div>
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Quem detetou o incidente</label>
+                    <select id="n24DetectedBy">
+                        <option value="">— Selecionar —</option>
+                        <option value="monitoring">Sistema de monitorização automático</option>
+                        <option value="employee">Colaborador interno</option>
+                        <option value="external">Entidade externa / terceiro</option>
+                        <option value="csirt">CSIRT / CERT</option>
+                        <option value="law">Autoridade policial / judicial</option>
+                        <option value="user">Utilizador final</option>
+                        <option value="other">Outro</option>
+                    </select>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Como foi detetado</label>
+                    <textarea id="n24DetectionMethod" rows="3" placeholder="Descreve o método ou ferramenta que levou à deteção (ex.: alerta SIEM, chamada de utilizador, verificação manual, etc.)"></textarea>
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 3 — Natureza do Incidente --}}
+        <div class="cncs-step" id="n24Step3">
+            <div class="cncs-step-head" data-toggle="n24Step3">
+                <span class="cncs-step-num red">3</span>
+                <span class="cncs-step-title">Natureza do Incidente</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-group urgent-field">
+                    <label>Tipo / categoria do incidente</label>
+                    <select id="n24IncidentType">
+                        <option value="">— Selecionar —</option>
+                        <optgroup label="Malicious Code">
+                            <option value="ransomware">Ransomware</option>
+                            <option value="malware">Malware / Vírus</option>
+                            <option value="spyware">Spyware / Stalkerware</option>
+                        </optgroup>
+                        <optgroup label="Intrusão">
+                            <option value="unauthorized_access">Acesso não autorizado</option>
+                            <option value="account_compromise">Comprometimento de conta</option>
+                            <option value="supply_chain">Ataque à cadeia de fornecimento</option>
+                        </optgroup>
+                        <optgroup label="Disponibilidade">
+                            <option value="ddos">DDoS</option>
+                            <option value="service_disruption">Indisponibilidade de serviço</option>
+                            <option value="power_failure">Falha de energia / infraestrutura</option>
+                        </optgroup>
+                        <optgroup label="Dados">
+                            <option value="data_breach">Violação / fuga de dados</option>
+                            <option value="data_manipulation">Manipulação de dados</option>
+                        </optgroup>
+                        <optgroup label="Outros">
+                            <option value="phishing">Phishing / Engenharia social</option>
+                            <option value="insider">Ameaça interna</option>
+                            <option value="vulnerability">Exploração de vulnerabilidade</option>
+                            <option value="other">Outro</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Descrição inicial do incidente</label>
+                    <textarea id="n24Description" rows="4" placeholder="Descreve sucintamente o que aconteceu, a natureza do ataque ou evento, e o contexto identificado até ao momento."></textarea>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Estado atual do incidente</label>
+                    <select id="n24Status">
+                        <option value="ongoing">Em curso (ativo)</option>
+                        <option value="contained">Contido (a investigar)</option>
+                        <option value="resolved">Resolvido</option>
+                        <option value="unknown">Desconhecido</option>
+                    </select>
+                </div>
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>Vetores de ataque suspeitos</label>
+                        <select id="n24AttackVector">
+                            <option value="">— Selecionar —</option>
+                            <option value="email">Email malicioso</option>
+                            <option value="web">Aplicação web</option>
+                            <option value="rdp">RDP / Acesso remoto</option>
+                            <option value="usb">Dispositivo USB / físico</option>
+                            <option value="supply">Cadeia de fornecimento</option>
+                            <option value="insider">Acesso interno</option>
+                            <option value="unknown">Desconhecido</option>
+                        </select>
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Dados pessoais envolvidos</label>
+                        <select id="n24PersonalData">
+                            <option value="no">Não</option>
+                            <option value="yes">Sim</option>
+                            <option value="unknown">A avaliar</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 4 — Sistemas Afetados --}}
+        <div class="cncs-step" id="n24Step4">
+            <div class="cncs-step-head" data-toggle="n24Step4">
+                <span class="cncs-step-num red">4</span>
+                <span class="cncs-step-title">Sistemas e Serviços Afetados</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-group urgent-field">
+                    <label>Sistemas / serviços afetados</label>
+                    <textarea id="n24AffectedSystems" rows="3" placeholder="Lista os sistemas, aplicações ou infraestrutura impactada (ex.: ERP, sistemas clínicos, redes internas, servidores de ficheiros, etc.)"></textarea>
+                </div>
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>N.º de utilizadores afetados</label>
+                        <input type="number" id="n24AffectedUsers" placeholder="Ex.: 500" min="0" />
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>N.º de sistemas comprometidos</label>
+                        <input type="number" id="n24AffectedSystems2" placeholder="Ex.: 12" min="0" />
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Serviços críticos interrompidos</label>
+                    <textarea id="n24CriticalServices" rows="2" placeholder="Indica quais os serviços essenciais que ficaram indisponíveis ou degradados."></textarea>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Impacto transfronteiriço</label>
+                    <select id="n24CrossBorder">
+                        <option value="no">Não identificado</option>
+                        <option value="yes">Sim — afeta outros Estados-Membros da UE</option>
+                        <option value="unknown">A avaliar</option>
+                    </select>
+                    <div class="field-hint">Se sim, indicar quais os países afetados nas notas adicionais.</div>
+                </div>
+                <div class="field-group urgent-field" id="n24CrossBorderCountriesGrp" style="display:none;">
+                    <label>Países afetados (se transfronteiriço)</label>
+                    <input id="n24CrossBorderCountries" placeholder="Ex.: Espanha, França" />
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 5 — Avaliação de Impacto --}}
+        <div class="cncs-step" id="n24Step5">
+            <div class="cncs-step-head" data-toggle="n24Step5">
+                <span class="cncs-step-num red">5</span>
+                <span class="cncs-step-title">Avaliação de Impacto</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>Nível de severidade</label>
+                        <select id="n24Severity">
+                            <option value="">— Selecionar —</option>
+                            <option value="critical">Crítico</option>
+                            <option value="high">Elevado</option>
+                            <option value="medium">Médio</option>
+                            <option value="low">Baixo</option>
+                        </select>
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Critério (Art. 23.º NIS2)</label>
+                        <select id="n24Criterion">
+                            <option value="">— Selecionar —</option>
+                            <option value="users">N.º elevado de utilizadores afetados</option>
+                            <option value="duration">Longa duração da interrupção</option>
+                            <option value="geographic">Extensão geográfica significativa</option>
+                            <option value="data">Perda / comprometimento de dados</option>
+                            <option value="financial">Impacto financeiro substancial</option>
+                            <option value="reputational">Impacto reputacional</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Impacto operacional</label>
+                    <textarea id="n24OperationalImpact" rows="3" placeholder="Descreve o impacto nas operações da organização: interrupção de serviços, processos afetados, perdas estimadas, etc."></textarea>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Impacto financeiro estimado (€)</label>
+                    <input type="number" id="n24FinancialImpact" placeholder="Ex.: 50000" min="0" />
+                    <div class="field-hint">Estimativa preliminar (a confirmar no relatório final).</div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Avaliação inicial de risco para terceiros</label>
+                    <textarea id="n24ThirdPartyRisk" rows="2" placeholder="Indica se há risco para clientes, parceiros, fornecedores ou cidadãos."></textarea>
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 6 — Medidas Imediatas --}}
+        <div class="cncs-step" id="n24Step6">
+            <div class="cncs-step-head" data-toggle="n24Step6">
+                <span class="cncs-step-num red">6</span>
+                <span class="cncs-step-title">Medidas Imediatas Tomadas</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="field-group urgent-field">
+                    <label>Medidas de contenção já implementadas</label>
+                    <textarea id="n24Containment" rows="4" placeholder="Lista as ações já tomadas para conter o incidente (ex.: isolamento de sistemas, bloqueio de contas comprometidas, patches aplicados, etc.)"></textarea>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Medidas de recuperação previstas</label>
+                    <textarea id="n24Recovery" rows="3" placeholder="Plano de recuperação a curto prazo: restauro de backups, reinstalação de sistemas, etc."></textarea>
+                </div>
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>CSIRT / suporte externo ativado</label>
+                        <select id="n24ExternalSupport">
+                            <option value="no">Não</option>
+                            <option value="yes">Sim</option>
+                            <option value="planned">A contactar</option>
+                        </select>
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Backups disponíveis</label>
+                        <select id="n24BackupAvailable">
+                            <option value="yes">Sim — atualizados</option>
+                            <option value="partial">Parcialmente</option>
+                            <option value="no">Não</option>
+                            <option value="unknown">Desconhecido</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Notificação a outras autoridades</label>
+                    <textarea id="n24OtherAuthorities" rows="2" placeholder="Indica se foi notificada a CNPD (se dados pessoais envolvidos), Ministério Público, ou outras entidades."></textarea>
+                </div>
+            </div>
+        </div>
+
+        {{-- SECÇÃO 7 — Declaração e Assinatura --}}
+        <div class="cncs-step" id="n24Step7">
+            <div class="cncs-step-head" data-toggle="n24Step7">
+                <span class="cncs-step-num red">7</span>
+                <span class="cncs-step-title">Declaração e Assinatura</span>
+                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+            </div>
+            <div class="cncs-step-body">
+                <div class="urgency-banner">
+                    <div class="ub-icon">
+                        <i data-lucide="shield-alert" style="width:15px;height:15px;color:#f87171;"></i>
+                    </div>
+                    <div>
+                        <b>Declaração de veracidade</b><br>
+                        O declarante confirma que as informações prestadas são verdadeiras e completas ao melhor do seu conhecimento, e que a notificação é submetida dentro do prazo de 24h conforme exigido pelo Art. 23.º da Diretiva NIS2.
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Nome do declarante</label>
+                    <input id="n24SignerName" placeholder="Nome completo" />
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Cargo / Função</label>
+                    <input id="n24SignerRole" placeholder="Ex.: CISO, Diretor de TI, DPO" />
+                </div>
+                <div class="field-row">
+                    <div class="field-group urgent-field">
+                        <label>Data de submissão</label>
+                        <input type="date" id="n24SubmitDate" />
+                    </div>
+                    <div class="field-group urgent-field">
+                        <label>Hora de submissão</label>
+                        <input type="time" id="n24SubmitTime" />
+                    </div>
+                </div>
+                <div class="field-group urgent-field">
+                    <label>Notas adicionais</label>
+                    <textarea id="n24Notes" rows="3" placeholder="Qualquer informação adicional relevante para o CNCS."></textarea>
+                </div>
+
+                <div class="cncs-actions">
+                    <button id="btnPreview24h" class="btn">
+                        <i data-lucide="refresh-cw" style="width:14px;height:14px"></i>
+                        Atualizar prévia
+                    </button>
+                    <button id="btnExport24h" class="btn" style="background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3);">
+                        <i data-lucide="send" style="width:14px;height:14px"></i>
+                        Exportar PDF 24h
+                    </button>
+                </div>
+                <p class="field-hint">Exporta a notificação em PDF para envio ao CNCS via <a href="mailto:incidentes@cncs.gov.pt" style="color:#f87171;">incidentes@cncs.gov.pt</a></p>
+            </div>
+        </div>
+
+    </div>{{-- /form24h --}}
+
+    {{-- ════════════════════════════════════════════
+         COLUNA DIREITA — Pré-visualização (ANUAL)
+    ══════════════════════════════════════════════ --}}
+    <div id="previewAnnual" class="cncs-preview" style="display:block;">
 
         <div class="cncs-preview-topbar">
             <div class="cncs-preview-title">
@@ -1015,7 +1591,206 @@
             </p>
 
         </div>{{-- /cncs-preview-body --}}
-    </div>{{-- /cncs-preview --}}
+    </div>{{-- /previewAnnual --}}
+
+    {{-- ════════════════════════════════════════════
+         COLUNA DIREITA — Pré-visualização 24H
+    ══════════════════════════════════════════════ --}}
+    <div id="preview24h" class="cncs-preview" style="display:none;">
+
+        <div class="cncs-preview-topbar topbar-24h">
+            <div class="cncs-preview-title">
+                <h2 style="display:flex;align-items:center;gap:8px;">
+                    <i data-lucide="alarm-clock" style="width:15px;height:15px;color:#f87171;"></i>
+                    Notificação Inicial — 24 Horas
+                    <span class="badge-24h">URGENTE</span>
+                </h2>
+                <div class="cncs-preview-subtitle" id="pv24Subtitle">Preenche os dados e clica em Atualizar prévia</div>
+            </div>
+            <div class="kpi-row">
+                <span class="kpi-chip urgent">
+                    <i data-lucide="shield-alert" style="width:13px;height:13px"></i>
+                    Art. 23.º NIS2
+                </span>
+                <span class="kpi-chip urgent">
+                    <i data-lucide="clock" style="width:13px;height:13px"></i>
+                    Prazo: <b>24h</b>
+                </span>
+            </div>
+        </div>
+
+        <div class="cncs-preview-body">
+
+            {{-- Cabeçalho formal do relatório --}}
+            <div style="text-align:center;padding:10px 0 4px;">
+                <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px;">NOTIFICAÇÃO INICIAL DE INCIDENTE</div>
+                <div style="font-size:12px;color:var(--muted);">Alerta 24 Horas · CNCS — Centro Nacional de Cibersegurança</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Artigo 23.º, Diretiva (UE) 2022/2555 · D.L. n.º 125/2025</div>
+                <div style="display:inline-block;margin-top:8px;padding:4px 12px;border-radius:6px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);font-size:11px;color:#f87171;font-family:var(--font-mono);font-weight:700;">
+                    Confidencial — Uso exclusivo do CNCS
+                </div>
+            </div>
+
+            {{-- 1. Identificação --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">1 — Identificação da Entidade</div>
+                <div class="pv-two" style="gap:10px;">
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="building-2" style="width:11px;height:11px"></i> Entidade</div>
+                        <div class="tb-content" id="pv24Entity">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="hash" style="width:11px;height:11px"></i> NIF / NIPC</div>
+                        <div class="tb-content" id="pv24Nif">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="layers" style="width:11px;height:11px"></i> Setor</div>
+                        <div class="tb-content" id="pv24Sector">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="shield" style="width:11px;height:11px"></i> Tipo</div>
+                        <div class="tb-content" id="pv24EntityType">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="user" style="width:11px;height:11px"></i> Responsável / Contacto</div>
+                    <div class="tb-content" id="pv24Contact">—</div>
+                </div>
+            </div>
+
+            {{-- 2. Deteção --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">2 — Deteção do Incidente</div>
+                <div class="pv-stats-grid">
+                    <div class="pv-stat-box urgent-box">
+                        <div class="stat-label">Detetado em</div>
+                        <div class="stat-value" style="font-size:13px;font-weight:700;" id="pv24DetectedAt">—</div>
+                    </div>
+                    <div class="pv-stat-box urgent-box">
+                        <div class="stat-label">Início estimado</div>
+                        <div class="stat-value" style="font-size:13px;font-weight:700;" id="pv24StartedAt">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="search" style="width:11px;height:11px"></i> Método de deteção</div>
+                    <div class="tb-content" id="pv24DetectionMethod">—</div>
+                </div>
+            </div>
+
+            {{-- 3. Natureza --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">3 — Natureza do Incidente</div>
+                <div class="pv-two">
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="zap" style="width:11px;height:11px"></i> Tipo</div>
+                        <div class="tb-content" id="pv24IncidentType">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label"><i data-lucide="activity" style="width:11px;height:11px"></i> Estado</div>
+                        <div class="tb-content" id="pv24Status">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="file-text" style="width:11px;height:11px"></i> Descrição</div>
+                    <div class="tb-content" id="pv24Description">—</div>
+                </div>
+                <div class="pv-two" style="margin-top:8px;">
+                    <div class="pv-text-block">
+                        <div class="tb-label">Vetor suspeito</div>
+                        <div class="tb-content" id="pv24AttackVector">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label">Dados pessoais</div>
+                        <div class="tb-content" id="pv24PersonalData">—</div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- 4. Sistemas afetados --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">4 — Sistemas e Serviços Afetados</div>
+                <div class="pv-stats-grid" style="margin-bottom:8px;">
+                    <div class="pv-stat-box urgent-box">
+                        <div class="stat-label">Utilizadores</div>
+                        <div class="stat-value" id="pv24AffectedUsers">—</div>
+                    </div>
+                    <div class="pv-stat-box urgent-box">
+                        <div class="stat-label">Sistemas</div>
+                        <div class="stat-value" id="pv24AffectedSystems">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block">
+                    <div class="tb-label"><i data-lucide="server" style="width:11px;height:11px"></i> Sistemas / Serviços</div>
+                    <div class="tb-content" id="pv24Systems">—</div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="globe" style="width:11px;height:11px"></i> Impacto transfronteiriço</div>
+                    <div class="tb-content" id="pv24CrossBorder">—</div>
+                </div>
+            </div>
+
+            {{-- 5. Impacto --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">5 — Avaliação de Impacto</div>
+                <div class="pv-two">
+                    <div class="pv-text-block">
+                        <div class="tb-label">Severidade</div>
+                        <div class="tb-content" id="pv24Severity">—</div>
+                    </div>
+                    <div class="pv-text-block">
+                        <div class="tb-label">Impacto financeiro</div>
+                        <div class="tb-content" id="pv24Financial">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="alert-octagon" style="width:11px;height:11px"></i> Impacto operacional</div>
+                    <div class="tb-content" id="pv24OperationalImpact">—</div>
+                </div>
+            </div>
+
+            {{-- 6. Medidas --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">6 — Medidas Imediatas</div>
+                <div class="pv-text-block">
+                    <div class="tb-label"><i data-lucide="shield-check" style="width:11px;height:11px"></i> Contenção</div>
+                    <div class="tb-content" id="pv24Containment">—</div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="refresh-cw" style="width:11px;height:11px"></i> Recuperação planeada</div>
+                    <div class="tb-content" id="pv24Recovery">—</div>
+                </div>
+            </div>
+
+            {{-- 7. Declaração --}}
+            <div class="pv-section">
+                <div class="pv-section-label red-line">7 — Declaração e Assinatura</div>
+                <div class="pv-sign-grid">
+                    <div class="pv-sign-box" style="border-color:rgba(239,68,68,.2);">
+                        <div class="sb-label">Declarante</div>
+                        <div class="sb-value" id="pv24SignerName">—</div>
+                    </div>
+                    <div class="pv-sign-box" style="border-color:rgba(239,68,68,.2);">
+                        <div class="sb-label">Cargo</div>
+                        <div class="sb-value" id="pv24SignerRole">—</div>
+                    </div>
+                    <div class="pv-sign-box" style="border-color:rgba(239,68,68,.2);">
+                        <div class="sb-label">Data / Hora submissão</div>
+                        <div class="sb-value" id="pv24SubmitDateTime">—</div>
+                    </div>
+                </div>
+                <div class="pv-text-block" style="margin-top:8px;">
+                    <div class="tb-label"><i data-lucide="message-square" style="width:11px;height:11px"></i> Notas adicionais</div>
+                    <div class="tb-content" id="pv24Notes">—</div>
+                </div>
+            </div>
+
+            <p class="field-hint" style="text-align:center">
+                Formulário de notificação obrigatória conforme Art. 23.º da Diretiva NIS2 e D.L. n.º 125/2025.
+                Submeter ao CNCS via <a href="mailto:incidentes@cncs.gov.pt" style="color:#f87171;">incidentes@cncs.gov.pt</a>.
+            </p>
+
+        </div>
+    </div>{{-- /preview24h --}}
 
 </div>{{-- /cncs-root --}}
 

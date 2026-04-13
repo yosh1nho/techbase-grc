@@ -17,7 +17,7 @@ use App\Http\Controllers\DocumentGeneratorController;
 use App\Http\Controllers\DocumentAnalyserController;
 use App\Http\Controllers\RbacController;
 use Illuminate\Support\Facades\Hash;
-
+use App\Http\Middleware\CheckPermission;
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
     if (session()->has('tb_user')) {
@@ -95,19 +95,19 @@ Route::middleware('mock.auth')->group(function () {
 
     // ── Páginas ───────────────────────────────────────────────────────────────
     Route::get('/dashboard',      fn () => view('pages.dashboard'))->name('dashboard');
-    Route::get('/ativos',         fn () => view('pages.assets'))->name('assets');
-    Route::get('/documentos',     fn () => view('pages.docs'))->name('docs');
-    Route::get('/avaliacoes',     fn () => view('pages.assessments'))->name('assessments');
-    Route::get('/riscos',         fn () => view('pages.risks'))->name('risks');
-    Route::get('/tratamento',     fn () => view('pages.treatment'))->name('treatment');
-    Route::get('/questionario',   fn () => view('pages.questionnaire'))->name('questionnaire');
-    Route::get('/chat',           fn () => view('pages.chat'))->name('chat');
-    Route::get('/auditoria',      fn () => view('pages.audit'))->name('audit');
-    Route::get('/admin/rbac',     fn () => view('pages.rbac'))->name('rbac');
+    Route::get('/ativos',         fn () => view('pages.assets'))->name('assets')->middleware(CheckPermission::class.':assets.view');
+    Route::get('/documentos',     fn () => view('pages.docs'))->name('docs')->middleware(CheckPermission::class.':docs.view');
+    Route::get('/avaliacoes',     fn () => view('pages.assessments'))->name('assessments')->middleware(CheckPermission::class.':assessments.view');
+    Route::get('/riscos',         fn () => view('pages.risks'))->name('risks')->middleware(CheckPermission::class.':risk.view');
+    Route::get('/tratamento',     fn () => view('pages.treatment'))->name('treatment')->middleware(CheckPermission::class.':treatment.view');
+    Route::get('/questionario',   fn () => view('pages.questionnaire'))->name('questionnaire')->middleware(CheckPermission::class.':questionnaire.view');
+    Route::get('/chat',           fn () => view('pages.chat'))->name('chat')->middleware(CheckPermission::class.':chat.use');
+    Route::get('/auditoria',      fn () => view('pages.audit'))->name('audit')->middleware(CheckPermission::class.':audit.view');
+    Route::get('/admin/rbac',     fn () => view('pages.rbac'))->name('rbac')->middleware(CheckPermission::class.':rbac.manage');
     Route::get('/relatorios-cncs',fn () => view('pages.reports-cncs'))->name('relatorios-cncs');
 
     // ── Ativos ────────────────────────────────────────────────────────────────
-    Route::get('/api/assets',               [AssetController::class, 'index']);
+    Route::get('/api/assets',               [AssetController::class, 'index'])->middleware(CheckPermission::class.':assets.view');
     Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis'])->middleware(CheckPermission::class.':assets.sync');
     Route::post('/api/assets',              [AssetController::class, 'store'])->middleware(CheckPermission::class.':assets.create');
     Route::get('/api/asset-tags',                          [AssetController::class, 'tags'])->middleware(CheckPermission::class.':assets.view');
@@ -118,10 +118,10 @@ Route::middleware('mock.auth')->group(function () {
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 
     // ── Riscos ────────────────────────────────────────────────────────────────
-    Route::get('/api/risks',              [RiskController::class, 'index']);
-    Route::post('/api/risks',             [RiskController::class, 'store']);
-    Route::put('/api/risks/{id}',         [RiskController::class, 'update']);
-    Route::delete('/api/risks/{id}',      [RiskController::class, 'destroy']);
+    Route::get('/api/risks',              [RiskController::class, 'index'])->middleware(CheckPermission::class.':risk.view');
+    Route::post('/api/risks',             [RiskController::class, 'store'])->middleware(CheckPermission::class.':risk.create');
+    Route::put('/api/risks/{id}',         [RiskController::class, 'update'])->middleware(CheckPermission::class.':risk.edit');
+    Route::delete('/api/risks/{id}',      [RiskController::class, 'destroy'])->middleware(CheckPermission::class.':risk.edit');
 
     // ── Planos de tratamento ──────────────────────────────────────────────────
     Route::get('/api/treatment-plans',         [TreatmentPlanController::class, 'index']);
@@ -152,17 +152,17 @@ Route::middleware('mock.auth')->group(function () {
     // POST /api/documents/{id}/approve   → aprovar + dispara ingest
     // POST /api/documents/{id}/reject    → rejeitar
     // GET  /api/documents/{id}/download  → download do ficheiro
-    Route::get('/api/documents',                      [DocumentController::class, 'index']);
-    Route::post('/api/documents/upload',              [DocumentController::class, 'upload']);
-    Route::post('/api/documents/{id}/approve',        [DocumentController::class, 'approve']);
-    Route::post('/api/documents/{id}/reject',         [DocumentController::class, 'reject']);
-    Route::post('/api/documents/{id}/obsolete',       [DocumentController::class, 'obsolete']);
-    Route::get('/api/documents/{id}/preview', [DocumentController::class, 'preview']);
-    Route::get('/api/documents/{id}/download',        [DocumentController::class, 'download']);
-    Route::post('/api/documents/{id}/delete', [DocumentController::class, 'delete']);
-    Route::post('/api/documents/{id}/re-upload',           [DocumentController::class, 'reUpload']);
-    Route::get('/api/document-generator/templates', [DocumentGeneratorController::class, 'templates']);
-    Route::post('/api/document-generator/generate',  [DocumentGeneratorController::class, 'generate']);
+    Route::get('/api/documents',                      [DocumentController::class, 'index'])->middleware(CheckPermission::class.':docs.view');
+    Route::post('/api/documents/upload',              [DocumentController::class, 'upload'])->middleware(CheckPermission::class.':docs.upload');
+    Route::post('/api/documents/{id}/approve',        [DocumentController::class, 'approve'])->middleware(CheckPermission::class.':docs.approve_links');
+    Route::post('/api/documents/{id}/reject',         [DocumentController::class, 'reject'])->middleware(CheckPermission::class.':docs.approve_links');
+    Route::post('/api/documents/{id}/obsolete',       [DocumentController::class, 'obsolete'])->middleware(CheckPermission::class.':frameworks.edit');
+    Route::get('/api/documents/{id}/preview', [DocumentController::class, 'preview'])->middleware(CheckPermission::class.':docs.view');
+    Route::get('/api/documents/{id}/download',        [DocumentController::class, 'download'])->middleware(CheckPermission::class.':docs.view');
+    Route::post('/api/documents/{id}/delete', [DocumentController::class, 'delete'])->middleware(CheckPermission::class.':docs.edit');
+    Route::post('/api/documents/{id}/re-upload',           [DocumentController::class, 'reUpload'])->middleware(CheckPermission::class.':docs.upload');
+    Route::get('/api/document-generator/templates', [DocumentGeneratorController::class, 'templates'])->middleware(CheckPermission::class.':docs.view');
+    Route::post('/api/document-generator/generate',  [DocumentGeneratorController::class, 'generate'])->middleware(CheckPermission::class.':docs.view');
  
     
     
@@ -192,35 +192,35 @@ Route::middleware('mock.auth')->group(function () {
 
     //COMPLIANCE
     // ── Nova página ───────────────────────────────────────────────────────────────
-    Route::get('/compliance', fn () => view('pages.compliance'))->name('compliance');
+    Route::get('/compliance', fn () => view('pages.compliance'))->name('compliance')->middleware(CheckPermission::class.':compliance.view');
 
-    Route::get('/api/compliance', [ComplianceController::class, 'index']);
+    Route::get('/api/compliance', [ComplianceController::class, 'index'])->middleware(CheckPermission::class.':compliance.view');
 
     // KPIs para o dashboard (leve, sem estrutura de grupos/controlos)
     // GET /api/compliance/summary
-    Route::get('/api/compliance/summary', [ComplianceController::class, 'summary']);
+    Route::get('/api/compliance/summary', [ComplianceController::class, 'summary'])->middleware(CheckPermission::class.':compliance.view');
 
     // Avaliar um controlo (criar/actualizar assessment)
     // POST /api/compliance/assess
     // Body: { control_id, status, notes?, evidence_link? }
-    Route::post('/api/compliance/assess', [ComplianceController::class, 'assess']);
+    Route::post('/api/compliance/assess', [ComplianceController::class, 'assess'])->middleware(CheckPermission::class.':compliance.manage');
 
     // Histórico de avaliações de um controlo
     // GET /api/compliance/{controlId}/history
-    Route::get('/api/compliance/{controlId}/history', [ComplianceController::class, 'history']);
+    Route::get('/api/compliance/{controlId}/history', [ComplianceController::class, 'history'])->middleware(CheckPermission::class.':compliance.view');
 
     // Listar documentos de evidência ligados a um controlo
     // GET /api/compliance/{controlId}/evidences
-    Route::get('/api/compliance/{controlId}/evidences', [ComplianceController::class, 'evidences']);
+    Route::get('/api/compliance/{controlId}/evidences', [ComplianceController::class, 'evidences'])->middleware(CheckPermission::class.':compliance.view');
 
     // Ligar um documento a um controlo como evidência
     // POST /api/compliance/{controlId}/link-doc
     // Body: { doc_id }
-    Route::post('/api/compliance/{controlId}/link-doc', [ComplianceController::class, 'linkDoc']);
+    Route::post('/api/compliance/{controlId}/link-doc', [ComplianceController::class, 'linkDoc'])->middleware(CheckPermission::class.':compliance.manage');
 
     // Remover ligação documento ↔ controlo
     // DELETE /api/compliance/{controlId}/link-doc/{docId}
-    Route::delete('/api/compliance/{controlId}/link-doc/{docId}', [ComplianceController::class, 'unlinkDoc']);
+    Route::delete('/api/compliance/{controlId}/link-doc/{docId}', [ComplianceController::class, 'unlinkDoc'])->middleware(CheckPermission::class.':compliance.manage');
 
 
     //Dashboard ───────────────────────────────────────────────

@@ -10,9 +10,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
    
-   <script>
+    <script>
         // Passa o array de permissões da sessão do Laravel para uma variável global JS
         window.TB_PERMISSIONS = @json(session('tb_user.permissions', []));
+        
+        // Passa os dados do utilizador logado (nome, email, etc)
+        window.TB_USER = @json(session('tb_user', ['name' => 'Utilizador']));
     </script>
     @stack('styles') 
     {{-- Mock CSS inline (depois podes migrar para Vite/Tailwind) --}}
@@ -1184,11 +1187,11 @@
             ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3', 'perm' => 'docs.view'],
             ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6', 'perm' => 'assessments.view'],
             ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9', 'perm' => 'risk.view'],
-            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11', 'perm' => 'risk.plan.manage'],
-            ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13', 'perm' => 'assessments.view'],
+            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11', 'perm' => 'treatment.view'],
+            ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13', 'perm' => 'questionnaire.view'],
             ['route' => 'chat', 'label' => 'Chat de Governação', 'badge' => 'RF14–RF15', 'perm' => 'chat.use'],
             ['route' => 'audit', 'label' => 'Auditoria', 'badge' => 'RNF5', 'perm' => 'audit.view'],
-            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'], // O NOSSO ECRÃ!
+            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'], 
             ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'badge' => 'RF20', 'perm' => 'compliance.view'],
         ];
     @endphp

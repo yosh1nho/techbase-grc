@@ -8,13 +8,41 @@
     root.dataset.init = '1';
 
     // ──────────────────────────────────────────────────────────
-    // Mock data
     // ──────────────────────────────────────────────────────────
-    const ASSETS = [
-      { id: 'A1', name: 'SRV-DB-01', subtitle: 'PostgreSQL • Produção',  type: 'Servidor',   owner: 'TI • João',      icon: '🖥' },
-      { id: 'A2', name: 'APP-GRC',   subtitle: 'Laravel • Web',           type: 'Aplicação',  owner: 'SecOps • Ana',   icon: '🌐' },
-      { id: 'A3', name: 'FW-EDGE',   subtitle: 'Firewall • Perímetro',    type: 'Rede',       owner: 'NetOps • Rui',   icon: '🔒' },
-    ];
+    // Data
+    // ──────────────────────────────────────────────────────────
+    let ASSETS = [];
+
+    async function loadAssets() {
+      try {
+        const res = await fetch('/api/assets');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const getIcon = (type) => {
+          const t = String(type || '').toLowerCase();
+          if (t.includes('servidor') || t.includes('server') || t.includes('host') || t.includes('vm')) return '<i data-lucide="server"></i>';
+          if (t.includes('rede') || t.includes('network') || t.includes('fw') || t.includes('router')) return '<i data-lucide="shield"></i>';
+          if (t.includes('app') || t.includes('web')) return '<i data-lucide="globe"></i>';
+          if (t.includes('bd') || t.includes('db') || t.includes('database')) return '<i data-lucide="database"></i>';
+          return '<i data-lucide="box"></i>';
+        };
+
+        ASSETS = data.map(a => ({
+          id: String(a.id_asset),
+          name: a.display_name || a.hostname || 'Ativo Desconhecido',
+          subtitle: `${a.type || 'Desconhecido'} • ${a.ip || 'Sem IP'}`,
+          type: a.type || 'Desconhecido',
+          owner: a.source === 'acronis' ? 'Acronis Sync' : 'Manual',
+          icon: getIcon(a.type)
+        }));
+      } catch (err) {
+        console.error('Erro a carregar ativos:', err);
+      }
+    }
+    
+    // Iniciar o carregamento
+    loadAssets();
 
     const HISTORY = [
       {
@@ -135,6 +163,7 @@
           </div>
         </button>`).join('');
       dd.style.display = 'block';
+      if (window.lucide) window.lucide.createIcons();
 
       dd.querySelectorAll('[data-asset-id]').forEach(b => {
         b.addEventListener('click', () => {
