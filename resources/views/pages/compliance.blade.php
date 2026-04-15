@@ -176,90 +176,13 @@
 </div>
 
 
-{{-- CSS local --}}
-<style>
-  /* Status radio customizado */
-  .status-radio input[type="radio"] { display:none }
-  .status-radio input[type="radio"]:checked + span {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-  }
+@push('styles')
+@vite(['resources/css/pages/compliance.css'])
+@endpush
 
-  /* Grupo expansível */
-  .cpl-group {
-    border: 1px solid var(--border, rgba(255,255,255,.1));
-    border-radius: 14px;
-    margin-bottom: 10px;
-    overflow: hidden;
-  }
-  .cpl-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 16px;
-    cursor: pointer;
-    user-select: none;
-    transition: background .15s;
-  }
-  .cpl-group-header:hover { background: rgba(255,255,255,.03) }
-  .cpl-group-body { display: none; border-top: 1px solid var(--border, rgba(255,255,255,.08)) }
-  .cpl-group-body.open { display: block }
-
-  /* Linha de controlo */
-  .cpl-control-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    cursor: pointer;
-    transition: background .12s;
-  }
-  .cpl-control-row:last-child { border-bottom: none }
-  .cpl-control-row:hover { background: rgba(255,255,255,.03) }
-
-  .cpl-status-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .dot-compliant    { background: #34d399 }
-  .dot-partial      { background: #fbbf24 }
-  .dot-non_compliant{ background: #f87171 }
-  .dot-none         { background: rgba(255,255,255,.2) }
-
-  /* Mini barra de progresso no header do grupo */
-  .cpl-mini-bar {
-    height: 6px; border-radius: 999px;
-    background: rgba(255,255,255,.08);
-    overflow: hidden; width: 80px; flex-shrink:0;
-  }
-  .cpl-mini-bar-fill {
-    height: 100%; border-radius: 999px;
-    background: linear-gradient(90deg,#34d399,#10b981);
-    transition: width .4s;
-  }
-
-  /* Framework header */
-  .cpl-fw-header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 0 10px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border, rgba(255,255,255,.1));
-  }
-
-  /* Tag de status */
-  .tag.bad  { background: rgba(248,113,113,.12); color:#f87171; border-color:rgba(248,113,113,.25) }
-
-  .kpi-clickable:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,.25);
-  }
-</style>
 
 @push('scripts')
-  @vite(['resources/js/pages/compliance.js'])
+@vite(['resources/js/pages/compliance.js'])
 @endpush
 
 @endsection
