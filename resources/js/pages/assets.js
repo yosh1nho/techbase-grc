@@ -91,27 +91,59 @@
             diffChipEl.innerHTML = `Divergência: <b>${declaredStatus}</b> vs <b>${suggested}</b>`;
         }
     }
+    let AVAILABLE_DOCS = [];
+    let ALL_DB_TAGS = [];
 
+    async function loadDbTags() {
+        try {
+            const r = await fetch('/api/asset-tags', { headers: { Accept: 'application/json' } });
+            if (r.ok) {
+                ALL_DB_TAGS = await r.json();
 
-    // ========= control catalog (mock) =========
-    const CONTROL_CATALOG = {
-        "ID.GA-1": {
-            title: "Inventário de ativos",
-            desc: "Manter inventário atualizado com dono, criticidade, periodicidade e evidências."
-        },
-        "PR.IP-4": {
-            title: "Backups (testados)",
-            desc: "Executar e testar backups; manter relatórios e evidência de restauração."
-        },
-        "ID.AR-1": {
-            title: "Análise de risco",
-            desc: "Realizar avaliação de risco formal e manter histórico e revisões."
-        },
-        "PR.AC-1": {
-            title: "Controlo de acesso",
-            desc: "Gestão de acessos, mínimo privilégio, revisão periódica e evidências."
+                // Preencher o filtro da tabela com as tags disponíveis!
+                const filterSelect = $("#tagFilter");
+                if (filterSelect) {
+                    filterSelect.innerHTML = '<option value="all">Tag (Todas)</option>' +
+                        ALL_DB_TAGS.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+                }
+            }
+        } catch (e) { console.error("Erro a carregar lista global de tags:", e); }
+    }
+
+    async function loadDocumentsData() {
+        const list = $('#acEvidenceList');
+        try {
+            const r = await fetch('/api/documents', { headers: { Accept: 'application/json' } });
+            if (!r.ok) throw new Error("Erro na API: " + r.status);
+            const res = await r.json();
+
+            AVAILABLE_DOCS = res.data || res;
+            if (!Array.isArray(AVAILABLE_DOCS)) AVAILABLE_DOCS = [];
+
+            renderEvidenceSelector();
+        } catch (e) {
+            console.error("Erro a carregar documentos:", e);
+            if (list) list.innerHTML = `<div style="color:var(--bad);font-size:12px;padding:8px;">Erro de conexão ao carregar ficheiros.</div>`;
         }
-    };
+    }
+
+    function renderEvidenceSelector() {
+        const list = $('#acEvidenceList');
+        if (!list) return;
+        if (!AVAILABLE_DOCS.length) {
+            list.innerHTML = `<div class="muted" style="font-size:12px;">Nenhum documento disponível.</div>`;
+            return;
+        }
+        list.innerHTML = AVAILABLE_DOCS.map(d => `
+        <label class="evi" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; padding: 8px; border: 1px solid var(--modal-border); border-radius: 6px; margin-bottom: 4px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" value="${d.title || d.file_name}" class="ac-doc-checkbox" />
+                <span class="chip" style="font-size:11px;">${d.title || d.original_name || d.file_name}</span>
+            </div>
+            <span class="muted" style="font-size:10px;">${d.status === 'approved' ? 'Aprovado' : 'Pendente'}</span>
+        </label>
+    `).join('');
+    }
 
     // ========= IA mock (sugestão de status + confiança + justificativa) =========
     function mockAiSuggest(assetDesc, controlKey) {
@@ -166,85 +198,7 @@
 
     // ========= assets (mock state) =========
     // statuses: GAP | PARTIAL | COVERED
-    let assets = [
-        {
-            id: "A1",
-            name: "SRV-DB-01",
-            subtitle: "PostgreSQL • Produção",
-            type: "Servidor",
-            criticity: "Crítico",
-            source: "acronis",
-            owner: "TI • João",
-            createdBy: "acronis-sync",
-            ip: "192.168.10.5",
-            mac_address: "00:1B:44:05:0F:23",
-            hostname: "SRV-DB01",
-            domain: "WORKGROUP",
-            os_platform: "linux",
-            os_Name: "Ubuntu 22.04 LTS",
-            os_Version: "22.04",
-            os_arch: "x86_64",
-            os_build: "jammy",
-            os_patch_level: "2026-02",
-            agent_status: "online",
-            agent_version: "Acronis Agent 15.2",
-            agent_last_seen: "2026-03-12T10:22:00Z",
-            backup_enabled: true,
-            antimalware_enabled: true,
-            patch_mgmt_enabled: false,
-            acronis_synced_at: "2026-03-12T10:22:00Z",
-            notes: "Servidor de base de dados de produção. Monitorizado por Wazuh.",
-            prob: 4,
-            impact: 4,
-            controls: [
-                { key: "ID.GA-1", status: "PARTIAL", confidence: 0.72, note: "Inventário existe, mas sem periodicidade formal.", evidences: ["Procedimento Inventário v1.0"] },
-                { key: "PR.IP-4", status: "GAP", confidence: 0.55, note: "Backups sem evidência de testes.", evidences: ["Relatório Backups (Jan)"] }
-            ],
-            risks: [
-                { id: "R-12", title: "Servidor exposto sem hardening", severity: "Alto", status: "Aberto", lastSeen: "2026-02-18" }
-            ],
-            treatments: [
-                { id: "TP-7", riskId: "R-12", title: "Aplicar CIS baseline + validar portas", status: "Em progresso", owner: "SecOps • Ana", due: "2026-03-10" }
-            ]
-        },
-
-        {
-            id: "A2",
-            name: "APP-GRC",
-            subtitle: "Laravel • Web",
-            type: "Aplicação",
-            criticity: "Alto",
-            source: "manual",
-            owner: "SecOps • Ana",
-            createdBy: "ana",
-            ip: "",
-            mac_address: "",
-            hostname: "",
-            domain: "",
-            os_platform: "",
-            os_Name: "",
-            os_Version: "",
-            os_arch: "",
-            os_build: "",
-            os_patch_level: "",
-            agent_status: "",
-            agent_version: "",
-            agent_last_seen: "",
-            backup_enabled: null,
-            antimalware_enabled: null,
-            patch_mgmt_enabled: null,
-            acronis_synced_at: null,
-            notes: "Aplicação de governança. Evidências e controlos centralizados.",
-            prob: 3,
-            impact: 2,
-            controls: [
-                { key: "PR.AC-1", status: "PARTIAL", confidence: 0.61, note: "Existe login, mas falta revisão periódica.", evidences: [] },
-                { key: "ID.AR-1", status: "COVERED", confidence: 0.82, note: "Há processo de risco e registos.", evidences: ["Matriz de Risco v2026"] }
-            ],
-            risks: [],
-            treatments: []
-        }
-    ];
+    let assets = [];
 
 
     // Create/edit modal working state
@@ -388,20 +342,28 @@
     }
 
     function globalKpis(filteredAssets) {
-        const totalAssets = filteredAssets.length;
-        let gap = 0, partial = 0, covered = 0;
+        if (!filteredAssets) return;
 
-        filteredAssets.forEach((a) => {
-            const s = summarizeControls(a);
-            gap += s.gap;
-            partial += s.partial;
-            covered += s.covered;
-        });
+        const total = filteredAssets.length;
+        const wazuhCount = filteredAssets.filter(a => a.source === 'wazuh').length;
 
-        $("#kpiAssets").textContent = String(totalAssets);
-        $("#kpiGap").textContent = String(gap);
-        $("#kpiPartial").textContent = String(partial);
-        $("#kpiCovered").textContent = String(covered);
+        // Verifica criticidade alta/crítica (suporta os dados da BD e os mocks em PT)
+        const highRiskCount = filteredAssets.filter(a =>
+            ['high', 'critical', 'Alto', 'Crítico'].includes(a.criticality) ||
+            ['high', 'critical', 'Alto', 'Crítico'].includes(a.criticity)
+        ).length;
+
+        // Conta os ativos do Wazuh cujo agente não está ativo/online
+        const offlineCount = filteredAssets.filter(a => {
+            if (a.source !== 'wazuh') return false;
+            const st = (a.agent_status || '').toLowerCase();
+            return st !== 'active' && st !== 'online';
+        }).length;
+
+        if ($("#kpiTotal")) $("#kpiTotal").textContent = total;
+        if ($("#kpiWazuh")) $("#kpiWazuh").textContent = wazuhCount;
+        if ($("#kpiHighRisk")) $("#kpiHighRisk").textContent = highRiskCount;
+        if ($("#kpiOffline")) $("#kpiOffline").textContent = offlineCount;
     }
 
     // ========= render table =========
@@ -433,7 +395,7 @@
         const q = normalize($("#assetSearch").value);
         const crit = $("#critFilter").value;
         const type = $("#typeFilter").value;
-        const st = $("#controlStatusFilter").value;
+        const tag = $("#tagFilter")?.value || "all";
         const src = $("#sourceFilter")?.value || "all";
 
         return assets.filter((a) => {
@@ -442,15 +404,21 @@
             const matchesCrit = crit === "all" || a.criticity === crit;
             const matchesType = type === "all" || a.type === type;
             const matchesSrc = src === "all" || (a.source || "manual") === src;
-            let matchesControl = true;
-            if (st !== "all") {
-                if (!a.controls || a.controls.length === 0) {
-                    matchesControl = true;
+
+            // Nova lógica de pesquisa por Tag
+            let matchesTag = true;
+            if (tag !== "all") {
+                if (!a.tags || a.tags.length === 0) {
+                    matchesTag = false;
                 } else {
-                    matchesControl = a.controls.some((c) => c.declaredStatus === st);
+                    matchesTag = a.tags.some(t => {
+                        const tName = typeof t === 'object' ? t.name : String(t);
+                        return tName.toLowerCase() === tag.toLowerCase();
+                    });
                 }
             }
-            return matchesQ && matchesCrit && matchesType && matchesSrc && matchesControl;
+
+            return matchesQ && matchesCrit && matchesType && matchesSrc && matchesTag;
         });
     }
 
@@ -484,8 +452,8 @@
                 if (!tagsHtml.trim()) tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
             }
 
-            const sourceClass = a.source === 'acronis' ? 'src-acronis' : 'src-manual';
-            const sourceLbl = a.source === 'acronis' ? 'Acronis' : 'Manual';
+            const sourceClass = a.source === 'wazuh' ? 'src-wazuh' : 'src-manual';
+            const sourceLbl = a.source === 'wazuh' ? 'Wazuh' : 'Manual';
 
             tr.innerHTML = `
       <td>
@@ -500,8 +468,21 @@
         <span style="font-weight:600;color:${cls.cellClass === 'high' || cls.cellClass === 'vhigh' ? 'var(--bad)' : cls.cellClass === 'med' ? 'var(--warn)' : 'var(--ok)'}">${cls.label}</span>
         <div class="asset-sub">P=${a.prob} × I=${a.impact} = ${score}</div>
       </td>
-      <td>${complianceTag(a)}</td>
-      <td>
+<td>
+          ${a.source === 'wazuh'
+                    ? (['active', 'online'].includes((a.agent_status || '').toLowerCase())
+                        ? `<div style="display:flex; align-items:center; gap:6px;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--ok); box-shadow: 0 0 6px var(--ok);"></span>
+                        <span style="font-size:12px; font-weight:500;">Online</span>
+                     </div>`
+                        : `<div style="display:flex; align-items:center; gap:6px;">
+                        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:var(--bad);"></span>
+                        <span style="font-size:12px; font-weight:500; color:var(--muted);">Offline</span>
+                     </div>`)
+                    : `<span class="muted" style="font-size:11px;">Não aplicável</span>`
+                }
+      </td>
+    <td style="text-align:right;">
         <button class="btn-ghost btn-sm" type="button" data-open-asset="${a.id}">Ver detalhes</button>
       </td>
     `;
@@ -553,7 +534,7 @@
 
                     subtitle: a.os_name || "Unknown OS",
 
-                    type: type,
+                    type: a.type || "Endpoint",
                     criticality: a.criticality || a.status || "medium",
                     tags: a.tags || [],
                     criticity: mapCriticality(a.criticality || a.status),
@@ -597,172 +578,7 @@
 
     }
 
-    // ========= details modal =========
-    function renderControlsList(asset) {
-        const wrap = $("#assetControlsList");
-        wrap.innerHTML = "";
 
-        if (!asset.controls.length) {
-            wrap.innerHTML = `<div class="muted">Nenhum controlo associado ainda.</div>`;
-            return;
-        }
-
-        asset.controls.forEach((c, idx) => {
-            const meta = CONTROL_CATALOG[c.key] || { title: "—", desc: "" };
-
-            const statusClass =
-                c.declaredStatus === "GAP" ? "st-gap" :
-                    c.declaredStatus === "PARTIAL" ? "st-partial" :
-                        "st-covered";
-
-            const sug = iaStatusFromConfidence(Number(c.confidence ?? 0));
-            const diff = (c.declaredStatus !== sug);
-            const sugClass = (sug === "COVERED" ? "ok" : (sug === "PARTIAL" ? "warn" : "bad"));
-
-            const evidences = (c.evidences || []).map(e => `<span class="chip">${e}</span>`).join(" ");
-
-            const row = document.createElement("div");
-            row.className = "control-row";
-            row.innerHTML = `
-        <div class="control-left">
-          <div class="control-title">
-            <span class="control-code">${c.key}</span>
-            <span class="status-pill ${statusClass}">${c.declaredStatus}</span>
-            <span class="chip">Confiança: <b>${(c.confidence ?? 0).toFixed(2)}</b></span>
-            <span class="chip ${sugClass}">IA: <b>${sug}</b></span>
-            ${diff ? `<span class="chip warn">Revisão</span>` : ``}
-            <span class="chip ${sugClass}">IA: <b>${sug}</b></span>
-            ${diff ? `<span class="chip warn">Revisão</span>` : ``}
-          </div>
-
-          <div class="muted"><b>${meta.title}</b> — ${meta.desc}</div>
-
-          <div class="muted" style="margin-top:6px">
-            Nota: ${c.note ? c.note : "—"}
-          </div>
-
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px">
-            ${evidences ? `<div style="display:flex; gap:8px; flex-wrap:wrap">${evidences}</div>` : `<span class="muted">Sem evidências ligadas.</span>`}
-          </div>
-        </div>
-
-        <div class="control-actions">
-          <select class="mini" data-set-status="${asset.id}:${idx}" ${canOverrideStatus() ? "" : "disabled title='Somente GRC/Admin pode alterar status'"}>
-            <option value="GAP" ${c.declaredStatus === "GAP" ? "selected" : ""}>GAP</option>
-            <option value="PARTIAL" ${c.declaredStatus === "PARTIAL" ? "selected" : ""}>PARTIAL</option>
-            <option value="COVERED" ${c.declaredStatus === "COVERED" ? "selected" : ""}>COVERED</option>
-          </select>
-          <button class="btn mini" type="button" data-edit-control="${asset.id}:${idx}">Editar nota</button>
-          <button class="btn mini" type="button" data-add-evidence="${asset.id}:${idx}">+ Evidência</button>
-          <button class="btn warn mini" type="button" data-remove-control="${asset.id}:${idx}">Remover</button>
-        </div>
-      `;
-            wrap.appendChild(row);
-        });
-
-        // handlers
-        $$("[data-set-status]").forEach((sel) => {
-            sel.addEventListener("change", () => {
-                const [assetId, idxStr] = sel.dataset.setStatus.split(":");
-                const a = assets.find(x => x.id === assetId);
-                const idx = Number(idxStr);
-                a.controls[idx].declaredStatus = sel.value;
-                const ai = mockAiSuggest(a.notes || a.name, a.controls[idx].key);
-                a.controls[idx].aiSuggestedStatus = ai.suggestedStatus;
-                a.controls[idx].aiConfidence = ai.confidence;
-                a.controls[idx].aiJustification = ai.justification;
-                renderAssetsTable();         // update summary
-                renderControlsList(a);       // keep consistent
-                renderAiSuggestions(a);
-            });
-        });
-
-        $$("[data-edit-control]").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const [assetId, idxStr] = btn.dataset.editControl.split(":");
-                const a = assets.find(x => x.id === assetId);
-                const idx = Number(idxStr);
-
-                const current = a.controls[idx].note || "";
-                const next = prompt("Editar nota/justificação (mock):", current);
-                if (next === null) return;
-                a.controls[idx].note = next.trim();
-                renderControlsList(a);
-                renderAiSuggestions(a);
-            });
-        });
-
-        $$("[data-add-evidence]").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const [assetId, idxStr] = btn.dataset.addEvidence.split(":");
-                const a = assets.find(x => x.id === assetId);
-                const idx = Number(idxStr);
-
-                const ev = prompt("Nome da evidência (mock):", "Procedimento Inventário v1.0");
-                if (!ev) return;
-
-                a.controls[idx].evidences = a.controls[idx].evidences || [];
-                a.controls[idx].evidences.push(ev.trim());
-                renderControlsList(a);
-            });
-        });
-
-        $$("[data-remove-control]").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const [assetId, idxStr] = btn.dataset.removeControl.split(":");
-                const a = assets.find(x => x.id === assetId);
-                const idx = Number(idxStr);
-
-                a.controls.splice(idx, 1);
-                renderAssetsTable();
-                renderControlsList(a);
-                renderAiSuggestions(a);
-            });
-        });
-    }
-
-    function renderAiSuggestions(asset) {
-        const box = $("#aiSuggestions");
-        box.innerHTML = "";
-
-        // heurística simples (mock):
-        // se status = GAP => "Falta evidência / processo"
-        // se PARTIAL => "Melhorar evidência / periodicidade"
-        // se COVERED => "Ok"
-        asset.controls.forEach((c) => {
-            const meta = CONTROL_CATALOG[c.key] || { title: "—", desc: "" };
-
-            let badge = "OK";
-            let text = "Parece alinhado com o controlo.";
-            if (c.declaredStatus === "GAP") {
-                badge = "LACUNA";
-                text = "O ativo menciona o tema, mas não há evidência/procedimento suficiente. Sugestão: criar evidência e ligar documento.";
-            } else if (c.declaredStatus === "PARTIAL") {
-                badge = "MELHORAR";
-                text = "Há sinais de implementação, mas falta completar requisitos (ex.: periodicidade, dono, teste/relatório).";
-            }
-
-            const item = document.createElement("div");
-            item.className = "ai-item";
-            item.innerHTML = `
-        <div class="top">
-          <div>
-            <div class="title">${c.key} — ${meta.title}</div>
-            <div class="desc">${text}</div>
-          </div>
-          <span class="badg">${badge}</span>
-        </div>
-        <div class="muted" style="margin-top:8px">
-          Confiança (mock): <b>${(c.confidence ?? 0).toFixed(2)}</b> • Status atual: <b>${c.declaredStatus}</b>
-        </div>
-      `;
-            box.appendChild(item);
-        });
-
-        if (!asset.controls.length) {
-            box.innerHTML = `<div class="muted">Sem controlos associados — a IA ainda não tem base para sugerir melhorias.</div>`;
-        }
-    }
     function renderRiskTreat(asset) {
         const wrap = $("#assetRiskTreatList");
         if (!wrap) return;
@@ -804,7 +620,70 @@
     }
 
     function setTxt(id, val) { const el = $(id); if (el) el.textContent = val || "—"; }
+    // ========= ANÁLISE DE POSTURA IA =========
+    async function loadAssetAnalyses(assetId) {
+        const box = $("#aiAnalysisHistory");
+        if (!box) return;
 
+        box.innerHTML = `<div class="spinner" style="margin:20px auto;width:24px;height:24px;border:3px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>`;
+
+        try {
+            const res = await fetch(`/api/assets/${assetId}/analyses`);
+            const data = await res.json();
+
+            if (!data || data.length === 0) {
+                box.innerHTML = `<div class="muted" style="font-size:13px; text-align:center; padding:30px; border: 1px dashed var(--modal-border); border-radius:12px;">Nenhuma análise efetuada para este ativo. Clica no botão acima para gerar o primeiro relatório.</div>`;
+                return;
+            }
+
+            box.innerHTML = data.map((an, index) => `
+                <details class="ai-history-card" ${index === 0 ? 'open' : ''} style="background:rgba(255,255,255,0.02); border:1px solid var(--modal-border); border-radius:12px; margin-bottom:10px;">
+                    <summary style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; cursor:pointer; user-select:none; outline:none;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <svg class="ai-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted); transition:transform 0.2s;"><path d="m6 9 6 6 6-6"/></svg>
+                            <span style="font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase;">Análise de Postura</span>
+                        </div>
+                        <span style="font-size:11px; color:var(--muted); font-family:var(--font-mono,monospace);">${new Date(an.created_at).toLocaleString('pt-PT')}</span>
+                    </summary>
+                    <div style="padding: 0 16px 16px 16px; font-size:13px; color:var(--text); line-height:1.6; border-top: 1px solid var(--modal-border); margin-top:4px; padding-top:12px;">
+                        ${an.analysis_text}
+                    </div>
+                </details>
+            `).join('');
+
+        } catch (e) {
+            box.innerHTML = `<div style="color:var(--bad); font-size:12px; text-align:center; padding:20px;">Erro ao carregar histórico: ${e.message}</div>`;
+        }
+    }
+
+    async function generateAiAnalysis() {
+        if (!currentAssetId) return;
+
+        const btn = $("#btnGenerateAiAnalysis");
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner" style="width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;margin-right:6px;"></span> A analisar...`;
+        btn.disabled = true;
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+            const r = await fetch(`/api/assets/${currentAssetId}/analyze`, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrfToken || '', 'Accept': 'application/json' }
+            });
+            const data = await r.json();
+
+            if (!r.ok) throw new Error(data.message || 'Erro desconhecido');
+
+            // Recarregar a lista para mostrar a nova
+            loadAssetAnalyses(currentAssetId);
+
+        } catch (err) {
+            alert(`❌ Erro da IA: ${err.message}`);
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
     function openAssetModal(assetId) {
         const asset = assets.find((a) => String(a.id) === String(assetId));
         if (!asset) return;
@@ -821,29 +700,31 @@
         // source badge in header
         const srcBadge = $("#mSourceBadge");
         if (srcBadge) {
-            const isAcronis = asset.source === 'acronis';
-            srcBadge.textContent = isAcronis ? 'Acronis' : 'Manual';
-            srcBadge.className = 'src-badge ' + (isAcronis ? 'src-acronis' : 'src-manual');
+            const isWazuh = asset.source === 'wazuh';
+            srcBadge.textContent = isWazuh ? 'Wazuh' : 'Manual';
+            srcBadge.className = 'src-badge ' + (isWazuh ? 'src-wazuh' : 'src-manual');
         }
 
         // agent chip in header
         const agentChip = $("#mAgentChip");
         if (agentChip) {
-            if (asset.agent_status) {
-                agentChip.textContent = asset.agent_status === 'online' ? '● Online' : '○ Offline';
-                agentChip.className = 'meta-chip meta-agent ' + asset.agent_status;
+            const st = (asset.agent_status || '').toLowerCase();
+            if (['active', 'online'].includes(st)) {
+                agentChip.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color: var(--ok); margin-right:6px;"></span>Online`;
+            } else if (['offline', 'disconnected'].includes(st)) {
+                agentChip.innerHTML = `<span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color: var(--bad); margin-right:6px;"></span>Offline`;
             } else {
-                agentChip.textContent = '—';
-                agentChip.className = 'meta-chip meta-agent';
+                agentChip.innerHTML = '—';
             }
+            agentChip.className = 'meta-chip meta-agent'; // Remove cores de fundo antigas
         }
 
         // ── Overview: Geral ──
         setTxt("#mOwner", asset.owner);
         setTxt("#mCreatedBy", asset.createdBy);
-        setTxt("#mSource", asset.source === 'acronis' ? 'Sincronizado via Acronis' : 'Registo manual');
-        setTxt("#mSyncedAt", asset.acronis_synced_at ? new Date(asset.acronis_synced_at).toLocaleString('pt-PT') : '—');
-
+        setTxt("#mSource", asset.source === 'wazuh' ? 'Sincronizado via Wazuh' : 'Registo manual');
+        setTxt("#mSyncedAt", asset.wazuh_synced_at ? new Date(asset.wazuh_synced_at).toLocaleString('pt-PT') : '—');
+        renderModalTags(asset.tags);
         // ── Rede ──
         setTxt("#mIpDetail", asset.ip);
         setTxt("#mMac", asset.mac_address);
@@ -860,14 +741,15 @@
         // ── Agent ──
         const agentStatusEl = $("#mAgentStatus");
         if (agentStatusEl) {
-            const st = asset.agent_status;
-            if (st === 'online') { agentStatusEl.innerHTML = `<span style="color:var(--ok);font-weight:600;">● Online</span>`; }
-            else if (st === 'offline') { agentStatusEl.innerHTML = `<span style="color:var(--bad);font-weight:600;">○ Offline</span>`; }
+            const st = (asset.agent_status || '').toLowerCase();
+            if (['active', 'online'].includes(st)) {
+                agentStatusEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok);"></span><span style="font-weight:500;color:var(--text);">Online</span></div>`;
+            }
+            else if (['offline', 'disconnected'].includes(st)) {
+                agentStatusEl.innerHTML = `<div style="display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:var(--bad);"></span><span style="font-weight:500;color:var(--text);">Offline</span></div>`;
+            }
             else { agentStatusEl.textContent = '—'; }
         }
-        setTxt("#mAgentVersion", asset.agent_version);
-        setTxt("#mAgentLastSeen", asset.agent_last_seen ? new Date(asset.agent_last_seen).toLocaleString('pt-PT') : '—');
-
         // ── Protection ──
         const protGrid = $("#mProtectionGrid");
         if (protGrid) {
@@ -908,11 +790,10 @@
         setTxt("#mNotes", asset.notes);
 
         buildMatrix(asset.prob, asset.impact);
-        renderControlsList(asset);
-        renderAiSuggestions(asset);
+
         renderRiskTreat(asset);
         loadAssetRisks(assetId);
-
+        loadAssetAnalyses(assetId);
         // update controls tab badge
         const badge = $("#tabBadgeControls");
         if (badge) badge.textContent = String(asset.controls.length);
@@ -1003,11 +884,12 @@
     }
 
     function openEditAsset(assetId) {
-        const a = assets.find(x => x.id === assetId);
+        // CORREÇÃO 1: Forçar conversão para String para evitar falhas no find()
+        const a = assets.find(x => String(x.id) === String(assetId));
         if (!a) return;
 
         editingAssetId = assetId;
-        createControlsWorking = []; // edit controls via details modal; aqui mantém simples
+        createControlsWorking = [];
 
         $("#assetEditSubtitle").textContent = "Editar ativo (mock)";
         $("#assetEditTitle").textContent = a.name;
@@ -1016,8 +898,13 @@
         $("#fType").value = a.type;
         $("#fIp").value = a.ip || "";
         toggleIpFieldByType($("#fType").value);
-        const tagsStr = Array.isArray(a.tags) ? a.tags.join(', ') : (a.tags || "");
+
+        // CORREÇÃO 2: Ler as tags corretamente quer venham da BD (objetos) ou do mock (strings)
+        const tagsStr = Array.isArray(a.tags)
+            ? a.tags.map(t => typeof t === 'object' ? t.name : t).join(', ')
+            : (a.tags || "");
         $("#fTags").value = tagsStr;
+
         $("#fCrit").value = a.criticity;
         $("#fOwner").value = a.owner;
         $("#fProb").value = String(a.prob);
@@ -1026,7 +913,6 @@
 
         $("#btnDeleteAsset").style.display = "inline-flex";
 
-        // defaults do bloco de controlos
         $("#fControlPick").value = "ID.GA-1";
         syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
         applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
@@ -1048,7 +934,8 @@
         const impact = Number($("#fImpact").value);
         const notes = $("#fNotes").value.trim();
         const ip = ($("#fIp")?.value || "").trim();
-        const tags = ($("#fTags")?.value || "").trim();
+        const tagsInput = ($("#fTags")?.value || "").trim();
+        const tagNamesArray = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
         if (!editingAssetId) {
             // ── Persiste na base de dados ──
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
@@ -1063,7 +950,7 @@
                 impact: impact,
                 criticality: mapCriticality(criticity) || "medium",
                 notes: notes || null,
-                tags: tags
+                tags: tagNamesArray
             };
 
             try {
@@ -1191,56 +1078,6 @@
         resetCreateControlsPreview();
     }
 
-    // ========= add control modal (from asset details) =========
-    let addControlAssetId = null;
-
-    function openAddControlModal(assetId) {
-        const a = assets.find(x => x.id === assetId);
-        if (!a) return;
-
-        addControlAssetId = assetId;
-        $("#addControlTitle").textContent = a.name;
-
-        $("#acControl").value = "ID.GA-1";
-        const ai0 = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-        // default: status declarado começa igual à sugestão IA
-        $("#acStatus").value = ai0.suggestedStatus;
-        syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
-        // status: IA sugere por confiança (somente GRC/Admin pode alterar)
-        applyStatusGuard($("#acStatus"), $("#acStatusHint"));
-        updateDiffChip($("#acStatus").value, ai0.suggestedStatus, $("#acAiDiffChip"));
-
-        $("#acNote").value = "";
-
-        openModal("#addControlModal");
-    }
-
-    function addControlConfirm() {
-        const a = assets.find(x => x.id === addControlAssetId);
-        if (!a) return;
-
-        const key = $("#acControl").value;
-        if (a.controls.some(c => c.key === key)) {
-            return alert("Este controlo já está associado a este ativo (mock).");
-        }
-
-        const confidence = 0.55;
-        const status = canOverrideStatus() ? $("#acStatus").value : iaStatusFromConfidence(confidence);
-        const note = $("#acNote").value.trim();
-
-        a.controls.unshift({
-            key,
-            declaredStatus: status,
-            confidence,
-            note,
-            evidences: []
-        });
-        renderAssetsTable();
-        renderControlsList(a);
-        renderAiSuggestions(a);
-
-        closeModal("#addControlModal");
-    }
 
     // ========= nav buttons (mock) =========
     function goTo(routeName) {
@@ -1249,152 +1086,256 @@
         window.location.href = routeName;
     }
 
-    // ========= sync acronis =========
-    async function syncAcronis() {
-        try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-            if (!csrfToken) {
-                console.warn("CSRF token não encontrado no DOM.");
-            }
+    // ========= GESTÃO DE TAGS (MODAL) =========
+    function renderModalTags(tags) {
+        const wrap = $("#mTagsWrap");
+        if (!wrap) return;
 
-            const res = await fetch("/api/assets/sync-acronis", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": csrfToken || ""
-                }
+        if (!tags || tags.length === 0) {
+            wrap.innerHTML = '<span class="muted" style="font-size:12px;">Sem tags associadas.</span>';
+            return;
+        }
+
+        wrap.innerHTML = tags.map(t => {
+            const name = typeof t === 'object' ? t.name : t;
+            const id = typeof t === 'object' ? (t.id || t.id_tag) : null;
+            const color = (typeof t === 'object' && t.color) ? t.color : '#60a5fa';
+
+            return `<span style="display:inline-flex; align-items:center; gap:6px; padding: 3px 8px; border-radius: 6px; background: ${color}15; color: ${color}; font-size: 11px; border: 1px solid ${color}30; font-weight:600;">
+                ${name}
+                ${id ? `<svg class="remove-tag-btn" data-tag-id="${id}" style="width:12px;height:12px;cursor:pointer;opacity:0.6;transition:opacity 0.2s;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>` : ''}
+            </span>`;
+        }).join('');
+    }
+
+    async function addTagToAsset() {
+        const input = $("#mNewTagInput");
+        if (!input || !currentAssetId) return;
+
+        const val = input.value.trim();
+        if (!val) return;
+
+        const btn = $("#btnAddTagBtn");
+        const ogText = btn.innerHTML;
+        btn.innerHTML = "...";
+        btn.disabled = true; input.disabled = true;
+
+        try {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+            const r = await fetch(`/api/assets/${currentAssetId}/tags`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' },
+                body: JSON.stringify({ tag_names: [val] })
             });
 
-            const text = await res.text();
+            const data = await r.json();
 
-            console.group("🔄 Sync Acronis — Resposta do servidor");
-            console.log("Status:", res.status, res.statusText);
-            console.log("Body (raw):", text);
-            console.groupEnd();
+            if (r.ok) {
+                input.value = "";
+                $("#mTagSuggestions").style.display = "none";
 
-            let data;
-
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                console.error("❌ Resposta não é JSON válido. Body completo:", text);
-                alert(
-                    `Erro ${res.status}: O servidor não devolveu JSON válido.\n\n` +
-                    `Resposta:\n${text.substring(0, 500)}`
-                );
-                return;
-            }
-
-            if (res.ok) {
-                alert(`✅ Sync concluído! ${data.count} ativos importados/atualizados.`);
-                loadAssetsFromDB();
+                const a = assets.find(x => String(x.id) === String(currentAssetId));
+                if (a) {
+                    a.tags = data.tags.map(t => ({ id: t.id_tag || t.id, name: t.name, color: t.color }));
+                    renderModalTags(a.tags);
+                    renderAssetsTable();
+                }
+                loadDbTags();
             } else {
-                console.error("❌ Erro do servidor:", data);
-                alert(
-                    `❌ Erro ${res.status} ao sincronizar:\n\n` +
-                    `Mensagem: ${data.message || "Sem mensagem"}\n` +
-                    `Detalhe: ${data.error || data.exception || "Sem detalhe"}\n` +
-                    (data.file ? `Ficheiro: ${data.file}:${data.line}\n` : "") +
-                    (data.trace ? `\nStack (primeiros 300 chars):\n${JSON.stringify(data.trace).substring(0, 300)}` : "")
-                );
+                alert(data.message || 'Erro ao adicionar tag');
             }
-
-        } catch (err) {
-            console.error("❌ Erro de rede/conexão ao sincronizar Acronis:", err);
-            console.error("Stack:", err.stack);
-            alert(
-                `❌ Erro de conexão ao sincronizar Acronis.\n\n` +
-                `Tipo: ${err.name}\n` +
-                `Mensagem: ${err.message}\n\n` +
-                `Verifica se o servidor Laravel está a correr.`
-            );
+        } catch (e) {
+            alert('Erro de conexão: ' + e.message);
+        } finally {
+            btn.innerHTML = ogText;
+            btn.disabled = false; input.disabled = false;
+            input.focus(); // Devolve o cursor para adicionar mais rapidamente
         }
     }
 
+    // ========= AUTOCOMPLETE DE TAGS =========
+    function setupTagAutocomplete() {
+        const input = $("#mNewTagInput");
+        const suggBox = $("#mTagSuggestions");
+        if (!input || !suggBox) return;
+
+        const handleSuggest = () => {
+            const val = input.value.toLowerCase().trim();
+
+            if (ALL_DB_TAGS.length === 0) {
+                suggBox.style.display = "none";
+                return;
+            }
+
+            const currentAsset = assets.find(x => String(x.id) === String(currentAssetId));
+            const currentTagNames = currentAsset && currentAsset.tags
+                ? currentAsset.tags.map(t => (typeof t === 'object' ? t.name : String(t)).toLowerCase())
+                : [];
+
+            // Remove as tags que o ativo já tem
+            let matches = ALL_DB_TAGS.filter(t => !currentTagNames.includes(t.name.toLowerCase()));
+
+            // Se o utilizador escreveu algo, filtra. Se não, mostra as disponíveis!
+            if (val) {
+                matches = matches.filter(t => t.name.toLowerCase().includes(val));
+            }
+
+            if (matches.length === 0) {
+                suggBox.style.display = "none";
+                return;
+            }
+
+            suggBox.innerHTML = matches.map(t => `
+                <div class="tag-sugg-item" data-name="${t.name}">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${t.color || '#60a5fa'}; box-shadow: 0 0 4px ${t.color || '#60a5fa'}80;"></span>
+                    <span style="color:var(--text); font-weight:500;">${t.name}</span>
+                </div>
+            `).join('');
+
+            suggBox.style.display = "block";
+        };
+
+        // Dispara ao escrever, ao clicar e ao focar na caixa!
+        input.addEventListener("input", handleSuggest);
+        input.addEventListener("focus", handleSuggest);
+        input.addEventListener("click", handleSuggest);
+
+        // Quando clica numa sugestão
+        suggBox.addEventListener("click", (e) => {
+            const item = e.target.closest('.tag-sugg-item');
+            if (!item) return;
+
+            input.value = item.dataset.name;
+            suggBox.style.display = "none";
+            addTagToAsset(); // Adiciona automaticamente ao clicar
+        });
+
+        // Fechar a caixa se clicar noutro sítio qualquer do ecrã
+        document.addEventListener("click", (e) => {
+            if (!input.contains(e.target) && !suggBox.contains(e.target)) {
+                suggBox.style.display = "none";
+            }
+        });
+    }
+
     // ========= init =========
+
     function init() {
         // Render inicial com dados mock enquanto o fetch não termina
         renderAssetsTable();
-
-        // Carrega ativos reais da API
+        loadDocumentsData();
         loadAssetsFromDB();
+        loadDbTags();
+        setupTagAutocomplete();
 
-        // 🛡️ HELPER À PROVA DE BALA: 
-        // Só adiciona o evento se o elemento existir no HTML (não estiver bloqueado pelo RBAC)
+        // 🛡️ HELPER À PROVA DE BALA (TEM DE ESTAR ANTES DE SER USADO!)
         const bindClick = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("click", fn); };
         const bindChange = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("change", fn); };
         const bindInput = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("input", fn); };
+
+        // Ligar o botão da nova IA
+        bindClick("#btnGenerateAiAnalysis", generateAiAnalysis);
 
         // Filtros da tabela
         bindInput("#assetSearch", renderAssetsTable);
         bindChange("#critFilter", renderAssetsTable);
         bindChange("#typeFilter", renderAssetsTable);
+        bindChange("#tagFilter", renderAssetsTable);
         bindChange("#controlStatusFilter", renderAssetsTable);
         bindChange("#sourceFilter", renderAssetsTable);
 
-        // Botões de Ação (Que podem estar escondidos pelo RBAC!)
-        bindClick("#btnSyncAcronis", syncAcronis);
+        // Botões de Ação Principais
+        bindClick("#btnSyncWazuh", async () => {
+            const btn = $("#btnSyncWazuh");
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<span class="spinner" style="width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;display:inline-block;"></span> A sincronizar...`;
+            btn.disabled = true;
+
+            try {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+                const res = await fetch('/api/assets/sync-wazuh', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken || '' }
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(`✅ Wazuh sincronizado com sucesso!\n${data.synced_count} ativos processados.`);
+                    loadAssetsFromDB();
+                } else {
+                    alert(`❌ Erro ${res.status} ao sincronizar:\n\n${data.message || "Erro desconhecido"}\n${data.error || ""}`);
+                }
+            } catch (err) {
+                alert(`❌ Erro de conexão ao sincronizar Wazuh.\n\nVerifica se a API está acessível.\nErro: ${err.message}`);
+            } finally {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+        });
+
         bindClick("#btnOpenCreateAsset", openCreateAsset);
         bindClick("#btnEditAsset", () => { if (currentAssetId) openEditAsset(currentAssetId); });
-        bindClick("#btnAddControlToAsset", () => { if (currentAssetId) openAddControlModal(currentAssetId); });
         bindClick("#btnCreateRiskFromAssetTab", () => { if (currentAssetId) goTo(`/riscos?new_risk_for=${currentAssetId}`); });
 
         // Fechar Modais
         bindClick("#assetModalClose", () => closeModal("#assetModal"));
         bindClick("#assetEditClose", () => closeModal("#assetEditModal"));
-        bindClick("#addControlClose", () => closeModal("#addControlModal"));
 
-        // Fechar clicando fora da caixa
+        // ── GESTÃO DE TAGS ──
+        bindClick("#btnAddTagBtn", addTagToAsset);
+
+        const tagInp = $("#mNewTagInput");
+        if (tagInp) {
+            tagInp.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") { e.preventDefault(); addTagToAsset(); }
+            });
+        }
+
+        // Lógica para apagar a tag quando se clica no Xzinho
+        bindClick("#mTagsWrap", async (e) => {
+            const btn = e.target.closest('.remove-tag-btn');
+            if (!btn || !currentAssetId) return;
+
+            const tagId = btn.dataset.tagId;
+            btn.style.opacity = "0.2";
+
+            try {
+                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+                const r = await fetch(`/api/assets/${currentAssetId}/tags/${tagId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' }
+                });
+
+                if (r.ok) {
+                    const a = assets.find(x => String(x.id) === String(currentAssetId));
+                    if (a) {
+                        a.tags = a.tags.filter(t => String(t.id) !== String(tagId));
+                        renderModalTags(a.tags);
+                        renderAssetsTable();
+                    }
+                } else { alert('Erro ao remover tag'); btn.style.opacity = "0.6"; }
+            } catch (err) { alert('Erro de conexão'); btn.style.opacity = "0.6"; }
+        });
+
+        // Fechar clicando fora da caixa ou no ESC
         const mAsset = $("#assetModal");
         if (mAsset) mAsset.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeModal("#assetModal"); });
 
         const mEdit = $("#assetEditModal");
         if (mEdit) mEdit.addEventListener("click", (e) => { if (e.target.id === "assetEditModal") closeModal("#assetEditModal"); });
 
-        const mCtrl = $("#addControlModal");
-        if (mCtrl) mCtrl.addEventListener("click", (e) => { if (e.target.id === "addControlModal") closeModal("#addControlModal"); });
-
-        // Fechar com a tecla ESC
         document.addEventListener("keydown", (e) => {
             if (e.key === "Escape") {
                 closeModal("#assetModal");
                 closeModal("#assetEditModal");
-                closeModal("#addControlModal");
             }
         });
 
         // Eventos gerais dos formulários
         bindChange("#fType", () => toggleIpFieldByType($("#fType")?.value));
-        bindClick("#btnAddControlConfirm", addControlConfirm);
-        bindClick("#btnAddControlCancel", () => closeModal("#addControlModal"));
         bindClick("#btnSaveAsset", saveAssetFromForm);
         bindClick("#btnDeleteAsset", deleteAssetMock);
-        bindClick("#btnAddControlInline", addControlToCreatePreview);
-
-        // Tooltips e guards do RBAC nos controlos
-        bindChange("#fControlPick", () => syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText")));
-        if ($("#fControlStatus")) applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
-
-        bindChange("#acControl", () => {
-            syncControlInfo($("#acControl"), $("#acControlInfo"), $("#acControlInfoText"));
-            const a = assets.find(x => String(x.id) === String(addControlAssetId));
-            if (!a) return;
-            const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-            if (!canOverrideStatus()) {
-                const acStatus = $("#acStatus");
-                if (acStatus) acStatus.value = ai.suggestedStatus;
-            }
-            updateDiffChip($("#acStatus")?.value, ai.suggestedStatus, $("#acAiDiffChip"));
-        });
-
-        bindChange("#acStatus", () => {
-            const a = assets.find(x => String(x.id) === String(addControlAssetId));
-            if (!a) return;
-            const ai = mockAiSuggest(a.notes || a.name, $("#acControl").value);
-            updateDiffChip($("#acStatus")?.value, ai.suggestedStatus, $("#acAiDiffChip"));
-        });
-
-        if ($("#acStatus")) applyStatusGuard($("#acStatus"), $("#acStatusHint"));
 
         // Botões de navegação (Mock)
         bindClick("#btnGoRisks", () => goTo("/riscos"));

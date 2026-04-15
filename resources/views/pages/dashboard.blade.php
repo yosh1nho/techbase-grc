@@ -7,7 +7,7 @@
 
         {{-- ALERTAS RECENTES --}}
         <div class="card dash-card" role="button" tabindex="0" data-open-alerts>
-            <h3>Alertas recentes (Acronis)</h3>
+            <h3>Alertas recentes (Wazuh SIEM)</h3>
             <p class="big" id="alertCount">—</p>
             <p class="sub" id="alertSub">A carregar...</p>
 
@@ -194,143 +194,137 @@
 
     <div class="section-title">Visão rápida</div>
     <div class="split">
+
+        {{-- Top lacunas por domínio — preenchido pelo JS --}}
         <div class="card">
-            <h3>Top lacunas por domínio</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Domínio</th>
-                        <th>Lacunas</th>
-                        <th>Impacto</th>
-                        <th>Ação sugerida</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Gestão de Ativos</td>
-                        <td><span class="tag bad"><span class="s"></span> 4 GAP</span></td>
-                        <td class="muted">Inventário incompleto</td>
-                        <td class="muted">Criar procedimento + evidência</td>
-                    </tr>
-                    <tr>
-                        <td>Backups & Continuidade</td>
-                        <td><span class="tag warn"><span class="s"></span> 3 PARTIAL</span></td>
-                        <td class="muted">RPO/RTO não formalizados</td>
-                        <td class="muted">Atualizar política + testes</td>
-                    </tr>
-                    <tr>
-                        <td>Resposta a Incidentes</td>
-                        <td><span class="tag warn"><span class="s"></span> 2 PARTIAL</span></td>
-                        <td class="muted">Playbooks sem treino</td>
-                        <td class="muted">Registar simulação</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h3>Recomendações automáticas (RF8)</h3>
-
-            <div class="panel">
-                <b>Prioridade 1</b>
-                <p class="muted">Completar inventário e associar responsáveis por ativo crítico.</p>
-                <div class="kpirow">
-                    <span class="chip">Controlos: ID.GA-1</span>
-                    <span class="chip warn">Evidência: Procedimento + Export</span>
-                </div>
-            </div>
-
-            <div style="height:10px"></div>
-
-            <div class="panel">
-                <b>Prioridade 2</b>
-                <p class="muted">Formalizar testes de backup e anexar relatórios por período.</p>
-                <div class="kpirow">
-                    <span class="chip">Controlos: PR.IP-4</span>
-                    <span class="chip ok">Acronis: logs disponíveis</span>
-                </div>
+            <h3>Top lacunas por grupo/domínio</h3>
+            <p class="muted" style="font-size:12px;margin:2px 0 12px">Grupos com mais controlos não conformes ou parciais.</p>
+            <div id="gapGroupsBody">
+                <div class="muted" style="font-size:13px;padding:8px 0">A carregar...</div>
             </div>
         </div>
+
+        {{-- Recomendações dinâmicas — preenchido pelo JS --}}
+        <div class="card">
+            <h3>Prioridades de acção</h3>
+            <p class="muted" style="font-size:12px;margin:2px 0 12px">Controlos GAP com maior impacto para resolver primeiro.</p>
+            <div id="topGapControlsBody">
+                <div class="muted" style="font-size:13px;padding:8px 0">A carregar...</div>
+            </div>
+        </div>
+
     </div>
 
 
 
     
 
-    {{-- MODAL: ALERTAS RECENTES --}}
-    <div id="alertsModal" class="modal-overlay is-hidden" aria-hidden="true">
-        <div class="modal-card am-alerts-modal" role="dialog" aria-modal="true" aria-labelledby="alertsModalTitle">
+{{-- MODAL: ALERTAS RECENTES --}}
+<div id="alertsModal" class="modal-overlay is-hidden">
+    <div class="modal-card am-alerts-modal">
 
-            {{-- Header --}}
-            <div class="am-alerts-header">
-                <div>
-                    <div class="am-alerts-eyebrow">Integração Acronis · Sincronizado agora</div>
-                    <div id="alertsModalTitle" class="am-alerts-title">Alertas recentes</div>
-                </div>
-                <button id="alertsModalClose" class="btn" type="button">✕</button>
+        {{-- ── TOPO: Logo + Título + Fechar ── --}}
+        <div class="am-modal-topbar">
+            <div class="am-modal-brand">
+                <div class="am-brand-dot"></div>
+                <span class="am-brand-label">SIEM WAZUH · AO VIVO</span>
             </div>
+            <button id="alertsModalClose" class="am-close-btn" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
 
-            {{-- KPI strip — clicável para filtrar --}}
-            <div class="am-alerts-kpis">
-                <button class="am-akpi am-akpi-btn" data-sev-filter="all" aria-pressed="true">
-                    <div class="am-akpi-num" id="akpiTotal">—</div>
-                    <div class="am-akpi-label">Total</div>
-                </button>
-                <button class="am-akpi am-akpi-btn am-akpi-critical" data-sev-filter="critical" aria-pressed="false">
-                    <div class="am-akpi-num" id="akpiCritical">—</div>
-                    <div class="am-akpi-label">Críticos</div>
-                </button>
-                <button class="am-akpi am-akpi-btn am-akpi-medium" data-sev-filter="medium" aria-pressed="false">
-                    <div class="am-akpi-num" id="akpiMedium">—</div>
-                    <div class="am-akpi-label">Médios</div>
-                </button>
-                <button class="am-akpi am-akpi-btn am-akpi-low" data-sev-filter="low" aria-pressed="false">
-                    <div class="am-akpi-num" id="akpiLow">—</div>
-                    <div class="am-akpi-label">Baixos</div>
-                </button>
-            </div>
-
-            {{-- Filtros --}}
-            <div class="am-alerts-filters">
-                <div class="field" style="flex:1;min-width:200px;margin:0">
-                    <label>Pesquisar</label>
-                    <input id="alertSearch" placeholder="ativo, tipo, mensagem..." />
-                </div>
-                <div class="field" style="min-width:150px;margin:0">
-                    <label>Severidade</label>
-                    <select id="alertSeverity">
-                        <option value="all">Todas</option>
-                        <option value="critical">Crítica</option>
-                        <option value="high">Alta</option>
-                        <option value="medium">Média</option>
-                        <option value="low">Baixa</option>
-                    </select>
-                </div>
-                <div class="field" style="min-width:140px;margin:0">
-                    <label>De</label>
-                    <input id="alertDateFrom" type="date" />
-                </div>
-                <div class="field" style="min-width:140px;margin:0">
-                    <label>Até</label>
-                    <input id="alertDateTo" type="date" />
-                </div>
-            </div>
-
-            {{-- Separador com contagem --}}
-            <div class="am-alerts-sep">
-                <span id="alertResultCount" class="muted" style="font-size:12px">— alertas</span>
-            </div>
-
-            {{-- Lista --}}
-            <div id="alertTbody" class="am-alerts-list"></div>
-
-            <div class="hint" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--modal-border)">
-                Clique num alerta para ir direto ao módulo de Riscos e registar ocorrência (RF17).
+        {{-- ── HEADER COM TÍTULO ── --}}
+        <div class="am-modal-header">
+            <div>
+                <h2 class="am-modal-title">Alertas de Cibersegurança</h2>
+                <p class="am-modal-subtitle">Eventos em tempo real detetados pelo SIEM Wazuh</p>
             </div>
         </div>
-    </div>
 
-    <style>
+        {{-- ── KPI STRIP ── --}}
+        <div class="am-kpi-strip">
+            <button class="am-kpi-card" data-sev-filter="all" aria-pressed="true">
+                <span class="am-kpi-num" id="akpiTotal">—</span>
+                <span class="am-kpi-lbl">Total</span>
+            </button>
+            <button class="am-kpi-card am-kpi--critical" data-sev-filter="critical" aria-pressed="false">
+                <span class="am-kpi-num" id="akpiCritical">—</span>
+                <span class="am-kpi-lbl">Críticos</span>
+            </button>
+            <button class="am-kpi-card am-kpi--medium" data-sev-filter="medium" aria-pressed="false">
+                <span class="am-kpi-num" id="akpiMedium">—</span>
+                <span class="am-kpi-lbl">Médios</span>
+            </button>
+            <button class="am-kpi-card am-kpi--low" data-sev-filter="low" aria-pressed="false">
+                <span class="am-kpi-num" id="akpiLow">—</span>
+                <span class="am-kpi-lbl">Baixos</span>
+            </button>
+        </div>
+
+        {{-- ── FILTROS ── --}}
+        <div class="am-filters-bar">
+            <div class="am-filter-field am-filter-flex">
+                <label class="am-filter-label">Pesquisar</label>
+                <input id="alertSearch" class="am-filter-input" placeholder="ativo, tipo, mensagem…" />
+            </div>
+            <div class="am-filter-field">
+                <label class="am-filter-label">Severidade</label>
+                <select id="alertSeverity" class="am-filter-input">
+                    <option value="all">Todas</option>
+                    <option value="critical">Crítica</option>
+                    <option value="medium">Média</option>
+                    <option value="low">Baixa</option>
+                </select>
+            </div>
+            <div class="am-filter-field">
+                <label class="am-filter-label">De</label>
+                <input id="alertDateFrom" type="date" class="am-filter-input" />
+            </div>
+            <div class="am-filter-field">
+                <label class="am-filter-label">Até</label>
+                <input id="alertDateTo" type="date" class="am-filter-input" />
+            </div>
+        </div>
+
+        {{-- ── SEPARADOR COM CONTAGEM ── --}}
+        <div class="am-results-bar">
+            <span id="alertResultCount" class="am-results-count">— alertas</span>
+            <div class="am-results-line"></div>
+        </div>
+
+        {{-- ── TABELA ── --}}
+        <div class="am-table-wrap">
+            <table class="am-table">
+                <thead>
+                    <tr>
+                        <th style="width:140px">Data/Hora</th>
+                        <th style="width:120px">Agente</th>
+                        <th>Regra Disparada</th>
+                        <th style="width:90px;text-align:center">Nível</th>
+                        <th style="width:160px">Contexto</th>
+                    </tr>
+                </thead>
+                <tbody id="alertsTableBody">
+                    <tr>
+                        <td colspan="5" class="am-loading-cell">
+                            <span class="am-spinner"></span>
+                            A carregar alertas do SIEM…
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {{-- ── RODAPÉ ── --}}
+        <div class="am-modal-footer">
+            Clique num alerta para expandir os detalhes e gerar um <strong>Plano de Ação com Inteligência Artificial</strong>.
+        </div>
+
+    </div>
+</div>
+
+<style>
         /* ── Alerts Modal ── */
         .am-alerts-modal { padding: 0; display: flex; flex-direction: column; }
         .am-alerts-header {
@@ -436,191 +430,8 @@
     </style>
 
 
-{{-- MODAL 1: MATURIDADE (lista de Ativos/Políticas) --}}
-    <div id="maturityModal" class="modal-overlay is-hidden" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="maturityModalTitle">
-            <div class="modal-header">
-                <div>
-                    <div class="muted" style="margin-bottom:4px">Detalhe de maturidade</div>
-                    <div id="maturityModalTitle" style="font-size:18px;font-weight:800">Maturidade por Ativo / Política
-                    </div>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center">
-                    <button id="maturityModalClose" class="btn" type="button">Fechar</button>
-                </div>
-            </div>
 
-            <div style="height:10px"></div>
 
-            <div class="row">
-                <div class="field" style="flex:1">
-                    <label>Filtro</label>
-                    <input id="matSearch" placeholder="Procurar por nome..." />
-                </div>
-                <div class="field" style="min-width:220px">
-                    <label>Tipo</label>
-                    <select id="matType">
-                        <option value="all">Todos</option>
-                        <option value="asset">Ativos</option>
-                        <option value="policy">Políticas</option>
-                    </select>
-                </div>
-                <div class="field" style="min-width:220px">
-                    <label>Status</label>
-                    <select id="matStatus">
-                        <option value="all">Todos</option>
-                        <option value="GAP">GAP</option>
-                        <option value="PARTIAL">PARTIAL</option>
-                        <option value="COVERED">COVERED</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="height:10px"></div>
-
-            <div class="panel">
-                <h2 style="margin-bottom:6px">Itens (mock)</h2>
-                <p class="muted" style="margin-top:0">
-                    Clique num item para ver os controlos e navegar para a página correta.
-                </p>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Tipo</th>
-                            <th>Status</th>
-                            <th>Resumo</th>
-                            <th style="width:220px">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="matTbody">
-                        <tr>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="hint" style="margin-top:10px">
-                    Mock: “Ativo” → vai para {{ route('assets') }} | “Política” → vai para {{ route('docs') }}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- MODAL 2: CONTROL LIST (por Ativo ou Política) --}}
-    <div id="controlsModal" class="modal-overlay is-hidden" aria-hidden="true">
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="controlsModalTitle">
-            <div class="modal-header">
-                <div>
-                    <div class="muted" style="margin-bottom:4px">Controlos do item</div>
-                    <div id="controlsModalTitle" style="font-size:18px;font-weight:800">—</div>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center">
-                    <button id="controlsModalGo" class="btn primary" type="button">Ir para página</button>
-                    <button id="controlsModalClose" class="btn" type="button">Fechar</button>
-                </div>
-            </div>
-
-            <div style="height:10px"></div>
-
-            <div class="panel">
-                <div class="kpirow">
-                    <span class="chip">Tipo: <b id="cmType">—</b></span>
-                    <span class="chip">Status geral: <b id="cmStatus">—</b></span>
-                    <span class="chip warn">Clique num controlo para “ver detalhe” (mock)</span>
-                </div>
-
-                <div style="height:10px"></div>
-
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Controlo</th>
-                            <th>Descrição (curta)</th>
-                            <th>Status</th>
-                            <th>Próxima ação</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cmTbody">
-                        <tr>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                            <td class="muted">—</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    {{-- Estilos locais mínimos (podes mover pro CSS global depois) --}}
-    <style>
-        .dash-card {
-            cursor: pointer;
-        }
-
-        .link-card {
-            cursor: pointer;
-            display: block;
-            color: inherit;
-        }
-
-        .modal-overlay.is-hidden {
-            display: none;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: var(--modal-overlay);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 18px;
-            z-index: 99999;
-        }
-
-        .modal-card {
-            width: min(1200px, 96vw);
-            max-height: 90vh;
-            overflow: auto;
-            border: 1px solid var(--modal-border);
-            border-radius: 16px;
-            background: var(--modal-bg);
-            color: var(--text);
-            box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
-            padding: 14px;
-        }
-
-        .modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, .06);
-        }
-
-        .btn.small {
-            padding: 8px 10px;
-            font-size: 12px;
-            border-radius: 10px;
-        }
-
-        tr[data-row-click] {
-            cursor: pointer;
-        }
-
-        tr[data-row-click]:hover {
-            background: rgba(255, 255, 255, .03);
-        }
-    </style>
 
     {{-- Rotas para o JS (sem hardcode) --}}
     <script>
@@ -632,6 +443,10 @@
             compliance: "{{ route('compliance') }}",
         };
     </script>
+
+    @push('styles')
+    @vite(['resources/css/pages/dashboard.css'])
+@endpush
 
     @vite(['resources/js/pages/dashboard.js'])
 @endsection

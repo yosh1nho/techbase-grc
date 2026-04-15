@@ -18,6 +18,7 @@ use App\Http\Controllers\DocumentAnalyserController;
 use App\Http\Controllers\RbacController;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Middleware\CheckPermission;
+use App\Http\Controllers\AssessmentController;
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
     if (session()->has('tb_user')) {
@@ -108,12 +109,14 @@ Route::middleware('mock.auth')->group(function () {
 
     // ── Ativos ────────────────────────────────────────────────────────────────
     Route::get('/api/assets',               [AssetController::class, 'index'])->middleware(CheckPermission::class.':assets.view');
-    Route::post('/api/assets/sync-acronis', [AssetController::class, 'syncAcronis'])->middleware(CheckPermission::class.':assets.sync');
+    Route::post('/api/assets/sync-wazuh', [AssetController::class, 'syncWazuh'])->middleware(CheckPermission::class.':assets.view');
     Route::post('/api/assets',              [AssetController::class, 'store'])->middleware(CheckPermission::class.':assets.create');
     Route::get('/api/asset-tags',                          [AssetController::class, 'tags'])->middleware(CheckPermission::class.':assets.view');
     Route::post('/api/assets/{id}/tags',                   [AssetController::class, 'addTags'])->middleware(CheckPermission::class.':assets.edit');
     Route::delete('/api/assets/{id}/tags/{tagId}',         [AssetController::class, 'removeTag'])->middleware(CheckPermission::class.':assets.edit');
     Route::patch('/api/assets/{id}/criticality',           [AssetController::class, 'updateCriticality'])->middleware(CheckPermission::class.':assets.edit');
+    Route::get('/api/assets/{id}/analyses', [AssetController::class, 'getAnalyses'])->middleware(CheckPermission::class.':assets.view');
+    Route::post('/api/assets/{id}/analyze', [AssetController::class, 'analyze'])->middleware(CheckPermission::class.':assets.edit');
     // ── Chat ──────────────────────────────────────────────────────────────────
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 
@@ -222,6 +225,24 @@ Route::middleware('mock.auth')->group(function () {
     // DELETE /api/compliance/{controlId}/link-doc/{docId}
     Route::delete('/api/compliance/{controlId}/link-doc/{docId}', [ComplianceController::class, 'unlinkDoc'])->middleware(CheckPermission::class.':compliance.manage');
 
+    // Lista plana de controlos para os selects (dropdowns)
+// Lista ESTRUTURADA de controlos (Framework -> Grupo -> Controlo)
+    Route::get('/api/controls-structured', function () {
+        return DB::table('framework_control as fc')
+            ->join('framework_group as fg', 'fc.id_group', '=', 'fg.id_group')
+            ->join('framework as f', 'fg.id_framework', '=', 'f.id_framework')
+            ->select(
+                'f.name as framework_name',
+                'fg.name as group_name',
+                'fc.control_code as key', 
+                'fc.description as title', 
+                'fc.guidance as desc'
+            )
+            ->orderBy('f.name')
+            ->orderBy('fg.name')
+            ->orderBy('fc.control_code')
+            ->get();
+    })->middleware(CheckPermission::class.':compliance.view');
 
     //Dashboard ───────────────────────────────────────────────
     // KPIs completos (riscos + planos + compliance) — chamado pelo dashboard.js
@@ -231,6 +252,8 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/api/dashboard/risks',       [DashboardController::class, 'risks']);
     Route::get('/api/dashboard/treatments',  [DashboardController::class, 'treatments']);
     Route::get('/api/dashboard/compliance',  [DashboardController::class, 'compliance']);
+    Route::get('/api/dashboard/wazuh-alerts', [DashboardController::class, 'getWazuhAlerts']);
+    Route::post('/api/dashboard/wazuh-alerts/{id}/analyze', [DashboardController::class, 'analyzeWazuhAlert'])->middleware(CheckPermission::class.':assets.edit');
  
 
     // Relatórios ─────────────────────────────────────────────────────────────
@@ -280,6 +303,36 @@ Route::get('/_debug/php', function () {
         'openssl_cafile'=> ini_get('openssl.cafile'),
     ]);
 });
+
+// ── Avaliações (Assessments) ─────────────────────────────────────────────────
+Route::get('/api/assessments', [AssessmentController::class, 'index'])
+    ->middleware(CheckPermission::class . ':assessments.view');
+
+Route::post('/api/assessments', [AssessmentController::class, 'run'])
+    ->middleware(CheckPermission::class . ':assessments.run');
+
+Route::post('/api/assessments/{id}/evaluate', [AssessmentController::class, 'evaluate'])
+    ->middleware(CheckPermission::class . ':assessments.view');
+
+Route::patch('/api/assessments/{id}/close', [AssessmentController::class, 'close'])
+    ->middleware(CheckPermission::class . ':assessments.view');
+
+Route::get('/api/assessments/latest/{assetId}', [AssessmentController::class, 'getLatest'])
+    ->middleware(CheckPermission::class . ':assessments.view');
+
+
+Route::get('/api/assessments/kpis', [AssessmentController::class, 'kpis'])
+    ->middleware(CheckPermission::class . ':assessments.view');
+
+Route::get('/api/frameworks-list', function() {
+    return DB::table('framework')
+        ->select('id_framework as id', 'name')
+        // ->whereNull('deleted_at') 
+        ->get();
+})->middleware(CheckPermission::class . ':assessments.view');
+
+Route::get('/api/assessments/{id}', [AssessmentController::class, 'show'])
+    ->middleware(CheckPermission::class . ':assessments.view');
 
 Route::get('/_debug/ingest-test/{docId}', function ($docId) {
     // 1. Buscar o documento

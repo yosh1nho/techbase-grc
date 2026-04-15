@@ -14,10 +14,10 @@
         <p class="pg-sub">Gerir, classificar e associar controlos de conformidade aos ativos da organização.</p>
     </div>
     <div class="pg-header-actions">
-        @permission('assets.sync')
-        <button class="btn-ghost" type="button" id="btnSyncAcronis">
+    @permission('assets.view')
+        <button class="btn-ghost" type="button" id="btnSyncWazuh">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Sync Acronis
+            Sync Wazuh
         </button>
         @endpermission
         @permission('assets.create')
@@ -32,44 +32,29 @@
 {{-- ═══════════════════════════════════════════════════════════════
      KPI STRIP
 ═══════════════════════════════════════════════════════════════ --}}
-<div class="kpi-strip">
-    <div class="kpi-card">
-        <div class="kpi-icon kpi-icon-blue">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+{{-- ── KPI strip ── --}}
+    <div class="kpi-strip">
+        <div class="kpi-card">
+            <div class="kpi-label">Total de ativos</div>
+            <div class="kpi-num" id="kpiTotal">0</div>
+            <div class="kpi-sub">Inventário completo</div>
         </div>
-        <div class="kpi-body">
-            <div class="kpi-val" id="kpiAssets">0</div>
-            <div class="kpi-lbl">Total de ativos</div>
+        <div class="kpi-card kc-a">
+            <div class="kpi-label">Monitorizados</div>
+            <div class="kpi-num" id="kpiWazuh">0</div>
+            <div class="kpi-sub">Sincronizados via Wazuh</div>
         </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icon kpi-icon-green">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <div class="kpi-card kc-b">
+            <div class="kpi-label">Risco Elevado</div>
+            <div class="kpi-num" id="kpiHighRisk">0</div>
+            <div class="kpi-sub">Ativos de criticidade alta/crítica</div>
         </div>
-        <div class="kpi-body">
-            <div class="kpi-val kpi-ok" id="kpiCovered">0</div>
-            <div class="kpi-lbl">Covered</div>
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icon kpi-icon-warn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        </div>
-        <div class="kpi-body">
-            <div class="kpi-val kpi-warn" id="kpiPartial">0</div>
-            <div class="kpi-lbl">Partial</div>
+        <div class="kpi-card kc-w">
+            <div class="kpi-label">Agentes Offline</div>
+            <div class="kpi-num" id="kpiOffline">0</div>
+            <div class="kpi-sub">Falta de comunicação com o SIEM</div>
         </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icon kpi-icon-red">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        </div>
-        <div class="kpi-body">
-            <div class="kpi-val kpi-bad" id="kpiGap">0</div>
-            <div class="kpi-lbl">Gap</div>
-        </div>
-    </div>
-</div>
 
 {{-- ═══════════════════════════════════════════════════════════════
      FILTERS + TABLE
@@ -96,11 +81,8 @@
                 <option value="Rede">Rede</option>
                 <option value="Cloud">Cloud</option>
             </select>
-            <select class="filter-select" id="controlStatusFilter">
-                <option value="all">Conformidade</option>
-                <option value="GAP">GAP</option>
-                <option value="PARTIAL">PARTIAL</option>
-                <option value="COVERED">COVERED</option>
+<select class="filter-select" id="tagFilter">
+                <option value="all">Tag (Todas)</option>
             </select>
             <select class="filter-select" id="sourceFilter">
                 <option value="all">Origem</option>
@@ -111,19 +93,19 @@
     </div>
 
     <table class="assets-table">
-        <thead>
-            <tr>
-                <th>Ativo</th>
-                <th>Tipo</th>
-                <th>Criticidade</th>
-                <th>Tags</th>
-                <th>Origem</th>
-                <th>Responsável</th>
-                <th>Risco</th>
-                <th>Conformidade</th>
-                <th></th>
-            </tr>
-        </thead>
+                <thead>
+                    <tr>
+                        <th style="width: 28%;">Ativo</th>
+                        <th>Tipo</th>
+                        <th>Criticidade</th>
+                        <th>Tags</th>
+                        <th>Origem</th>
+                        <th>Responsável</th>
+                        <th>Risco</th>
+                        <th style="width: 130px;">Estado (Wazuh)</th>
+                        <th style="width: 100px; text-align:center;">Ações</th>
+                    </tr>
+                </thead>
         <tbody id="assetsTbody">
             {{-- render via JS --}}
         </tbody>
@@ -167,16 +149,15 @@
         {{-- TABS --}}
         <div class="am-tabs">
             <button class="am-tab active" data-tab="overview">Visão Geral</button>
-            <button class="am-tab" data-tab="controls">
-                Controlos
-                <span class="tab-badge" id="tabBadgeControls">0</span>
-            </button>
             @permission('risk.view')
             <button class="am-tab" data-tab="risk">Risco &amp; Tratamento</button>
             @endpermission
             <button class="am-tab" data-tab="ai">
-                Sugestões IA
-                <span class="tab-badge tab-badge-ai">IA</span>
+                Análise de Postura
+                <span class="tab-badge tab-badge-ai" style="display:inline-flex; align-items:center; gap:4px; margin-left:4px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
+                    IA
+                </span>
             </button>
         </div>
 
@@ -206,6 +187,26 @@
                                 <span class="info-lbl">Último sync</span>
                                 <span class="info-val info-muted" id="mSyncedAt">—</span>
                             </div>
+                        </div>
+                    </div>
+                    <div class="info-section">
+                        <div class="info-section-title">Tags &amp; Classificação</div>
+                        <div style="padding: 12px 14px; display:flex; flex-direction:column; gap:10px;">
+                            {{-- Contentor onde as tags vão aparecer --}}
+                            <div id="mTagsWrap" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                                <div class="muted" style="font-size:12px;">A carregar tags...</div>
+                            </div>
+                            
+{{-- Input para adicionar nova tag com Autocomplete --}}
+                            @permission('assets.edit')
+                            <div style="display:flex; gap:6px; margin-top:4px; overflow:visible !important;">
+                                <div class="tag-autocomplete-wrapper">
+                                    <input type="text" id="mNewTagInput" class="search-input" style="width:100%; padding:6px 10px; font-size:11px;" placeholder="Nova tag (ex: DMZ, PCI-DSS)..." autocomplete="off">
+                                    <div id="mTagSuggestions" class="tag-suggestions-box"></div>
+                                </div>
+                                <button type="button" class="btn-ghost btn-sm" id="btnAddTagBtn">Adicionar</button>
+                            </div>
+                            @endpermission
                         </div>
                     </div>
 
@@ -335,20 +336,7 @@
             </div>
         </div>
 
-        {{-- TAB: CONTROLS --}}
-        <div class="am-tab-panel" id="tab-controls">
-            <div class="tab-panel-header">
-                <div>
-                    <div class="tab-panel-title">Controlos associados</div>
-                    <div class="tab-panel-sub">Avaliação GAP · PARTIAL · COVERED com evidências documentais</div>
-                </div>
-                <button class="btn-primary btn-sm" type="button" id="btnAddControlToAsset">+ Associar controlo</button>
-            </div>
-            <div id="assetControlsList" class="controls-list"></div>
-        </div>
-
 {{-- TAB: RISK --}}
-
         <div class="am-tab-panel" id="tab-risk">
             <div class="tab-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <div>
@@ -364,22 +352,30 @@
                     </button>
                 </div>
             </div>
-            
-            {{-- A lista onde o JS vai injetar os riscos --}}
             <div id="assetRiskTreatList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
-
-        {{-- TAB: AI --}}
-        <div class="am-tab-panel" id="tab-ai">
-            <div class="tab-panel-header">
+        {{-- TAB: AI POSTURE ANALYSIS --}}
+        <div class="tab-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
-                    <div class="tab-panel-title">Sugestões IA <span class="ai-label">IA</span></div>
-                    <div class="tab-panel-sub">RF16 — comparação descrição × controlos declarados</div>
+                    <div class="tab-panel-title" style="display:flex; align-items:center; gap:8px;">
+                        Análise de Postura de Segurança
+                        <span class="tab-badge tab-badge-ai" style="display:inline-flex; align-items:center; gap:4px; font-size:10px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
+                            IA
+                        </span>
+                    </div>
+                    <div class="tab-panel-sub">Avaliação de contexto gerada com base nos dados, configurações e riscos deste ativo.</div>
                 </div>
+                <button class="btn-primary btn-sm" type="button" id="btnGenerateAiAnalysis" style="display:inline-flex; align-items:center; gap:6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
+                    Gerar nova análise
+                </button>
             </div>
-            <div id="aiSuggestions" class="ai-box"></div>
-            <div class="tab-hint">Gerado por embeddings + regras: "diz ter inventário, mas sem evidência formal".</div>
+            
+            <div id="aiAnalysisHistory" style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
+                <div class="muted" style="font-size:12px;text-align:center;padding:20px;">A carregar histórico de análises...</div>
+            </div>
         </div>
 
     </div>{{-- /modal-card --}}
@@ -472,51 +468,6 @@
                     <button class="btn-danger" type="button" id="btnDeleteAsset" style="display:none;">Eliminar</button>
                 </div>
             </div>
-
-            <div class="panel">
-                <h2 style="font-size:13px;font-weight:700;margin-bottom:14px;">Associar controlos</h2>
-
-                <div class="field">
-                    <label>Controlo</label>
-                    <div style="display:flex;gap:8px;align-items:center;">
-                        <select id="fControlPick" style="flex:1">
-                            <option value="ID.GA-1">ID.GA-1 — Inventário de ativos</option>
-                            <option value="PR.IP-4">PR.IP-4 — Backups (testados)</option>
-                            <option value="ID.AR-1">ID.AR-1 — Análise de risco</option>
-                            <option value="PR.AC-1">PR.AC-1 — Controlo de acesso</option>
-                        </select>
-                        <span id="fControlInfo" class="ci" data-tip="">i</span>
-                    </div>
-                    <div class="muted" id="fControlInfoText" style="margin-top:6px;font-size:12px;"></div>
-                </div>
-
-                <div class="field-grid-2">
-                    <div class="field">
-                        <label>Status declarado</label>
-                        <select id="fControlStatus">
-                            <option value="GAP">GAP</option>
-                            <option value="PARTIAL">PARTIAL</option>
-                            <option value="COVERED">COVERED</option>
-                        </select>
-                        <div class="hint" id="fStatusHint" style="margin-top:4px"></div>
-                    </div>
-                    <div class="field">
-                        <label>Sugestão IA</label>
-                        <span class="chip" id="fAiSuggestChip">—</span>
-                    </div>
-                </div>
-
-                <div class="field">
-                    <label>Nota / Justificação</label>
-                    <textarea id="fControlNote" rows="2" placeholder="Ex.: Inventário existe, mas sem periodicidade definida."></textarea>
-                </div>
-
-                <button class="btn-ghost" type="button" id="btnAddControlInline">+ Adicionar controlo</button>
-
-                <div style="height:12px"></div>
-                <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;">Pré-visualização</div>
-                <div id="createControlsPreview" class="controls-list"></div>
-            </div>
         </div>
     </div>
 </div>
@@ -536,67 +487,69 @@
         </div>
 
         <div class="edit-two" style="margin-top:16px">
-            <div class="panel">
-                <div class="field">
-                    <label>Controlo</label>
-                    <select id="acControl">
-                        <option value="ID.GA-1">ID.GA-1 — Inventário de ativos</option>
-                        <option value="PR.IP-4">PR.IP-4 — Backups (testados)</option>
-                        <option value="ID.AR-1">ID.AR-1 — Análise de risco</option>
-                        <option value="PR.AC-1">PR.AC-1 — Controlo de acesso</option>
+<div class="panel">
+                {{-- 1. Escolha da Framework (Abas) --}}
+                <div class="field" style="margin-bottom: 14px;">
+                    <label>Framework</label>
+                    <div class="fw-tabs" id="acFrameworkTabs">
+                        <div class="muted" style="font-size:12px;">A carregar...</div>
+                    </div>
+                    <input type="hidden" id="acFramework" value="" />
+                </div>
+
+                {{-- 2. Escolha do Grupo --}}
+                <div class="field" style="margin-bottom: 14px;">
+                    <label>Grupo / Domínio</label>
+                    <select id="acGroup">
+                        <option>A carregar...</option>
                     </select>
-                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-                        <span id="acControlInfo" class="ci" data-tip="">i</span>
-                        <div class="muted" id="acControlInfoText" style="font-size:12px;">—</div>
+                </div>
+
+                {{-- 3. Escolha do Controlo --}}
+                <div class="field" style="margin-bottom: 16px;">
+                    <label>Controlo específico</label>
+                    <select id="acControl">
+                        <option>A carregar...</option>
+                    </select>
+                    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">
+                        <span id="acControlInfo" class="ci" style="flex-shrink:0" data-tip="">i</span>
+                        <div class="muted" id="acControlInfoText" style="font-size:12px;line-height:1.4;">—</div>
                     </div>
                 </div>
 
-                <div class="field-grid-2">
-                    <div class="field">
-                        <label>Status declarado</label>
-                        <select id="acStatus">
-                            <option value="GAP">GAP</option>
-                            <option value="PARTIAL">PARTIAL</option>
-                            <option value="COVERED">COVERED</option>
-                        </select>
-                        <div class="hint" id="acStatusHint" style="margin-top:4px"></div>
-                    </div>
-                    <div class="field">
-                        <label>Confiança IA</label>
-                        <select id="acConfidence">
-                            <option>0.30</option>
-                            <option>0.55</option>
-                            <option>0.72</option>
-                            <option>0.82</option>
-                        </select>
-                    </div>
+                {{-- O resto mantém-se igual... --}}
+                <div class="field">
+                    <label>Status declarado</label>
+                    <select id="acStatus">
+                        <option value="GAP">GAP</option>
+                        <option value="PARTIAL">PARTIAL</option>
+                        <option value="COVERED">COVERED</option>
+                    </select>
                 </div>
 
                 <div class="field">
-                    <label>Sugestão IA</label>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                        <span class="chip" id="acAiSuggestChip">—</span>
-                        <span class="chip" id="acAiDiffChip" style="display:none">Divergência</span>
-                    </div>
+                    <label>Justificação / Notas</label>
+                    <textarea id="acNote" rows="3" placeholder="Ex.: Controlo coberto. Ver política anexada."></textarea>
                 </div>
 
-                <div class="field">
-                    <label>Justificação</label>
-                    <textarea id="acNote" rows="2" placeholder="Ex.: Descrição menciona inventário, mas falta evidência formal."></textarea>
-                </div>
-
-                <div style="display:flex;gap:8px;">
-                    <button class="btn-primary" type="button" id="btnAddControlConfirm">Adicionar</button>
+                <div style="display:flex;gap:8px;margin-top:16px;">
+                    <button class="btn-primary" type="button" id="btnAddControlConfirm">Associar</button>
                     <button class="btn-ghost" type="button" id="btnAddControlCancel">Cancelar</button>
                 </div>
             </div>
 
             <div class="panel">
-                <h2 style="font-size:13px;font-weight:700;margin-bottom:10px;">Evidências (mock)</h2>
-                <div class="muted" style="font-size:12px;margin-bottom:12px;">Aqui será um seletor de documentos ligados (RF2/RF3).</div>
-                <div class="evidence-box">
-                    <div class="evi"><span class="chip">Procedimento Inventário v1.0</span><span class="muted" style="font-size:11px;">PDF</span></div>
-                    <div class="evi"><span class="chip warn">Relatório Backups (Jan)</span><span class="muted" style="font-size:11px;">Pendente</span></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h2 style="font-size:13px;font-weight:700;margin:0;">Evidências</h2>
+                    <label class="btn-ghost btn-sm" style="cursor:pointer;">
+                        + Upload
+                        <input type="file" id="acUploadFile" style="display:none;" />
+                    </label>
+                </div>
+                <div class="muted" style="font-size:12px;margin-bottom:12px;">Seleciona os documentos para ligar a este controlo. O Upload envia diretamente para o módulo de Documentos.</div>
+                
+                <div class="evidence-box" id="acEvidenceList" style="max-height: 250px; overflow-y: auto;">
+                    <div class="muted" style="font-size:12px;">A carregar documentos...</div>
                 </div>
             </div>
         </div>
@@ -608,6 +561,7 @@
      CSS
 ═══════════════════════════════════════════════════════════════ --}}
 <style>
+    
 /* ── Page layout ── */
 .pg-header {
     display: flex; align-items: flex-start; justify-content: space-between;
@@ -622,30 +576,30 @@
 .pg-sub   { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 .pg-header-actions { display: flex; gap: 8px; align-items: center; padding-top: 4px; }
 
-/* ── KPI strip ── */
-.kpi-strip {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 10px; margin-bottom: 16px;
-}
+/* ─── KPI strip (Dashboard Moderno & Suave) ─── */
+.kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .kpi-card {
-    display: flex; align-items: center; gap: 12px;
-    padding: 14px 16px; border-radius: 12px;
-    background: var(--modal-bg); border: 1px solid var(--modal-border);
+    background: rgba(255,255,255,.015); border: 1px solid var(--modal-border);
+    border-radius: 10px; padding: 18px; position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
 }
+.kpi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.kpi-label { font-size: 13px; font-weight: 600; color: var(--text); margin: 0; }
 .kpi-icon {
-    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-    display: grid; place-items: center;
+    width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0;
 }
-.kpi-icon-blue  { background: rgba(79,156,249,.1);  border: 1px solid rgba(79,156,249,.2);  color: #7eb8fb; }
-.kpi-icon-green { background: rgba(45,212,191,.09); border: 1px solid rgba(45,212,191,.2);  color: var(--ok); }
-.kpi-icon-warn  { background: rgba(251,191,36,.1);  border: 1px solid rgba(251,191,36,.22); color: var(--warn); }
-.kpi-icon-red   { background: rgba(251,113,133,.1); border: 1px solid rgba(251,113,133,.22); color: var(--bad); }
-.kpi-val  { font-size: 22px; font-weight: 800; font-family: var(--font-mono,monospace); line-height: 1; }
-.kpi-lbl  { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.kpi-ok   { color: var(--ok); }
-.kpi-warn { color: var(--warn); }
-.kpi-bad  { color: var(--bad); }
+.kpi-icon svg { width: 16px; height: 16px; stroke-width: 2px; }
+.kpi-num { font-size: 26px; font-weight: 700; font-family: var(--font-mono, monospace); line-height: 1; margin-bottom: 6px; color: var(--text); }
+.kpi-sub { font-size: 12px; color: var(--muted); }
 
+/* Temas de Cor dos Ícones */
+.kc-blue .kpi-icon { background: rgba(79,156,249,.1); color: #4f9cf9; border: 1px solid rgba(79,156,249,.2); }
+.kc-green .kpi-icon { background: rgba(45,212,191,.1); color: var(--ok); border: 1px solid rgba(45,212,191,.2); }
+.kc-red .kpi-icon { background: rgba(251,113,133,.1); color: var(--bad); border: 1px solid rgba(251,113,133,.2); }
+.kc-orange .kpi-icon { background: rgba(251,146,60,.1); color: #fb923c; border: 1px solid rgba(251,146,60,.2); }
+
+/* Ajuste no modo claro */
+:root[data-theme="light"] .kpi-card { background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 /* ── Table card ── */
 .table-card {
     border-radius: 14px; border: 1px solid var(--modal-border);
@@ -705,8 +659,7 @@
     text-transform: uppercase;
 }
 .src-manual  { background: rgba(79,156,249,.1);  border: 1px solid rgba(79,156,249,.22);  color: #7eb8fb; }
-.src-acronis { background: rgba(251,191,36,.09); border: 1px solid rgba(251,191,36,.22); color: var(--warn); }
-
+.src-wazuh   { background: rgba(251,191,36,.09); border: 1px solid rgba(251,191,36,.22); color: var(--warn); }
 /* criticality tags */
 .tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .tag .s { width: 6px; height: 6px; border-radius: 50%; }
@@ -1013,6 +966,68 @@
 .modal-overlay {
     z-index: 99999;
 }
+
+/* ── Tabs das Frameworks no Modal ── */
+.fw-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.fw-tab-btn {
+    flex: 1; text-align: center; padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--modal-border); background: rgba(255,255,255,.02);
+    color: var(--muted); cursor: pointer; transition: all .15s;
+}
+.fw-tab-btn[aria-pressed="true"] {
+    background: rgba(79,156,249,.1); border-color: rgba(79,156,249,.3); color: #4f9cf9;
+}
+
+/* ── Histórico IA Collapsible ── */
+details.ai-history-card > summary { list-style: none; }
+details.ai-history-card > summary::-webkit-details-marker { display: none; }
+details.ai-history-card[open] .ai-chevron { transform: rotate(180deg); }
+
+.tag-autocomplete-wrapper { position: relative; flex: 1; overflow: visible !important; }
+                            .tag-suggestions-box {
+                                display: none; position: absolute; top: 100%; left: 0; right: 0;
+                                margin-top: 4px; z-index: 999999; max-height: 180px; overflow-y: auto;
+                                background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+                                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                            }
+                            :root[data-theme="light"] .tag-suggestions-box {
+                                background: #ffffff; border-color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                            }
+                            .tag-sugg-item {
+                                padding: 8px 12px; cursor: pointer; font-size: 11px;
+                                border-bottom: 1px solid rgba(255,255,255,0.05);
+                                display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+                            }
+                            :root[data-theme="light"] .tag-sugg-item { border-bottom: 1px solid rgba(0,0,0,0.05); }
+                            .tag-sugg-item:hover { background: rgba(79,156,249,0.15); }
+
+                            /* Efeito de Vidro (Glassmorphism) no painel da IA */
+tr[id^="ai-panel"] {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.btn-primary.btn-sm:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+
+/* Ajuste das cores dos KPIs no modal */
+.am-akpi-btn:hover {
+    background: rgba(255,255,255,0.02) !important;
+}
+
+.am-alerts-filters input, .am-alerts-filters select {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
 </style>
 
 <script>

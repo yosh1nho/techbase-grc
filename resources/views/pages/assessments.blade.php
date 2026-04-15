@@ -268,73 +268,73 @@
   <div class="kpi-strip">
     <div class="kpi-card kc-a">
       <div class="kpi-label">Maturidade atual</div>
-      <div class="kpi-num">62%</div>
-      <div class="kpi-bar"><div class="kpi-fill" style="width:62%;background:var(--a-accent);"></div></div>
-      <div class="kpi-sub">Q1 2026 · QNRCS v2.1 + NIS2</div>
+      <div class="kpi-num" id="kpiMaturity">—</div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiMatFill" style="width:0%;background:var(--a-accent);transition:width .6s ease;"></div></div>
+      <div class="kpi-sub" id="kpiMatSub">A carregar...</div>
     </div>
     <div class="kpi-card kc-ok">
       <div class="kpi-label">Covered</div>
-      <div class="kpi-num">41</div>
-      <div class="kpi-bar"><div class="kpi-fill" style="width:58%;background:var(--ok);"></div></div>
+      <div class="kpi-num" id="kpiCovered">—</div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiCovFill" style="width:0%;background:var(--ok);transition:width .6s ease;"></div></div>
       <div class="kpi-sub">Controlos cobertos</div>
     </div>
     <div class="kpi-card kc-w">
       <div class="kpi-label">Partial</div>
-      <div class="kpi-num">18</div>
-      <div class="kpi-bar"><div class="kpi-fill" style="width:25%;background:var(--warn);"></div></div>
+      <div class="kpi-num" id="kpiPartial">—</div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiParFill" style="width:0%;background:var(--warn);transition:width .6s ease;"></div></div>
       <div class="kpi-sub">Evidência incompleta</div>
     </div>
     <div class="kpi-card kc-b">
       <div class="kpi-label">GAP</div>
-      <div class="kpi-num">12</div>
-      <div class="kpi-bar"><div class="kpi-fill" style="width:17%;background:var(--bad);"></div></div>
+      <div class="kpi-num" id="kpiGap">—</div>
+      <div class="kpi-bar"><div class="kpi-fill" id="kpiGapFill" style="width:0%;background:var(--bad);transition:width .6s ease;"></div></div>
       <div class="kpi-sub">Sem cobertura</div>
     </div>
   </div>
 
-  {{-- ── Criar avaliação ── --}}
+{{-- ── Criar avaliação ── --}}
   <div class="panel" style="margin-bottom:14px;">
     <div class="ph">
       <div>
         <h2>Criar avaliação</h2>
-        <div class="ph-sub">Seleciona framework(s), escopo e período. O mock pré-preenche e cruza evidências/IA.</div>
+        <div class="ph-sub">Seleciona framework(s), escopo e período. A IA cruza riscos, evidências e controlos do ativo.</div>
       </div>
       <button id="btnStartAssessment" type="button" class="btn ok">▶ Iniciar</button>
     </div>
 
+    {{-- LINHA 1: Escopo e Ativo --}}
     <div class="two" style="margin-bottom:12px;">
       <div class="field">
         <label>Escopo</label>
         <div class="scope-row" id="scopeRow">
-          <button type="button" class="scope-btn" data-scope="org"   aria-pressed="true">Organização</button>
-          <button type="button" class="scope-btn" data-scope="asset" aria-pressed="false">Por ativo</button>
+          <button type="button" class="scope-btn" data-scope="asset" aria-pressed="true" style="cursor: default;">Por ativo</button>
         </div>
-        <input type="hidden" id="scopeSelect" value="org" />
+        <input type="hidden" id="scopeSelect" value="asset" />
       </div>
 
       <div class="field" id="assetField">
-        <label>Ativo</label>
+        <label>Ativo alvo <span style="color:#f87171">*</span></label>
         <div class="dd-wrap">
           <input id="assetSearch" placeholder="Pesquisar ativo por nome, tipo, responsável…" autocomplete="off" />
           <div id="assetDropdown" class="asset-dd"></div>
         </div>
         <input type="hidden" id="assetSelectedId" value="" />
-        <div class="muted" style="margin-top:5px;font-size:11px;">Recomendado quando escopo = "Por ativo".</div>
+        <div class="muted" style="margin-top:5px;font-size:11px;">A avaliação será cruzada com riscos deste ativo.</div>
       </div>
     </div>
 
+    {{-- LINHA 2: Frameworks e Período --}}
     <div class="two">
       <div class="field">
-        <label>Framework(s)</label>
+        <label>Framework(s) <span style="color:#f87171">*</span></label>
         <div class="muted" style="font-size:11px;margin-bottom:8px;">Clica para adicionar/remover</div>
+        
         <div id="fwChips" class="fw-chips">
-          <button type="button" class="fw-chip" data-fw="QNRCS v2.1"  aria-pressed="true">QNRCS v2.1</button>
-          <button type="button" class="fw-chip" data-fw="NIS2"        aria-pressed="false">NIS2</button>
-          <button type="button" class="fw-chip" data-fw="ISO 27001"   aria-pressed="false">ISO 27001</button>
-          <button type="button" class="fw-chip" data-fw="CIS Controls" aria-pressed="false">CIS Controls</button>
+          <div style="font-size: 12px; color: var(--muted);">A carregar frameworks...</div>
         </div>
-        <input type="hidden" id="frameworksSelected" value="QNRCS v2.1" />
-        <div id="fwSummary" class="fw-summary">Selecionados: <b>QNRCS v2.1</b></div>
+        
+        <input type="hidden" id="frameworksSelected" value="" />
+        <div id="fwSummary" class="fw-summary">Selecionados: <b>—</b></div>
       </div>
 
       <div class="field">
@@ -346,56 +346,6 @@
         <div class="muted" style="margin-top:5px;font-size:11px;">Ex.: Q1 2026</div>
       </div>
     </div>
-  </div>
-
-  {{-- ── Resultado por controlo ── --}}
-  <div class="panel" style="margin-bottom:14px;">
-    <div class="ph">
-      <div>
-        <h2>Resultado por controlo</h2>
-        <div class="ph-sub">Cada controlo recebe status + notas + evidências. "Detalhes" mostra o cruzamento IA/framework.</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
-        <span class="st ok"><span class="dot"></span>1 COVERED</span>
-        <span class="st warn"><span class="dot"></span>1 PARTIAL</span>
-        <span class="st bad"><span class="dot"></span>1 GAP</span>
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Controlo</th>
-          <th>Status</th>
-          <th>Notas</th>
-          <th>Evidências</th>
-          <th style="width:100px;text-align:right;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><b>ID.GA-1</b><div class="muted">Inventário atualizado</div></td>
-          <td><span class="st warn"><span class="dot"></span>PARTIAL</span></td>
-          <td class="muted">Existe processo, falta prova periódica.</td>
-          <td class="muted">Procedimento v1.0</td>
-          <td style="text-align:right;"><button type="button" class="btn" style="padding:5px 11px;font-size:12px;" data-open-details="ID.GA-1">Detalhes</button></td>
-        </tr>
-        <tr>
-          <td><b>ID.AR-1</b><div class="muted">Análise de risco anual</div></td>
-          <td><span class="st bad"><span class="dot"></span>GAP</span></td>
-          <td class="muted">Sem registo formal.</td>
-          <td class="muted">—</td>
-          <td style="text-align:right;"><button type="button" class="btn" style="padding:5px 11px;font-size:12px;" data-open-details="ID.AR-1">Detalhes</button></td>
-        </tr>
-        <tr>
-          <td><b>PR.IP-4</b><div class="muted">Backups e testes</div></td>
-          <td><span class="st ok"><span class="dot"></span>COVERED</span></td>
-          <td class="muted">Relatórios mensais anexados.</td>
-          <td class="muted">Relatório Jan/2026</td>
-          <td style="text-align:right;"><button type="button" class="btn" style="padding:5px 11px;font-size:12px;" data-open-details="PR.IP-4">Detalhes</button></td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 
   {{-- ── Histórico (RF9) ── --}}
@@ -410,6 +360,7 @@
       <thead>
         <tr>
           <th>Período</th>
+          <th>Data</th>
           <th>Escopo</th>
           <th>Framework(s)</th>
           <th>Maturidade</th>

@@ -1,0 +1,549 @@
+/* resources/css/pages/dashboard.css */
+
+/* ── 1. GERAL & MODAIS BASE ── */
+.dash-card {
+    cursor: pointer;
+}
+
+.link-card {
+    cursor: pointer;
+    display: block;
+    color: inherit;
+}
+
+.modal-overlay.is-hidden {
+    display: none;
+}
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--modal-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 99999;
+}
+
+.modal-card {
+    width: min(1200px, 96vw);
+    max-height: 90vh;
+    overflow: auto;
+    border: 1px solid var(--modal-border);
+    border-radius: 16px;
+    background: var(--modal-bg);
+    color: var(--text);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, .55);
+    padding: 14px;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+
+.btn.small {
+    padding: 8px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+tr[data-row-click] {
+    cursor: pointer;
+}
+
+tr[data-row-click]:hover {
+    background: rgba(128, 128, 128, 0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ALERTS MODAL — REDESIGN COMPLETO
+   Substitui as secções am-* existentes no dashboard.css
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. CARD DO MODAL ── */
+.am-alerts-modal {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--modal-bg);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+/* ── 2. TOPBAR (brand + fechar) ── */
+.am-modal-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.am-modal-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.am-brand-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22d3ee;
+    box-shadow: 0 0 8px #22d3ee;
+    animation: am-pulse 2s ease-in-out infinite;
+}
+
+@keyframes am-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 8px #22d3ee;
+    }
+
+    50% {
+        opacity: 0.6;
+        box-shadow: 0 0 3px #22d3ee;
+    }
+}
+
+.am-brand-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #22d3ee;
+}
+
+.am-close-btn {
+    all: unset;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    transition: background 0.15s, color 0.15s;
+}
+
+.am-close-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+}
+
+/* ── 3. HEADER (título + subtítulo) ── */
+.am-modal-header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.am-modal-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+}
+
+.am-modal-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+}
+
+/* ── 4. KPI STRIP ── */
+.am-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.am-kpi-card {
+    all: unset;
+    cursor: pointer;
+    padding: 20px 24px;
+    text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.15s, opacity 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.am-kpi-card:last-child {
+    border-right: none;
+}
+
+.am-kpi-card[aria-pressed="false"] {
+    opacity: 0.4;
+}
+
+.am-kpi-card[aria-pressed="false"]:hover {
+    opacity: 0.65;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.am-kpi-card[aria-pressed="true"] {
+    opacity: 1;
+}
+
+/* Total ativo */
+.am-kpi-card:not(.am-kpi--critical):not(.am-kpi--medium):not(.am-kpi--low)[aria-pressed="true"] {
+    background: rgba(148, 163, 184, 0.07);
+    box-shadow: inset 0 -2px 0 rgba(148, 163, 184, 0.4);
+}
+
+.am-kpi--critical[aria-pressed="true"] {
+    background: rgba(248, 113, 113, 0.07) !important;
+    box-shadow: inset 0 -2px 0 #f87171;
+}
+
+.am-kpi--medium[aria-pressed="true"] {
+    background: rgba(251, 191, 36, 0.07) !important;
+    box-shadow: inset 0 -2px 0 #fbbf24;
+}
+
+.am-kpi--low[aria-pressed="true"] {
+    background: rgba(52, 211, 153, 0.07) !important;
+    box-shadow: inset 0 -2px 0 #34d399;
+}
+
+.am-kpi-num {
+    font-size: 30px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--text);
+}
+
+.am-kpi--critical .am-kpi-num {
+    color: #f87171;
+}
+
+.am-kpi--medium .am-kpi-num {
+    color: #fbbf24;
+}
+
+.am-kpi--low .am-kpi-num {
+    color: #34d399;
+}
+
+.am-kpi-lbl {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+/* ── 5. BARRA DE FILTROS ── */
+.am-filters-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 16px 28px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.am-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 140px;
+}
+
+.am-filter-flex {
+    flex: 1;
+}
+
+.am-filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.am-filter-input {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.am-filter-input:focus {
+    border-color: rgba(34, 211, 238, 0.4);
+    background: rgba(34, 211, 238, 0.04);
+}
+
+.am-filter-input option {
+    background: #0f172a;
+}
+
+/* ── 6. SEPARADOR DE RESULTADOS ── */
+.am-results-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 28px 6px;
+}
+
+.am-results-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.am-results-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── 7. TABELA ── */
+.am-table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 380px;
+    padding: 0 28px 8px;
+}
+
+.am-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.am-table thead tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.am-table th {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.am-table tbody tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.am-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.am-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.am-table td {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text);
+    vertical-align: top;
+}
+
+.am-loading-cell {
+    padding: 40px !important;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.am-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+/* ── 8. RODAPÉ ── */
+.am-modal-footer {
+    padding: 14px 28px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.am-modal-footer strong {
+    color: #22d3ee;
+    font-weight: 700;
+}
+
+/* ── 9. PAINEL DE DETALHES (Modo Claro/Escuro Suportado Nativamente) ── */
+.detail-row td {
+    padding: 0 !important;
+    border-bottom: 1px solid var(--modal-border) !important;
+}
+
+.alert-details-container {
+    background: var(--modal-panel);
+    /* Adapta-se ao modo claro/escuro automaticamente */
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-left: 3px solid var(--info);
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+@media (max-width: 800px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .am-kpi-strip {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Os cartões usam a variável nativa do painel */
+.detail-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+}
+
+.detail-card h4 {
+    color: var(--info);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+
+.info-pair {
+    margin-bottom: 10px;
+}
+
+.info-pair:last-child {
+    margin-bottom: 0;
+}
+
+.info-pair .label {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: block;
+    margin-bottom: 3px;
+}
+
+.info-pair .value {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.soc-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    background: var(--chip);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+    margin: 0 4px 4px 0;
+}
+
+/* Banner de remediação */
+.remedy-banner {
+    background: rgba(34, 197, 94, 0.05);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+    border-left: 4px solid var(--ok);
+    padding: 16px 20px;
+    border-radius: 10px;
+}
+
+.remedy-banner .detail-card {
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+}
+
+.remedy-banner .detail-card h4 {
+    color: var(--ok);
+    border-bottom-color: rgba(34, 197, 94, 0.15);
+}
+
+/* Banner IA */
+.ai-soc-banner {
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.06) 0%, transparent 100%);
+    border: 1px solid rgba(14, 165, 233, 0.15);
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+
+.btn-ai-action {
+    background: var(--info) !important;
+    color: white !important;
+    border: none;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(14, 165, 233, 0.25);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-ai-action:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+
+/* ── LEGADO: Manter compatibilidade com classes antigas que ainda existam ── */
+.am-alerts-modal .alert-details-box {
+    display: none;
+    /* Substituído por alert-details-container */
+}

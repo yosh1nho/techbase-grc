@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Services\GeminiClient;
 
 class AssetController extends Controller
 {
@@ -173,75 +174,84 @@ class AssetController extends Controller
         return response()->json(['success' => true, 'criticality' => $data['criticality']]);
     }
 
+// =========================================================================
+    // POST /api/assets/sync-wazuh
+    // Sincroniza ativos usando a API do Wazuh
     // =========================================================================
-    // POST /api/assets/sync-acronis   (sem alterações — mantido igual)
-    // =========================================================================
-    public function syncAcronis(): JsonResponse
+    public function syncWazuh(): JsonResponse
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer acronis_fake_jwt_token_998877'
-            ])->get('http://127.0.0.1:9999/resource_management/v4/resources');
+            // 1. Obter o Token do Wazuh (ignora a verificação SSL com verify => false)
+            $authResponse = \Illuminate\Support\Facades\Http::withOptions(['verify' => false])
+                ->withBasicAuth(env('WAZUH_API_USER'), env('WAZUH_API_PASS'))
+                ->post('https://192.168.10.6:55000/security/user/authenticate');
 
-            if (!$response->ok()) {
+            if (!$authResponse->ok()) {
                 return response()->json([
-                    'message' => 'Erro ao acessar API Acronis',
-                    'status'  => $response->status(),
+                    'message' => 'Erro ao autenticar na API do Wazuh',
+                    'status'  => $authResponse->status(),
+                ], 401);
+            }
+
+            $token = $authResponse->json('data.token');
+
+            // 2. Buscar a lista de Agentes
+            $agentsResponse = \Illuminate\Support\Facades\Http::withOptions(['verify' => false])
+                ->withToken($token)
+                ->get('https://192.168.10.6:55000/agents?pretty=true&sort=-ip,name');
+
+            if (!$agentsResponse->ok()) {
+                return response()->json([
+                    'message' => 'Erro ao buscar agentes no Wazuh',
+                    'status'  => $agentsResponse->status(),
                 ], 500);
             }
 
-            $resources = $response->json()['items'] ?? [];
+            $agents = $agentsResponse->json('data.affected_items') ?? [];
 
-            foreach ($resources as $r) {
+            // 3. Atualizar a Base de Dados
+            foreach ($agents as $agent) {
+                
+                // Ignorar agentes que não têm IP ou Nome útil (ex: o próprio manager se não o quiseres listar, opcional)
+                // if ($agent['id'] === '000') continue; 
+
+                $osName = $agent['os']['name'] ?? '';
+
                 DB::table('asset')->updateOrInsert(
-                    ['id_acronis' => $r['id']],
+                    // Vamos reaproveitar a coluna 'id_acronis' para guardar o ID do Wazuh para não teres de mexer na BD agora
+                    ['id_acronis' => $agent['id']],
                     [
-                        'source'              => 'acronis',
-                        'display_name'        => $r['name'] ?? null,
-                        'hostname'            => $r['host']['hostname'] ?? null,
-                        'ip'                  => $r['network']['ip'] ?? null,
-                        'mac_address'         => $r['network']['mac'] ?? null,
-                        'type'                => $r['type'] ?? null,
-                        'os_name'             => $r['os']['name'] ?? null,
-                        'os_version'          => $r['os']['version'] ?? null,
-                        'os_build'            => $r['os']['build'] ?? null,
-                        'os_arch'             => $r['os']['arch'] ?? null,
-                        'os_patch_level'      => $r['os']['patch_level'] ?? null,
-                        'agent_status'        => $r['agent']['status'] ?? null,
-                        'agent_version'       => $r['agent']['version'] ?? null,
-                        'backup_enabled'      => (int) ($r['protection']['backup_enabled'] ?? 0),
-                        'antimalware_enabled' => (int) ($r['protection']['antimalware_enabled'] ?? 0),
-                        'patch_mgmt_enabled'  => (int) ($r['protection']['patch_management_enabled'] ?? 0),
-                        'acronis_tenant_id'   => $r['tenant_id'] ?? null,
-                        'domain'              => $r['host']['domain'] ?? null,
-                        'updatedat'           => now(),
+                        'source'         => 'wazuh',
+                        'display_name'   => $agent['name'] ?? null,
+                        'hostname'       => $agent['name'] ?? null,
+                        'ip'             => $agent['ip'] ?? $agent['registerIP'] ?? null,
+                        'type'           => str_contains(strtolower($osName), 'windows') ? 'Endpoint' : 'Servidor',
+                        'os_name'        => $osName,
+                        'os_version'     => $agent['os']['version'] ?? null,
+                        'os_arch'        => $agent['os']['arch'] ?? null,
+                        'agent_status'   => $agent['status'] ?? null,
+                        'agent_version'  => $agent['version'] ?? null,
+                        'updatedat'      => now(),
                     ]
                 );
             }
 
-            return response()->json(['message' => 'Sync completed', 'count' => count($resources)]);
+            return response()->json(['message' => 'Sync completed', 'synced_count' => count($agents)]);
 
         } catch (\Exception $e) {
             $payload = [
-                'message'   => 'Erro interno ao sincronizar Acronis',
+                'message'   => 'Erro interno ao sincronizar Wazuh',
                 'error'     => $e->getMessage(),
                 'exception' => get_class($e),
             ];
-            if (config('app.debug')) {
-                $payload['file']  = $e->getFile();
-                $payload['line']  = $e->getLine();
-                $payload['trace'] = collect($e->getTrace())->take(5)->map(fn($t) => [
-                    'file' => $t['file'] ?? null, 'line' => $t['line'] ?? null, 'function' => $t['function'] ?? null,
-                ])->toArray();
-            }
-            \Log::error('Sync Acronis falhou', $payload);
+            \Log::error('Sync Wazuh falhou', $payload);
             return response()->json($payload, 500);
         }
     }
 
-    // =========================================================================
+// =========================================================================
     // POST /api/assets
-    // Cria um ativo manual. Aceita agora criticality (novo) e tags (opcional).
+    // Cria um ativo manual. Aceita criticality e cria/associa tags dinâmicas.
     // =========================================================================
     public function store(Request $request): JsonResponse
     {
@@ -249,17 +259,15 @@ class AssetController extends Controller
             $data = $request->validate([
                 'name'        => 'required|string|max:255',
                 'type'        => 'required|string|max:100',
-                // Aceita 'criticality' (novo padrão) OU 'criticity' (legacy do frontend)
                 'criticality' => ['nullable', Rule::in(self::CRITICALITIES)],
                 'criticity'   => 'nullable|string|max:50',
                 'owner'       => 'nullable|string|max:255',
                 'ip'          => 'nullable|string|max:45',
                 'notes'       => 'nullable|string',
-                'tag_ids'     => 'nullable|array',
-                'tag_ids.*'   => 'integer|exists:asset_tag,id_tag',
+                'tag_names'   => 'nullable|array',         
+                'tag_names.*' => 'string|max:100',
             ]);
 
-            // Normalizar criticality — novo campo tem prioridade; fallback mapeia o legacy
             $criticality = $data['criticality'] ?? $this->mapLegacyCriticity($data['criticity'] ?? null);
 
             $id = DB::table('asset')->insertGetId([
@@ -269,16 +277,32 @@ class AssetController extends Controller
                 'type'         => $data['type'],
                 'ip'           => $data['ip'] ?? null,
                 'criticality'  => $criticality,
-                // Mantém 'status' para compatibilidade com queries antigas
                 'status'       => $data['criticity'] ?? $criticality,
                 'description'  => $data['notes'] ?? null,
                 'created_at'   => now(),
                 'updatedat'    => now(),
             ], 'id_asset');
 
-            // Associar tags se fornecidas
-            if (!empty($data['tag_ids'])) {
-                foreach (array_unique($data['tag_ids']) as $tagId) {
+            // ── LÓGICA DAS TAGS: Criar se não existir e Associar ──
+            if (!empty($data['tag_names'])) {
+                $tagIdsToLink = [];
+                foreach ($data['tag_names'] as $name) {
+                    $cleanName = strtolower(trim($name));
+                    
+                    // Verifica se a tag já existe
+                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
+                    
+                    if (!$existingTag) {
+                        // Se não existe, cria!
+                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId(['name' => $cleanName], 'id_tag');
+                    } else {
+                        // Se existe, usa o ID
+                        $tagIdsToLink[] = $existingTag->id_tag;
+                    }
+                }
+
+                // Associa ao ativo (evitando duplicados no array)
+                foreach (array_unique($tagIdsToLink) as $tagId) {
                     DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
                 }
             }
@@ -304,5 +328,77 @@ class AssetController extends Controller
             'baixo', 'low'                   => 'low',
             default                          => 'medium',
         };
+    }
+
+
+    // =========================================================================
+    // GET /api/assets/{id}/analyses - Obter o histórico de análises
+    // =========================================================================
+    public function getAnalyses($id): JsonResponse
+    {
+        $analyses = DB::table('asset_ai_analysis')
+            ->where('id_asset', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        return response()->json($analyses);
+    }
+
+    // =========================================================================
+    // POST /api/assets/{id}/analyze - Gerar nova análise com IA
+    // =========================================================================
+// =========================================================================
+    // POST /api/assets/{id}/analyze - Gerar nova análise com IA
+    // =========================================================================
+    public function analyze($id, GeminiClient $gemini): JsonResponse 
+    {
+        try {
+            // 1. Recolher Contexto do Ativo
+            $asset = DB::table('asset')->where('id_asset', $id)->first();
+            if (!$asset) return response()->json(['message' => 'Ativo não encontrado.'], 404);
+
+            // 2. Recolher Riscos Associados
+            $risks = DB::table('risk')->where('id_asset', $id)->whereNotIn('status', ['Fechado', 'Aceite'])->get();
+            $riskContext = $risks->isEmpty() ? "Nenhum risco aberto." : $risks->map(fn($r) => "- Risco {$r->id_risk}: {$r->title} (Severidade: " . ($r->score ?? 'N/A') . ")")->join("\n");
+
+            // NOVO: 2.5 Recolher as Tags do Ativo
+            $tags = DB::table('asset_tag_map as m')
+                ->join('asset_tag as t', 't.id_tag', '=', 'm.id_tag')
+                ->where('m.id_asset', $id)
+                ->pluck('t.name')
+                ->toArray();
+            $tagsList = empty($tags) ? "Nenhuma tag atribuída" : implode(', ', $tags);
+
+            // 3. Montar o Prompt para o CISO Virtual (Agora com as Tags!)
+            $prompt = "Atuando como um CISO experiente, faz uma análise de postura de segurança concisa e direta ao ponto para o seguinte ativo:\n\n"
+                    . "NOME: {$asset->display_name}\n"
+                    . "TIPO: {$asset->type}\n"
+                    . "CRITICIDADE: {$asset->criticality}\n"
+                    . "TAGS DE CONTEXTO: {$tagsList}\n"
+                    . "SISTEMA OPERATIVO: {$asset->os_name} {$asset->os_version}\n"
+                    . "IP: {$asset->ip}\n"
+                    . "ESTADO DO AGENTE WAZUH: {$asset->agent_status}\n\n"
+                    . "RISCOS ABERTOS:\n{$riskContext}\n\n"
+                    . "Fornece um resumo executivo da postura (1 parágrafo), destaca as principais vulnerabilidades/preocupações baseadas nos dados, e sugere 2 ações imediatas. Usa formatação HTML simples (<b>, <br>, <ul>, <li>) para eu injetar diretamente na interface. Não uses Markdown com asteriscos.";
+
+            // 4. Chamar a API do Gemini 
+            $aiText = $gemini->generate($prompt);
+
+            if (empty($aiText)) throw new \Exception("A IA devolveu uma resposta vazia.");
+            $aiText = preg_replace('/\*\*(.*?)\*\*/s', '<b>$1</b>', $aiText);
+            // 5. Guardar na Base de Dados
+            $analysisId = DB::table('asset_ai_analysis')->insertGetId([
+                'id_asset' => $id,
+                'analysis_text' => $aiText,
+                'created_by' => session('tb_user.id'), // Mock auth session
+                'created_at' => now()
+            ], 'id_analysis');
+
+            return response()->json(['success' => true, 'id' => $analysisId, 'text' => $aiText, 'date' => now()->format('d/m/Y H:i')]);
+
+        } catch (\Exception $e) {
+            \Log::error('Erro ao gerar análise IA do ativo: ' . $e->getMessage());
+            return response()->json(['message' => 'Falha ao gerar análise IA: ' . $e->getMessage()], 500);
+        }
     }
 }
