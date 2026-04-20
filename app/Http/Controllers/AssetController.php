@@ -20,6 +20,8 @@ class AssetController extends Controller
     public function index(): JsonResponse
     {
         $assets = DB::table('asset as a')
+            // 🚀 A magia acontece aqui: Ligação à tabela User
+            ->leftJoin('User as u', 'a.owner_id', '=', 'u.id_user')
             ->select([
                 'a.id_asset', 'a.source', 'a.id_acronis', 'a.hostname',
                 'a.display_name', 'a.ip', 'a.mac_address', 'a.os_arch',
@@ -28,7 +30,10 @@ class AssetController extends Controller
                 'a.antimalware_enabled', 'a.patch_mgmt_enabled', 'a.type',
                 'a.status', 'a.description', 'a.domain', 'a.acronis_tenant_id',
                 'a.created_at', 'a.updatedat',
-                // Nova coluna — criticality (pode não existir ainda se a migration não correu)
+                // As novas colunas do Responsável
+                'a.owner_id', 
+                'u.name as owner', 
+                // Nova coluna — criticality
                 DB::raw("COALESCE(a.criticality, 'medium') as criticality"),
             ])
             ->get();
@@ -249,59 +254,69 @@ class AssetController extends Controller
         }
     }
 
-// =========================================================================
+    // =========================================================================
     // POST /api/assets
     // Cria um ativo manual. Aceita criticality e cria/associa tags dinâmicas.
     // =========================================================================
     public function store(Request $request): JsonResponse
     {
         try {
+            // 1. Validar EXATAMENTE os nomes que vêm do Javascript
             $data = $request->validate([
-                'name'        => 'required|string|max:255',
-                'type'        => 'required|string|max:100',
-                'criticality' => ['nullable', Rule::in(self::CRITICALITIES)],
-                'criticity'   => 'nullable|string|max:50',
-                'owner'       => 'nullable|string|max:255',
-                'ip'          => 'nullable|string|max:45',
-                'notes'       => 'nullable|string',
-                'tag_names'   => 'nullable|array',         
-                'tag_names.*' => 'string|max:100',
+                'display_name' => 'required|string|max:255',
+                'hostname'     => 'nullable|string|max:255',
+                'type'         => 'required|string|max:100',
+                'criticality'  => 'nullable|string',
+                'status'       => 'nullable|string|max:50',
+                'owner_id'     => 'nullable|integer',
+                'ip'           => 'nullable|string|max:45',
+                'prob'         => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
+                'impact'       => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
+                'description'  => 'nullable|string',
+                'tags'         => 'nullable|array',         
+                'tags.*'       => 'string|max:100',
             ]);
 
-            $criticality = $data['criticality'] ?? $this->mapLegacyCriticity($data['criticity'] ?? null);
+            $criticality = $data['criticality'] ?? 'medium';
 
+            // 2. Inserir na Base de Dados (SEM O PROB E IMPACT AQUI DENTRO!!!)
             $id = DB::table('asset')->insertGetId([
                 'source'       => 'manual',
-                'display_name' => $data['name'],
-                'hostname'     => $data['name'],
+                'display_name' => $data['display_name'],
+                'hostname'     => $data['hostname'] ?? $data['display_name'],
                 'type'         => $data['type'],
                 'ip'           => $data['ip'] ?? null,
                 'criticality'  => $criticality,
-                'status'       => $data['criticity'] ?? $criticality,
-                'description'  => $data['notes'] ?? null,
+                'status'       => $data['status'] ?? $criticality,
+                'owner_id'     => $data['owner_id'] ?? null,
+                'description'  => $data['description'] ?? null,
                 'created_at'   => now(),
                 'updatedat'    => now(),
             ], 'id_asset');
 
-            // ── LÓGICA DAS TAGS: Criar se não existir e Associar ──
-            if (!empty($data['tag_names'])) {
+            // 3. LÓGICA DAS TAGS: Criar se não existir e Associar
+            if (!empty($data['tags'])) {
                 $tagIdsToLink = [];
-                foreach ($data['tag_names'] as $name) {
+                foreach ($data['tags'] as $name) {
                     $cleanName = strtolower(trim($name));
+                    if (empty($cleanName)) continue;
                     
                     // Verifica se a tag já existe
                     $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
                     
                     if (!$existingTag) {
-                        // Se não existe, cria!
-                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId(['name' => $cleanName], 'id_tag');
+                        // Se não existe, cria com uma cor base!
+                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId([
+                            'name' => $cleanName,
+                            'color' => '#60a5fa'
+                        ], 'id_tag');
                     } else {
                         // Se existe, usa o ID
                         $tagIdsToLink[] = $existingTag->id_tag;
                     }
                 }
 
-                // Associa ao ativo (evitando duplicados no array)
+                // Associa ao ativo (evitando duplicados)
                 foreach (array_unique($tagIdsToLink) as $tagId) {
                     DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
                 }
@@ -399,6 +414,73 @@ class AssetController extends Controller
         } catch (\Exception $e) {
             \Log::error('Erro ao gerar análise IA do ativo: ' . $e->getMessage());
             return response()->json(['message' => 'Falha ao gerar análise IA: ' . $e->getMessage()], 500);
+        }
+    }
+
+
+    // =========================================================================
+    // PUT /api/assets/{id}
+    // Atualiza um ativo existente e as suas tags
+    // =========================================================================
+    public function update(Request $request, $id): JsonResponse
+    {
+        try {
+            $data = $request->validate([
+                'display_name' => 'required|string|max:255',
+                'hostname'     => 'nullable|string|max:255',
+                'type'         => 'required|string|max:100',
+                'criticality'  => 'nullable|string',
+                'status'       => 'nullable|string|max:50',
+                'owner_id'     => 'nullable|integer',
+                'ip'           => 'nullable|string|max:45',
+                'description'  => 'nullable|string',
+                'tags'         => 'nullable|array',         
+                'tags.*'       => 'string|max:100',
+            ]);
+
+            $criticality = $data['criticality'] ?? 'medium';
+
+            // 1. Atualizar na Base de Dados
+            DB::table('asset')->where('id_asset', $id)->update([
+                'display_name' => $data['display_name'],
+                'hostname'     => $data['hostname'] ?? $data['display_name'],
+                'type'         => $data['type'],
+                'ip'           => $data['ip'] ?? null,
+                'criticality'  => $criticality,
+                'status'       => $data['status'] ?? $criticality,
+                'owner_id'     => $data['owner_id'] ?? null,
+                'description'  => $data['description'] ?? null,
+                'updatedat'    => now(),
+            ]);
+
+            // 2. Atualizar Tags (Limpa as antigas e insere as novas)
+            DB::table('asset_tag_map')->where('id_asset', $id)->delete();
+
+            if (!empty($data['tags'])) {
+                $tagIdsToLink = [];
+                foreach ($data['tags'] as $name) {
+                    $cleanName = strtolower(trim($name));
+                    if (empty($cleanName)) continue;
+                    
+                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
+                    if (!$existingTag) {
+                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId(['name' => $cleanName, 'color' => '#60a5fa'], 'id_tag');
+                    } else {
+                        $tagIdsToLink[] = $existingTag->id_tag;
+                    }
+                }
+                foreach (array_unique($tagIdsToLink) as $tagId) {
+                    DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
+                }
+            }
+
+            return response()->json(['message' => 'Ativo atualizado com sucesso']);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Dados inválidos', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao atualizar ativo', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erro interno ao atualizar ativo', 'error' => $e->getMessage()], 500);
         }
     }
 }

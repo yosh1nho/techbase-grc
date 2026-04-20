@@ -407,12 +407,12 @@
                     <div class="field">
                         <label>Tipo</label>
                         <select id="fType">
-                            <option>Servidor</option>
-                            <option>Workstation</option>
-                            <option>Aplicação</option>
-                            <option>Rede</option>
-                            <option>Cloud</option>
-                            <option>Endpoint</option>
+                            <option value="Servidor">Servidor</option>
+                            <option value="Workstation">Workstation</option>
+                            <option value="Aplicação">Aplicação</option>
+                            <option value="Rede">Rede</option>
+                            <option value="Cloud">Cloud</option>
+                            <option value="Endpoint">Endpoint</option>
                         </select>
                     </div>
                 </div>
@@ -421,15 +421,17 @@
                     <div class="field">
                         <label>Criticidade</label>
                         <select id="fCrit">
-                            <option>Crítico</option>
-                            <option>Alto</option>
-                            <option>Médio</option>
-                            <option>Baixo</option>
+                            <option value="critical">Crítico</option>
+                            <option value="high">Alto</option>
+                            <option value="medium">Médio</option>
+                            <option value="low">Baixo</option>
                         </select>
                     </div>
                     <div class="field">
                         <label>Responsável</label>
-                        <input id="fOwner" placeholder="Ex.: TI • João" />
+                        <select id="fOwner">
+                            <option value="">A carregar utilizadores...</option>
+                        </select>
                     </div>
                 </div>
 
@@ -441,19 +443,20 @@
                 <div class="field">
                     <label>Tags (separadas por vírgula)</label>
                     <input id="fTags" class="search-input" placeholder="Ex.: Produção, PCI-DSS, Firewall" />
+                    <div id="fTagsVisual" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
                 </div>
 
                 <div class="field-grid-2">
                     <div class="field">
                         <label>Probabilidade (1–5)</label>
                         <select id="fProb">
-                            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                     </div>
                     <div class="field">
                         <label>Impacto (1–5)</label>
                         <select id="fImpact">
-                            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                            <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
                         </select>
                     </div>
                 </div>
@@ -809,6 +812,12 @@
 
 .info-section {
     border: 1px solid var(--modal-border); border-radius: 12px;
+    overflow: visible; /* não cortar o dropdown de sugestões de tags */
+}
+/* Repor overflow:hidden só nos que precisam (os que têm border-radius com conteúdo interno) */
+.info-section > .info-grid,
+.info-section > .protection-grid {
+    border-radius: 0 0 12px 12px;
     overflow: hidden;
 }
 .info-section-title {
@@ -983,22 +992,26 @@ details.ai-history-card > summary { list-style: none; }
 details.ai-history-card > summary::-webkit-details-marker { display: none; }
 details.ai-history-card[open] .ai-chevron { transform: rotate(180deg); }
 
-.tag-autocomplete-wrapper { position: relative; flex: 1; overflow: visible !important; }
+.tag-autocomplete-wrapper { position: relative; flex: 1; }
                             .tag-suggestions-box {
-                                display: none; position: absolute; top: 100%; left: 0; right: 0;
-                                margin-top: 4px; z-index: 999999; max-height: 180px; overflow-y: auto;
+                                display: none;
+                                position: fixed; /* fixed escapa de qualquer overflow ancestral */
+                                z-index: 999999;
+                                max-height: 200px; overflow-y: auto;
                                 background: #1e293b; border: 1px solid #334155; border-radius: 8px;
-                                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                                box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+                                min-width: 200px;
                             }
                             :root[data-theme="light"] .tag-suggestions-box {
-                                background: #ffffff; border-color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                                background: #ffffff; border-color: #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.12);
                             }
                             .tag-sugg-item {
-                                padding: 8px 12px; cursor: pointer; font-size: 11px;
+                                padding: 9px 14px; cursor: pointer; font-size: 12px;
                                 border-bottom: 1px solid rgba(255,255,255,0.05);
-                                display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+                                display: flex; align-items: center; gap: 8px; transition: background 0.12s;
                             }
                             :root[data-theme="light"] .tag-sugg-item { border-bottom: 1px solid rgba(0,0,0,0.05); }
+                            .tag-sugg-item:last-child { border-bottom: none; }
                             .tag-sugg-item:hover { background: rgba(79,156,249,0.15); }
 
                             /* Efeito de Vidro (Glassmorphism) no painel da IA */

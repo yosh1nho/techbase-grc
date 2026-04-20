@@ -16,7 +16,47 @@
         if (!show && $("#fIp")) $("#fIp").value = "";
     }
 
+    // ================== GESTOR DE TAGS DO FORMULÁRIO ==================
+    window.modalTagList = [];
 
+    window.renderInteractiveTags = function () {
+        const visual = $("#fTagsVisual");
+        if (!visual) return;
+        visual.innerHTML = window.modalTagList.map((t, i) => `
+            <span style="display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 6px; background: rgba(96, 165, 250, 0.15); color: #60a5fa; font-size: 11px; border: 1px solid rgba(96, 165, 250, 0.3); font-weight:600;">
+                ${t}
+                <span style="cursor:pointer; opacity:0.6; font-size:10px;" onclick="removeModalTag(${i})" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✕</span>
+            </span>
+        `).join('');
+    };
+
+    window.removeModalTag = function (index) {
+        window.modalTagList.splice(index, 1);
+        window.renderInteractiveTags();
+    };
+
+    window.setupTagInputBehavior = function () {
+        const fTagsInput = $("#fTags");
+        if (!fTagsInput) return;
+
+        fTagsInput.placeholder = "Escreve uma tag e prime Enter ou Vírgula...";
+
+        // Remove a antiga lógica clonando o input
+        const newTagsInput = fTagsInput.cloneNode(true);
+        fTagsInput.parentNode.replaceChild(newTagsInput, fTagsInput);
+
+        newTagsInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                const val = this.value.trim().replace(/,/g, '');
+                if (val && !window.modalTagList.includes(val)) {
+                    window.modalTagList.push(val);
+                    window.renderInteractiveTags();
+                }
+                this.value = ""; // Limpa a caixa para a próxima tag!
+            }
+        });
+    };
 
 
     // ========= RBAC (mock) =========
@@ -108,6 +148,27 @@
                 }
             }
         } catch (e) { console.error("Erro a carregar lista global de tags:", e); }
+    }
+
+    let USERS = [];
+
+    async function loadUsers() {
+        try {
+            // Ajusta este endpoint para a rota onde listavas os teus utilizadores
+            const r = await fetch('/api/users', { headers: { Accept: 'application/json' } });
+            if (r.ok) {
+                USERS = await r.json();
+
+                const ownerSelect = $("#fOwner");
+                if (ownerSelect) {
+                    ownerSelect.innerHTML = '<option value="">Sem responsável</option>' +
+                        USERS.map(u => `<option value="${u.id_user}">${u.name}</option>`).join('');
+                }
+            }
+        } catch (e) {
+            console.error("Erro a carregar utilizadores:", e);
+            if ($("#fOwner")) $("#fOwner").innerHTML = '<option value="">Erro ao carregar</option>';
+        }
     }
 
     async function loadDocumentsData() {
@@ -439,17 +500,26 @@
             let tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
             if (a.tags && a.tags.length > 0) {
                 const tagsArray = Array.isArray(a.tags) ? a.tags : String(a.tags).split(',');
+                const MAX_VISIBLE = 2;
+                const visible = tagsArray.slice(0, MAX_VISIBLE);
+                const overflow = tagsArray.length - MAX_VISIBLE;
 
-                tagsHtml = tagsArray
+                const chips = visible
                     .map(t => {
                         const tagName = typeof t === 'object' ? (t.name || '') : String(t);
                         const tagColor = typeof t === 'object' && t.color ? t.color : '#60a5fa';
-                        return tagName.trim() !== ''
-                            ? `<span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${tagColor}15; color: ${tagColor}; font-size: 10px; margin-right: 4px; border: 1px solid ${tagColor}30;">${tagName.trim()}</span>`
+                        return tagName.trim()
+                            ? `<span style="display:inline-block; padding: 2px 8px; border-radius: 4px; background: ${tagColor}15; color: ${tagColor}; font-size: 10px; border: 1px solid ${tagColor}30; white-space:nowrap; max-width:90px; overflow:hidden; text-overflow:ellipsis;" title="${tagName.trim()}">${tagName.trim()}</span>`
                             : '';
                     })
                     .join('');
-                if (!tagsHtml.trim()) tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
+
+                const overflowBadge = overflow > 0
+                    ? `<span style="display:inline-block; padding: 2px 7px; border-radius: 4px; background: rgba(148,163,184,.1); color: #94a3b8; font-size: 10px; border: 1px solid rgba(148,163,184,.2); white-space:nowrap;" title="${tagsArray.slice(MAX_VISIBLE).map(t => typeof t === 'object' ? t.name : t).join(', ')}">+${overflow}</span>`
+                    : '';
+
+                tagsHtml = `<div style="display:flex; flex-wrap:nowrap; gap:4px; align-items:center;">${chips}${overflowBadge}</div>`;
+                if (!chips.trim()) tagsHtml = '<span class="muted" style="font-size:11px">Sem tags</span>';
             }
 
             const sourceClass = a.source === 'wazuh' ? 'src-wazuh' : 'src-manual';
@@ -810,8 +880,13 @@
     }
 
     // ========= create/edit asset modal =========
+
     function resetCreateControlsPreview() {
         const wrap = $("#createControlsPreview");
+
+        // BLINDAGEM: Se a secção de controlos não existir no HTML, ignora e não dá erro!
+        if (!wrap) return;
+
         wrap.innerHTML = "";
 
         if (!createControlsWorking.length) {
@@ -856,191 +931,159 @@
         editingAssetId = null;
         createControlsWorking = [];
 
-        $("#assetEditSubtitle").textContent = "Registar ativo (mock)";
-        $("#assetEditTitle").textContent = "Novo ativo";
+        // Limpa o gestor de Tags
+        window.modalTagList = [];
+        if ($("#fTags")) $("#fTags").value = "";
+        window.renderInteractiveTags();
 
-        $("#fName").value = "";
-        $("#fType").value = "Servidor";
-        $("#fIp").value = "";
-        $("#fTags").value = "";
-        toggleIpFieldByType($("#fType").value);
-        $("#fCrit").value = "Médio";
-        $("#fOwner").value = "";
-        $("#fProb").value = "3";
-        $("#fImpact").value = "3";
-        $("#fNotes").value = "";
+        if ($("#assetEditSubtitle")) $("#assetEditSubtitle").textContent = "Registar ativo";
+        if ($("#assetEditTitle")) $("#assetEditTitle").textContent = "Novo ativo";
 
-        $("#btnDeleteAsset").style.display = "none";
+        if ($("#fName")) $("#fName").value = "";
+        if ($("#fType")) $("#fType").value = "Servidor";
+        if ($("#fIp")) $("#fIp").value = "";
+        if ($("#fType")) toggleIpFieldByType($("#fType").value);
+        if ($("#fCrit")) $("#fCrit").value = "medium";
+        if ($("#fOwner")) $("#fOwner").value = "";
+        if ($("#fProb")) $("#fProb").value = "3";
+        if ($("#fImpact")) $("#fImpact").value = "3";
+        if ($("#fNotes")) $("#fNotes").value = "";
 
-        // defaults do bloco de controlos
-        $("#fControlPick").value = "ID.GA-1";
-        syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
-        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
-        $("#fControlNote").value = "";
+        if ($("#btnDeleteAsset")) $("#btnDeleteAsset").style.display = "none";
 
-        resetCreateControlsPreview();
+        if ($("#fControlPick")) {
+            $("#fControlPick").value = "ID.GA-1";
+            syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
+        }
+        if ($("#fControlStatus")) applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+        if ($("#fControlNote")) $("#fControlNote").value = "";
+        if (typeof resetCreateControlsPreview === "function") resetCreateControlsPreview();
 
         openModal("#assetEditModal");
     }
 
-    function openEditAsset(assetId) {
-        // CORREÇÃO 1: Forçar conversão para String para evitar falhas no find()
-        const a = assets.find(x => String(x.id) === String(assetId));
-        if (!a) return;
+    window.openEditAsset = function (assetId) {
+        const a = assets.find(x => String(x.id) === String(assetId) || String(x.id_asset) === String(assetId));
+        if (!a) { console.error("Ativo não encontrado."); return; }
 
         editingAssetId = assetId;
         createControlsWorking = [];
 
-        $("#assetEditSubtitle").textContent = "Editar ativo (mock)";
-        $("#assetEditTitle").textContent = a.name;
+        if ($("#assetEditSubtitle")) $("#assetEditSubtitle").textContent = "Editar ativo";
+        if ($("#assetEditTitle")) $("#assetEditTitle").textContent = a.name || a.display_name || "";
 
-        $("#fName").value = a.name;
-        $("#fType").value = a.type;
-        $("#fIp").value = a.ip || "";
-        toggleIpFieldByType($("#fType").value);
+        if ($("#fName")) $("#fName").value = a.name || a.display_name || "";
+        if ($("#fType")) $("#fType").value = a.type || "";
+        if ($("#fIp")) $("#fIp").value = a.ip || "";
+        if ($("#fType")) toggleIpFieldByType($("#fType").value);
 
-        // CORREÇÃO 2: Ler as tags corretamente quer venham da BD (objetos) ou do mock (strings)
-        const tagsStr = Array.isArray(a.tags)
-            ? a.tags.map(t => typeof t === 'object' ? t.name : t).join(', ')
-            : (a.tags || "");
-        $("#fTags").value = tagsStr;
+        // Preenche o Gestor de Tags com as tags do Ativo
+        window.modalTagList = Array.isArray(a.tags)
+            ? a.tags.map(t => typeof t === 'object' ? t.name : t)
+            : (a.tags ? String(a.tags).split(',').map(t => t.trim()) : []);
+        window.modalTagList = window.modalTagList.filter(Boolean);
 
-        $("#fCrit").value = a.criticity;
-        $("#fOwner").value = a.owner;
-        $("#fProb").value = String(a.prob);
-        $("#fImpact").value = String(a.impact);
-        $("#fNotes").value = a.notes || "";
+        if ($("#fTags")) $("#fTags").value = "";
+        window.renderInteractiveTags();
 
-        $("#btnDeleteAsset").style.display = "inline-flex";
+        if ($("#fCrit")) $("#fCrit").value = a.criticality || a.criticity || "medium";
+        if ($("#fOwner")) $("#fOwner").value = a.owner_id || "";
+        if ($("#fProb")) $("#fProb").value = String(a.prob || "3");
+        if ($("#fImpact")) $("#fImpact").value = String(a.impact || "3");
+        if ($("#fNotes")) $("#fNotes").value = a.description || a.notes || "";
 
-        $("#fControlPick").value = "ID.GA-1";
-        syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
-        applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
-        $("#fControlNote").value = "";
+        if ($("#btnDeleteAsset")) $("#btnDeleteAsset").style.display = "inline-flex";
 
-        resetCreateControlsPreview();
+        if ($("#fControlPick")) {
+            $("#fControlPick").value = "ID.GA-1";
+            syncControlInfo($("#fControlPick"), $("#fControlInfo"), $("#fControlInfoText"));
+        }
+        if ($("#fControlStatus")) applyStatusGuard($("#fControlStatus"), $("#fStatusHint"));
+        if ($("#fControlNote")) $("#fControlNote").value = "";
+        if (typeof resetCreateControlsPreview === "function") resetCreateControlsPreview();
 
         openModal("#assetEditModal");
-    }
+    };
 
     async function saveAssetFromForm() {
         const name = $("#fName").value.trim();
         if (!name) return alert("Nome é obrigatório.");
 
-        const type = $("#fType").value;
-        const criticity = $("#fCrit").value;
-        const owner = $("#fOwner").value.trim() || "—";
-        const prob = Number($("#fProb").value);
-        const impact = Number($("#fImpact").value);
-        const notes = $("#fNotes").value.trim();
-        const ip = ($("#fIp")?.value || "").trim();
-        const tagsInput = ($("#fTags")?.value || "").trim();
-        const tagNamesArray = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
-        if (!editingAssetId) {
-            // ── Persiste na base de dados ──
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+        const type = $("#fType")?.value || "Servidor";
+        const criticity = $("#fCrit")?.value || "medium";
 
-            const payload = {
-                name: name,
-                type: type,
-                criticity: criticity,
-                owner: owner,
-                ip: ip || null,
-                prob: prob,
-                impact: impact,
-                criticality: mapCriticality(criticity) || "medium",
-                notes: notes || null,
-                tags: tagNamesArray
-            };
+        // 🛡️ O SEGREDO 1: Forçar o JS a apanhar especificamente o <SELECT> e ignorar inputs fantasmas
+        const ownerSelect = document.querySelector("select#fOwner");
+        const ownerVal = ownerSelect?.value;
+        const owner_id = ownerVal ? parseInt(ownerVal) : null;
 
-            try {
+        const prob = Number($("#fProb")?.value || 3);
+        const impact = Number($("#fImpact")?.value || 3);
+        const notes = $("#fNotes")?.value.trim() || null;
+        const ip = ($("#fIp")?.value || "").trim() || null;
+        const finalTags = window.modalTagList || [];
+
+        let safeCriticality = criticity;
+        if (criticity === "Crítico") safeCriticality = "critical";
+        if (criticity === "Alto") safeCriticality = "high";
+        if (criticity === "Médio") safeCriticality = "medium";
+        if (criticity === "Baixo") safeCriticality = "low";
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+
+        const payload = {
+            display_name: name,
+            hostname: name,
+            type: type,
+            status: safeCriticality,
+            criticality: safeCriticality,
+            owner_id: owner_id,
+            ip: ip || null,
+            description: notes || null,
+            tags: finalTags
+        };
+
+        const btn = document.getElementById("btnSaveAsset");
+        const ogText = btn.innerHTML;
+        btn.innerHTML = "A guardar...";
+        btn.disabled = true;
+
+        try {
+            if (!editingAssetId) {
+                // ======== 🛡️ O SEGREDO 2: CRIAR NOVO ATIVO ========
                 const res = await fetch("/api/assets", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRF-TOKEN": csrfToken || ""
-                    },
+                    headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": csrfToken || "" },
                     body: JSON.stringify(payload)
                 });
-
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.message || "Erro de Validação");
 
-                if (!res.ok) {
-                    alert(`❌ Erro ao guardar ativo:\n${data.message || "Erro desconhecido"}`);
-                    return;
-                }
-
-                // Adiciona ao estado local com o id real da BD
-                const newAsset = {
-                    id: data.id_asset,
-                    name,
-                    subtitle: `${type} • Manual`,
-                    type,
-                    source: "manual",
-                    criticity,
-                    owner,
-                    ip,
-                    mac_address: "",
-                    hostname: name,
-                    domain: "",
-                    os_Name: "",
-                    os_Version: "",
-                    os_arch: "",
-                    os_build: "",
-                    os_patch_level: "",
-                    agent_status: "",
-                    agent_version: "",
-                    agent_last_seen: null,
-                    backup_enabled: false,
-                    antimalware_enabled: false,
-                    patch_mgmt_enabled: false,
-                    acronis_synced_at: null,
-                    createdBy: "Registo manual",
-                    notes,
-                    prob,
-                    impact,
-                    controls: createControlsWorking.map(c => {
-                        const ai = mockAiSuggest(notes || name, c.key);
-                        return {
-                            key: c.key,
-                            declaredStatus: c.declaredStatus,
-                            aiSuggestedStatus: ai.suggestedStatus,
-                            aiConfidence: ai.confidence,
-                            aiJustification: ai.justification,
-                            note: c.note || "",
-                            evidences: []
-                        };
-                    }),
-                    risks: [],
-                    treatments: []
-                };
-
-                assets.unshift(newAsset);
-
-            } catch (err) {
-                alert(`❌ Erro de conexão ao guardar ativo.\n${err.message}`);
-                return;
+            } else {
+                // ======== 🛡️ O SEGREDO 3: EDITAR ATIVO EXISTENTE NA BD ========
+                const res = await fetch(`/api/assets/${editingAssetId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-TOKEN": csrfToken || "" },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || "Erro ao atualizar");
             }
-        } else {
-            const a = assets.find(x => x.id === editingAssetId);
-            a.name = name;
-            a.type = type;
-            a.criticity = criticity;
-            a.owner = owner;
-            a.ip = ip;
-            a.notes = notes;
-            a.prob = prob;
-            a.impact = impact;
-            // (controls ficam como estavam; mock)
-        }
 
-        renderAssetsTable();
-        closeModal("#assetEditModal");
+            // Se tudo correu bem, fecha o modal e recarrega a tabela c/ os dados reais da Base de Dados!
+            closeModal("#assetEditModal");
+            loadAssetsFromDB();
 
-        // se estava com detalhes aberto do mesmo ativo, re-render
-        if (currentAssetId) {
-            const a = assets.find(x => x.id === currentAssetId);
-            if (a) openAssetModal(a.id);
+            // Se for uma edição e o painel de detalhes estiver aberto atrás, atualiza-o também
+            if (editingAssetId && currentAssetId === editingAssetId) {
+                setTimeout(() => openAssetModal(currentAssetId), 500);
+            }
+
+        } catch (err) {
+            alert(`❌ Erro: ${err.message}`);
+        } finally {
+            btn.innerHTML = ogText;
+            btn.disabled = false;
         }
     }
 
@@ -1159,6 +1202,14 @@
         const suggBox = $("#mTagSuggestions");
         if (!input || !suggBox) return;
 
+        // Posiciona o dropdown com fixed para escapar de qualquer overflow ancestral
+        function positionSuggBox() {
+            const rect = input.getBoundingClientRect();
+            suggBox.style.top = (rect.bottom + 4) + 'px';
+            suggBox.style.left = rect.left + 'px';
+            suggBox.style.width = rect.width + 'px';
+        }
+
         const handleSuggest = () => {
             const val = input.value.toLowerCase().trim();
 
@@ -1172,10 +1223,8 @@
                 ? currentAsset.tags.map(t => (typeof t === 'object' ? t.name : String(t)).toLowerCase())
                 : [];
 
-            // Remove as tags que o ativo já tem
             let matches = ALL_DB_TAGS.filter(t => !currentTagNames.includes(t.name.toLowerCase()));
 
-            // Se o utilizador escreveu algo, filtra. Se não, mostra as disponíveis!
             if (val) {
                 matches = matches.filter(t => t.name.toLowerCase().includes(val));
             }
@@ -1187,30 +1236,31 @@
 
             suggBox.innerHTML = matches.map(t => `
                 <div class="tag-sugg-item" data-name="${t.name}">
-                    <span style="width:8px;height:8px;border-radius:50%;background:${t.color || '#60a5fa'}; box-shadow: 0 0 4px ${t.color || '#60a5fa'}80;"></span>
+                    <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${t.color || '#60a5fa'}; box-shadow: 0 0 4px ${t.color || '#60a5fa'}80;"></span>
                     <span style="color:var(--text); font-weight:500;">${t.name}</span>
                 </div>
             `).join('');
 
+            positionSuggBox();
             suggBox.style.display = "block";
         };
 
-        // Dispara ao escrever, ao clicar e ao focar na caixa!
         input.addEventListener("input", handleSuggest);
         input.addEventListener("focus", handleSuggest);
         input.addEventListener("click", handleSuggest);
 
-        // Quando clica numa sugestão
+        // Reposicionar ao fazer scroll ou resize (o modal pode fazer scroll)
+        window.addEventListener("scroll", () => { if (suggBox.style.display !== 'none') positionSuggBox(); }, true);
+        window.addEventListener("resize", () => { if (suggBox.style.display !== 'none') positionSuggBox(); });
+
         suggBox.addEventListener("click", (e) => {
             const item = e.target.closest('.tag-sugg-item');
             if (!item) return;
-
             input.value = item.dataset.name;
             suggBox.style.display = "none";
-            addTagToAsset(); // Adiciona automaticamente ao clicar
+            addTagToAsset();
         });
 
-        // Fechar a caixa se clicar noutro sítio qualquer do ecrã
         document.addEventListener("click", (e) => {
             if (!input.contains(e.target) && !suggBox.contains(e.target)) {
                 suggBox.style.display = "none";
@@ -1226,7 +1276,9 @@
         loadDocumentsData();
         loadAssetsFromDB();
         loadDbTags();
+        loadUsers();
         setupTagAutocomplete();
+        window.setupTagInputBehavior();
 
         // 🛡️ HELPER À PROVA DE BALA (TEM DE ESTAR ANTES DE SER USADO!)
         const bindClick = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("click", fn); };
@@ -1331,6 +1383,31 @@
                 closeModal("#assetEditModal");
             }
         });
+
+        // Renderizar tags visuais enquanto o utilizador escreve no formulário
+        const fTagsInput = $("#fTags");
+        const fTagsVisual = $("#fTagsVisual");
+
+        if (fTagsInput && fTagsVisual) {
+            const renderVisualTags = () => {
+                const tags = fTagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+                fTagsVisual.innerHTML = tags.map(t =>
+                    `<span style="display:inline-block; padding: 4px 10px; border-radius: 6px; background: rgba(96, 165, 250, 0.15); color: #60a5fa; font-size: 11px; border: 1px solid rgba(96, 165, 250, 0.3); font-weight:600;">
+                        ${t}
+                    </span>`
+                ).join('');
+            };
+
+            // Ouve as mudanças no teclado e ao carregar o modal
+            fTagsInput.addEventListener("input", renderVisualTags);
+
+            // Substitui o método openEditAsset / openCreateAsset original para renderizar as tags logo ao abrir
+            const originalOpenEdit = window.openEditAsset;
+            window.openEditAsset = function (id) {
+                originalOpenEdit(id);
+                renderVisualTags();
+            };
+        }
 
         // Eventos gerais dos formulários
         bindChange("#fType", () => toggleIpFieldByType($("#fType")?.value));

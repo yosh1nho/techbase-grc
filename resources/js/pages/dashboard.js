@@ -144,7 +144,7 @@ function renderAlertsTable() {
                                     Plano de Mitigação Estratégico (IA)
                                 </span>
                             </div>
-                            <button class="btn-ai-action" onclick="event.stopPropagation(); analyzeAlert('${a.id}')" id="btn-ai-${safeId}">
+                            <button class="btn-ai-action" onclick="event.stopPropagation(); analyzeAlert('${safeId}')" id="btn-ai-${safeId}">
                                 <i data-lucide="sparkles" style="width:13px;height:13px;"></i>
                                 Gerar Análise Profunda
                             </button>

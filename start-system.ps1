@@ -31,3 +31,12 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "
 cd 'C:\Users\Administrador\Desktop\projetoTechbase\app\techbase-grc';
 C:\php\php.exe artisan queue:work --timeout=300 --tries=1 --sleep=3
 "
+
+# ==========================================
+# MemPalace API (Cérebro Histórico em Python)
+# ==========================================
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "
+cd 'C:\Users\Administrador\Desktop\projetoTechbase\app\techbase-grc\mempalace-api';
+.\venv\Scripts\activate;
+uvicorn api:app --port 8001 --reload
+"

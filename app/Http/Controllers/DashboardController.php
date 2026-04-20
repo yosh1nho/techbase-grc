@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use App\Services\GeminiClient;
+use App\Services\MemPalaceClient;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -245,12 +246,16 @@ class DashboardController extends Controller
 
     // =========================================================================
     // POST /api/dashboard/wazuh-alerts/{id}/analyze
-    // Gera ou devolve análise IA de um alerta
+    // Gera análise IA de um alerta c/ RAG Duplo (ElasticSearch + MemPalace)
     // =========================================================================
-    public function analyzeWazuhAlert(Request $request, $id, GeminiClient $gemini): JsonResponse
+// =========================================================================
+    // POST /api/dashboard/wazuh-alerts/{id}/analyze
+    // Gera análise IA de um alerta c/ RAG Duplo (ElasticSearch + MemPalace)
+    // =========================================================================
+    public function analyzeWazuhAlert(Request $request, $id, GeminiClient $gemini, MemPalaceClient $memPalace): JsonResponse
     {
         try {
-            // 1. Verificar se já existe análise na BD (Cache)
+            // 1. Verificar se já existe análise na BD
             $existing = DB::table('wazuh_alert_analysis')->where('wazuh_alert_id', $id)->first();
             if ($existing) {
                 return response()->json([
@@ -261,7 +266,7 @@ class DashboardController extends Controller
                 ]);
             }
 
-            // 2. Se não existir, vamos buscar os dados deste alerta específico ao ES
+            // 2. Buscar os dados deste alerta ao SIEM (Elasticsearch)
             $esQuery = Http::withOptions(['verify' => false])
                 ->withBasicAuth(env('ELASTIC_USER'), env('ELASTIC_PASS'))
                 ->post('https://192.168.10.20:9200/wazuh-alerts-*/_search', [
@@ -273,37 +278,93 @@ class DashboardController extends Controller
                 return response()->json(['message' => 'Alerta não encontrado no SIEM.'], 404);
             }
 
-            // 3. Montar o Prompt super estruturado
-            $agent = $hit['agent']['name'] ?? 'Desconhecido';
+            // 3. 🎯 O MATCH GRC (Agora com Fallback para Syslog/Firewalls!)
+            $agentId = $hit['agent']['id'] ?? null;
+            $agentName = $hit['agent']['name'] ?? 'Desconhecido';
+            
+            $asset = null;
+            $assetContext = "Ativo não registado no inventário GRC.";
+            $structuredTag = "[HOSTNAME: {$agentName}]";
+
+            // Tentativa A: Pelo ID exato do Agente (Ignora o 000 pois é o Manager genérico para Syslog)
+            if ($agentId && $agentId !== '000') {
+                $asset = DB::table('asset')
+                    ->leftJoin('User as u', 'asset.owner_id', '=', 'u.id_user')
+                    ->select('asset.*', 'u.name as owner_name')
+                    ->where('id_acronis', $agentId)
+                    ->first();
+            }
+
+            // Tentativa B (FALLBACK): Pelo Hostname (Crucial para OPNsense, APs e Routers)
+            if (!$asset && $agentName !== 'Desconhecido') {
+                $asset = DB::table('asset')
+                    ->leftJoin('User as u', 'asset.owner_id', '=', 'u.id_user')
+                    ->select('asset.*', 'u.name as owner_name')
+                    ->where('hostname', $agentName)
+                    ->orWhere('display_name', $agentName)
+                    ->first();
+            }
+
+            if ($asset) {
+                // Âncora Estruturada para o MemPalace
+                $structuredTag = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
+                
+                // Contexto Rico
+                $assetContext = "Nome GRC: {$asset->display_name}\n"
+                              . "Criticidade para o Negócio: {$asset->criticality}\n"
+                              . "Responsável (Owner): " . ($asset->owner_name ?? 'Não atribuído') . "\n"
+                              . "IP Interno: {$asset->ip}";
+            }
+
+            // EXTRAIR A DATA REAL DO ATAQUE (Passo crucial corrigido)
+            $rawTimestamp = $hit['@timestamp'] ?? 'now';
+            $alertDate = date('Y-m-d H:i', strtotime($rawTimestamp));
+
+            // 4. 🧠 RECALL MEMPALACE
+            $historyQuery = "Busca estrita para {$structuredTag}: incidentes anteriores, alertas críticos, malwares e soluções aplicadas.";
+            $historicoMemPalace = $memPalace->recall($historyQuery);
+
+            // 5. Montar o Prompt
             $desc = $hit['rule']['description'] ?? 'Sem descrição';
             $level = $hit['rule']['level'] ?? 'N/A';
             $mitreTac = implode(', ', $hit['rule']['mitre_tactics'] ?? ['Nenhuma']);
             $mitreTech = implode(', ', $hit['rule']['mitre_techniques'] ?? ['Nenhuma']);
             $remed = $hit['data']['sca']['check']['remediation'] ?? 'Nenhuma sugerida pelo Wazuh.';
 
-            $prompt = "Atuando como SOC Analyst de Nível 3 (Especialista em Cibersegurança), analisa o seguinte alerta do SIEM Wazuh e cria um plano de ação executivo e técnico.\n\n"
-                    . "DADOS DO ALERTA:\n"
-                    . "- Ativo: {$agent}\n"
-                    . "- Regra: {$desc} (Nível/Severidade: {$level})\n"
-                    . "- Táticas MITRE ATT&CK: {$mitreTac}\n"
-                    . "- Técnicas MITRE ATT&CK: {$mitreTech}\n"
+            $prompt = "Atuando como SOC Analyst de Nível 3, analisa o seguinte alerta do SIEM Wazuh.\n\n"
+                    . "DADOS DO ATIVO NO INVENTÁRIO:\n{$assetContext}\n\n"
+                    . "DADOS DO ALERTA ATUAL:\n"
+                    . "- Regra: {$desc} (Severidade: {$level})\n"
+                    . "- Táticas MITRE: {$mitreTac}\n"
+                    . "- Técnicas MITRE: {$mitreTech}\n"
                     . "- Sugestão do Sistema: {$remed}\n\n"
-                    . "Fornece a tua resposta usando APENAS HTML simples (<b>, <ul>, <li>, <br>). Sem Markdown. A tua resposta deve estar dividida em 3 partes curtas e diretas:\n"
-                    . "1. <b>Resumo do Risco:</b> O que isto significa para o negócio (1 parágrafo).\n"
-                    . "2. <b>Ameaça (MITRE Context):</b> Como um atacante pode explorar estas táticas/técnicas (1 parágrafo curto).\n"
-                    . "3. <b>Plano de Mitigação:</b> 2 a 3 passos práticos para resolver o problema baseados na sugestão do sistema e boas práticas.";
+                    . "CONTEXTO HISTÓRICO (DIÁRIO DE SOC):\n{$historicoMemPalace}\n\n"
+                    . "Fornece a resposta usando APENAS HTML simples (<b>, <ul>, <li>, <br>). Sem Markdown. Divide em 3 partes:\n"
+                    . "1. <b>Resumo do Risco:</b> O impacto no negócio (tendo em conta a criticidade do ativo) e se há um padrão histórico preocupante baseado no Diário de SOC.\n"
+                    . "2. <b>Ameaça (MITRE Context):</b> Como um atacante explora isto.\n"
+                    . "3. <b>Plano de Mitigação:</b> 2 a 3 passos práticos para a equipa atuar.";
 
-            // 4. Chamar a API do Gemini
+            // 6. Chamar o Gemini
             $aiText = $gemini->generate($prompt);
             if (empty($aiText)) throw new \Exception("A IA devolveu uma resposta vazia.");
-$aiText = preg_replace('/\*\*(.*?)\*\*/s', '<b>$1</b>', $aiText);
-            // 5. Guardar na Base de Dados
+            $aiText = preg_replace('/\*\*(.*?)\*\*/s', '<b>$1</b>', $aiText);
+
+            // 7. Guardar a análise na cache local (MySQL)
             $analysisId = DB::table('wazuh_alert_analysis')->insertGetId([
                 'wazuh_alert_id' => $id,
                 'analysis_text' => $aiText,
                 'created_by' => session('tb_user.id'),
                 'created_at' => now()
             ], 'id_analysis');
+
+            // 8. 🧠 MINE MEMPALACE: Guardar com a DATA REAL do Elasticsearch!
+            $memoriaLimpa = strip_tags(str_replace(['<br>', '<ul>', '<li>'], ' ', $aiText));
+            
+            $textoParaGravar = "{$structuredTag} | DATA DO ALERTA: {$alertDate} | "
+                             . "Alerta SIEM gerado: '{$desc}' (Severidade: {$level}). "
+                             . "A mitigação documentada pelo SOC foi: {$memoriaLimpa}";
+
+            $memPalace->remember("wzh-{$id}", $textoParaGravar);
 
             return response()->json([
                 'success' => true, 

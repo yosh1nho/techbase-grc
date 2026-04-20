@@ -1,0 +1,21 @@
+[HOSTNAME: TechbaseOPNsense.localdomain] | DATA DO EVENTO: 2026-04-20 | Alerta SIEM gerado: 'Host-based anomaly detection event (rootcheck).' (Severidade: 7). A mitigação documentada pelo SOC foi: Resumo do Risco: 
+O ativo TechbaseOPNsense.localdomain não está registado no inventário GRC. No entanto, o seu hostname indica que se trata de um firewall/router OPNsense, um componente de infraestrutura de rede de alta criticidade. A sua potencial compromisso pode levar a interrupção de serviço, acesso não autorizado à rede interna, exfiltração de dados e danos reputacionais, resultando num impacto de negócio ALTO. 
+Historicamente, embora o diário de SOC tenha registado que não havia um padrão preocupante para o ativo "techbase" (provavelmente o mesmo ou um ativo relacionado), houve um alerta de alta severidade (15) em 2026-04-20 para "Malicious file hash confirmed" nesse ativo. A ocorrência de um segundo alerta de alta severidade ("Host-based anomaly detection event") no mesmo tipo de ativo (firewall) agora estabelece um padrão histórico preocupante que exige investigação imediata e aprofundada. 
+ 
+Ameaça (MITRE Context): 
+Um evento de "Host-based anomaly detection" (rootcheck) num firewall OPNsense sugere que um atacante pode estar a tentar ou já conseguiu: 
+ 
+     Persistence (TA0003): Modificar ficheiros de sistema, adicionar novos serviços ou alterar scripts de inicialização para manter o acesso ao dispositivo.
+     Privilege Escalation (TA0004): Explorar vulnerabilidades ou configurações incorretas para obter privilégios mais elevados no firewall.
+     Defense Evasion (TA0005): Alterar componentes do sistema para ocultar a sua presença ou desativar funcionalidades de segurança.
+
+Estas ações podem ser uma continuação de um comprometimento inicial, potencialmente relacionado com o alerta anterior de "Malicious file hash confirmed". 
+ 
+Plano de Mitigação: 
+ 
+     1. Contenção Imediata e Investigação Forense: 
+    Isolar o dispositivo TechbaseOPNsense.localdomain da rede ou restringir as suas ligações a serviços críticos. Iniciar uma investigação forense completa, incluindo a revisão de logs do sistema (auth.log, system.log, logs do firewall), processos em execução, integridade de ficheiros críticos e ligações de rede suspeitas. Verificar a existência de novas regras de firewall, configurações de VPN ou contas de utilizador não autorizadas. Registrar imediatamente o ativo no inventário GRC com criticidade ALTA.
+     2. Caça a Ameaças e Remediação: 
+    Identificar a causa raiz da anomalia. Se o comprometimento for confirmado, realizar uma reinstalação completa do sistema a partir de uma fonte confiável e restaurar a configuração a partir de um backup conhecido como bom. Rodar todas as credenciais associadas ao dispositivo (administrador, SSH, chaves API). Procurar por Indicadores de Compromisso (IOCs) identificados noutros dispositivos da rede, especialmente considerando o alerta anterior de hash malicioso.
+     3. Medidas Proativas e Hardening: 
+    Implementar verificações regulares de integridade (e.g., scans diários de rootcheck) para todos os dispositivos de rede críticos. Garantir que todos os dispositivos OPNsense estão a executar a versão de firmware mais recente com todas as patches de segurança aplicadas. Rever e reforçar a configuração do OPNsense, desativando serviços desnecessários, aplicando políticas de palavra-passe fortes, autenticação multifator (MFA) para acesso administrativo e restringindo o acesso administrativo a IPs específicos.
