@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\MemPalaceClient;
 
 class TreatmentCommentController extends Controller
 {
@@ -136,10 +137,9 @@ class TreatmentCommentController extends Controller
         return response()->json($result);
     }
 
-    // =========================================================================
+// =========================================================================
     // POST /api/tasks/{taskId}/comments
-    // Cria um comentário, com zero ou mais ficheiros anexados.
-    // Recebe: multipart/form-data com campo 'content' e ficheiros 'files[]'
+    // Cria um comentário para a tarefa (e guarda no MemPalace)
     // =========================================================================
     public function store(Request $request, int $taskId): JsonResponse
     {
@@ -149,48 +149,77 @@ class TreatmentCommentController extends Controller
         }
 
         $request->validate([
-            'content'   => ['required_without:files', 'nullable', 'string'],
-            'files'     => ['nullable', 'array', 'max:10'],
-            'files.*'   => ['file', 'max:20480'], // 20 MB por ficheiro
+            'content' => ['required', 'string', 'max:2000']
         ]);
 
-        $userId = session('tb_user.id_user') ?? session('tb_user.id') ?? null;
+        $userId = session('tb_user.id');
+        $now = now();
 
-        // Criar o comentário
         $commentId = DB::table('treatmentcomment')->insertGetId([
             'id_task'   => $taskId,
             'user_id'   => $userId,
-            'content'   => $request->input('content', ''),
-            'createdat' => now(),
+            'content'   => $request->content,
+            'createdat' => $now
         ], 'id_comment');
 
-        // Processar ficheiros se existirem
-        $savedAttachments = [];
-        if ($request->hasFile('files')) {
-            foreach ($request->file('files') as $file) {
-                $attachment = $this->saveAttachment($file, $commentId, $userId);
-                if ($attachment) {
-                    $savedAttachments[] = $attachment;
+        // =====================================================================
+        // 🧠 MINE MEMPALACE — grava comentário no diário SOC
+        // =====================================================================
+        \Log::channel('single')->info("🔥 [DEBUG MEMPALACE] A iniciar gravação do comentário #{$commentId}");
+        
+        try {
+            $plan = DB::table('risktreatmentplan')->where('id_plan', $task->id_plan)->first();
+            
+            $assets = DB::table('asset')->get();
+            $tags = [];
+            foreach ($assets as $asset) {
+                // 👇 ALTERADO AQUI: Agora procura na description do plano em vez de no title 👇
+                if (stripos($request->content, $asset->hostname) !== false || 
+                    stripos($task->title, $asset->hostname) !== false ||
+                    ($plan && stripos($plan->description ?? '', $asset->hostname) !== false)) {
+                    $tags[] = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
                 }
             }
-        }
+            
+            $tagString = empty($tags) ? "[GERAL_SOC]" : implode(" ", $tags);
+            $userName = DB::table('User')->where('id_user', $userId)->value('name') ?? 'Analista SOC';
+            
+            // 👇 ALTERADO AQUI: O plano agora chama-se pelo seu ID 👇
+            $planTitle = $plan ? "TP-" . $plan->id_plan : 'Sem plano'; 
+            
+            $textoParaGravar = "{$tagString} | DATA: " . $now->format('Y-m-d H:i') . " | "
+                             . "{$userName} comentou no plano '{$planTitle}': " . strip_tags($request->content);
 
-        // Buscar o autor para devolver na resposta
-        $author = $userId
-            ? DB::table('User')->where('id_user', $userId)->value('name')
-            : null;
+            \Log::channel('single')->info("🚀 [DEBUG MEMPALACE] Texto montado. A instanciar cliente e enviar para o Python API...");
+            
+            $memPalace = new \App\Services\MemPalaceClient();
+            $memPalace->remember("comment-{$commentId}-" . time(), $textoParaGravar);
+            
+            \Log::channel('single')->info("✅ [DEBUG MEMPALACE] Sucesso! A API Python aceitou a memória.");
+            
+        } catch (\Exception $e) {
+            \Log::channel('single')->error("❌ [DEBUG MEMPALACE ERRO FATAL]: " . $e->getMessage() . " | Linha: " . $e->getLine());
+        }        
+        // =====================================================================
 
-        return response()->json([
-            'success' => true,
-            'comment' => [
-                'id'          => $commentId,
-                'taskId'      => $taskId,
-                'author'      => $author ?? 'Utilizador',
-                'content'     => $request->input('content', ''),
-                'attachments' => $savedAttachments,
-                'createdAt'   => now()->toISOString(),
-            ],
-        ], 201);
+        // Retornar o comentário recém-criado para a UI (igual ao teu código original)
+        $newComment = DB::table('treatmentcomment as tc')
+            ->leftJoin('User as u', 'u.id_user', '=', 'tc.user_id')
+            ->select([
+                'tc.id_comment',
+                'tc.id_task',
+                'tc.content',
+                'tc.createdat',
+                'u.name as user_name',
+                'u.email as user_email'
+            ])
+            ->where('tc.id_comment', $commentId)
+            ->first();
+
+        // Garantir que a UI não quebra
+        $newComment->attachments = [];
+
+        return response()->json(['success' => true, 'comment' => $newComment]);
     }
 
     // =========================================================================

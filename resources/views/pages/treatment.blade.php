@@ -217,8 +217,11 @@
           <div class="treat-modal-col">
 
             <div class="field">
-              <label>Responsável (owner)</label>
-              <input id="td_owner" placeholder="ex.: IT Ops, SecOps, Network..." />
+              <label>Responsável</label>
+              <select id="td_owner">
+                <option value="">Sem responsável</option>
+                {{-- populado via loadUsers() --}}
+              </select>
             </div>
 
             <div class="field">

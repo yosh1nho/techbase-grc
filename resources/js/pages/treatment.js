@@ -253,7 +253,7 @@ async function loadUsers() {
         const options = '<option value="">Sem designado</option>' +
             users.map(u => `<option value="${u.id_user}">${u.name || u.email}</option>`).join("");
         // Popular todos os selects de "Designado" na página
-        ["tf_assigned", "tkm_edit_assigned"].forEach(id => {
+        ["tf_assigned", "tkm_edit_assigned", "td_owner"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerHTML = options;
         });
@@ -348,7 +348,7 @@ function openDetail(id) {
     renderAiSteps(""); // campo ai_actions não existe na BD ainda
 
     const setVal = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v || ""; };
-    setVal("td_desc", p.risk_description);
+    setVal("td_desc", p.description);
     setVal("td_evidence", "");
     setVal("td_owner", p.owner_id);
     setVal("td_due", p.due_date);
@@ -393,10 +393,11 @@ async function saveDetail() {
     if (!currentId) return;
     try {
         const updated = await PUT(`/api/treatment-plans/${currentId}`, {
-            owner: document.getElementById("td_owner")?.value,
-            due: document.getElementById("td_due")?.value,
+            owner: document.getElementById("td_owner")?.value || null,
+            due: document.getElementById("td_due")?.value || null,
             status: document.getElementById("td_status")?.value,
             strategy: document.getElementById("td_strategy")?.value,
+            description: document.getElementById("td_desc")?.value || null,
         });
         // Actualizar cache local
         const idx = allPlans.findIndex(p => p.id === currentId);

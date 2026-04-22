@@ -595,9 +595,10 @@
     }
 
     // Botão IA
-    const aiBtn = document.getElementById("vwAiAssist");
-    if (aiBtn) {
-      aiBtn.onclick = () => openAiAssistModal(doc);
+    const geminiBtn = document.getElementById("vwGeminiAnalyse");
+    if (geminiBtn) {
+      geminiBtn.style.display = doc.has_file ? "" : "none";
+      geminiBtn.onclick = () => openGeminiModal(doc);
     }
 
     // Preview do ficheiro
@@ -811,6 +812,86 @@
       out.disabled = false;
     } finally {
       document.getElementById("aiRunBtn").disabled = false;
+    }
+  }
+
+  //Função para abrir modal de análise Gemini de documentos
+  async function openGeminiModal(doc) {
+    const m = document.getElementById("geminiModal");
+    if (!m) return;
+    const btnClose = document.getElementById("geminiClose");
+    if (btnClose) {
+      // Remove event listeners antigos para não duplicar, caso o modal seja aberto várias vezes
+      btnClose.replaceWith(btnClose.cloneNode(true));
+      // Adiciona a ação de fechar ao novo botão
+      document.getElementById("geminiClose").addEventListener("click", () => {
+        m.classList.remove("open");
+        m.style.display = "none";
+      });
+    }
+
+    m.onclick = (e) => {
+      if (e.target === m) {
+        m.classList.remove("open");
+        m.style.display = "none";
+      }
+    };
+    document.getElementById("geminiDocName").textContent = doc.title || doc.file_name || "—";
+    document.getElementById("geminiResult").textContent = "";
+    document.getElementById("geminiLoading").style.display = "block";
+    m.style.display = "";
+    m.classList.add("open");
+
+    try {
+      // 1. Buscar o texto do ficheiro via /preview
+      const textRes = await fetch(`/api/documents/${doc.id}/preview`);
+      const mime = (doc.mime_type || "").toLowerCase();
+      let text = "";
+
+      if (mime === "text/plain" || /\.(txt|md)$/i.test(doc.file_name || "")) {
+        text = await textRes.text();
+      } else if (mime === "application/pdf") {
+        // Para PDF: usar o endpoint de extracção de texto (ver ponto c)
+        const extractRes = await fetch(`/api/documents/${doc.id}/extract-text`);
+        const extractData = await extractRes.json();
+        text = extractData.text || "";
+      } else {
+        text = "[Tipo de ficheiro não suportado para análise de texto]";
+      }
+
+      if (!text.trim()) {
+        document.getElementById("geminiResult").textContent = "Não foi possível extrair texto deste documento.";
+        document.getElementById("geminiLoading").style.display = "none";
+        return;
+      }
+
+      // 2. Chamar o backend que fala com Gemini
+      // 2. Chamar o Gemini (Backend) usando a tua função nativa apiPost
+      const res = await apiPost("/api/documents/gemini-analyse", {
+        text: text.substring(0, 15000),
+        doc_id: doc.id
+      });
+
+      // O apiPost costuma devolver logo o JSON, por isso não precisamos de res.json()
+      document.getElementById("geminiLoading").style.display = "none";
+
+      // Verificamos se houve erro na resposta
+      if (res.error || !res.success) {
+        throw new Error(res.message || res.error || "A IA não conseguiu analisar o documento.");
+      }
+
+      // Verifica se a biblioteca Marked está carregada para converter Markdown para HTML
+      const rawAnalysis = res.analysis || "Sem resposta da IA.";
+
+      if (typeof marked !== 'undefined') {
+        document.getElementById("geminiResult").innerHTML = marked.parse(rawAnalysis);
+      } else {
+        // Fallback caso a biblioteca falhe a carregar
+        document.getElementById("geminiResult").textContent = rawAnalysis;
+      }
+    } catch (err) {
+      document.getElementById("geminiLoading").style.display = "none";
+      document.getElementById("geminiResult").textContent = "Erro: " + err.message;
     }
   }
 

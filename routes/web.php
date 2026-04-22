@@ -168,7 +168,11 @@ Route::middleware('mock.auth')->group(function () {
     Route::post('/api/documents/{id}/re-upload',           [DocumentController::class, 'reUpload'])->middleware(CheckPermission::class.':docs.upload');
     Route::get('/api/document-generator/templates', [DocumentGeneratorController::class, 'templates'])->middleware(CheckPermission::class.':docs.view');
     Route::post('/api/document-generator/generate',  [DocumentGeneratorController::class, 'generate'])->middleware(CheckPermission::class.':docs.view');
- 
+    // Extração de texto para análise Gemini
+    Route::get('/api/documents/{id}/extract-text',  [DocumentController::class, 'extractText'])->middleware(CheckPermission::class.':docs.view');
+
+    // Análise Gemini — IMPORTANTE: esta rota tem de vir ANTES de {id}/xxx para não colidir
+    Route::post('/api/documents/gemini-analyse',    [DocumentController::class, 'geminiAnalyse'])->middleware(CheckPermission::class.':docs.view');
     
     
     // ── Comentários (nested sob tarefa) ──────────────────────────────────────

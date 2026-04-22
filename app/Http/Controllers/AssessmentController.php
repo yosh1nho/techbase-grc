@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\GeminiClient;
 use App\Services\PineconeClient;
+use App\Services\MemPalaceClient;
 
 class AssessmentController extends Controller
 {
@@ -469,16 +470,23 @@ $complianceState = DB::table('compliance_assessment as ca')
             return $ref ? "[{$ref}] {$text}" : $text;
         })->filter()->take(4)->join("\n\n---\n\n");
 
+        //RECALL MEMPALACE (O que o SOC registou sobre esta máquina?)
+        $memPalace = new MemPalaceClient();
+        $structuredTag = "[ASSET_ID: {$assetId}] [HOSTNAME: {$assetName}]";
+        $historyQuery = "Busca estrita para {$structuredTag}: incidentes reais de cibersegurança, alertas críticos do SIEM e tempo de mitigação.";
+        $historicoMemPalace = $memPalace->recall($historyQuery);
+
         // ── Construir prompt ─────────────────────────────────────────────────
         $prompt = $this->buildAnalysisPrompt(
-            asset:      $asset,
-            risks:      $risks,
-            documents:  $documents,
-            compliance: $complianceState,
-            treatments: $treatments,
-            frameworks: $frameworks,
-            period:     $period,
-            ragContext: $ragContext,
+            asset:              $asset,
+            risks:              $risks,
+            documents:          $documents,
+            compliance:         $complianceState,
+            treatments:         $treatments,
+            frameworks:         $frameworks,
+            period:             $period,
+            ragContext:         $ragContext,
+            historicoMemPalace: $historicoMemPalace 
         );
 
         // ── Chamar Gemini ────────────────────────────────────────────────────
@@ -503,6 +511,7 @@ $complianceState = DB::table('compliance_assessment as ca')
         $frameworks,
         string $period,
         string $ragContext,
+        string $historicoMemPalace
     ): string {
         $assetName = $asset->display_name ?? $asset->hostname ?? 'Ativo';
         $fwNames   = $frameworks->pluck('name')->join(', ');
@@ -548,6 +557,10 @@ IP: {$assetIp}
 Criticidade: {$assetCriticality}
 Período: {$period}
 Frameworks: {$fwNames}
+
+CONTEXTO HISTÓRICO REAL (DIÁRIO DE SOC):
+Atenção Auditor: Se existirem incidentes recentes graves abaixo, deves refletir isso com GAPs (Não Conformidades) nos controlos relacionados com proteção e deteção, e reduzir drasticamente a percentagem de maturidade (maturity).
+{$historicoMemPalace}
 
 RISCOS ASSOCIADOS:
 {$risksText}

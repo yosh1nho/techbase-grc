@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('risktreatmentplan', function (Blueprint $table) {
+            // Descrição do plano — texto livre definido pelo analista
+            $table->text('description')->nullable()->after('strategy');
+
+            // Prioridade do plano: Alta / Média / Baixa
+            $table->string('priority', 20)->nullable()->default('Média')->after('description');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('risktreatmentplan', function (Blueprint $table) {
+            $table->dropColumn(['description', 'priority']);
+        });
+    }
+};

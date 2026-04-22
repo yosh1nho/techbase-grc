@@ -95,13 +95,6 @@
         <div class="rk-section-label">Identificação</div>
 
         <div class="field">
-          <label>Ativo associado <span style="color:var(--bad)">*</span></label>
-          <select id="rm_asset">
-            <option value="">A carregar ativos...</option>
-          </select>
-        </div>
-
-        <div class="field">
           <label>Título / Descrição do risco <span style="color:var(--bad)">*</span></label>
           <input id="rm_title" placeholder="ex.: Acesso não autorizado por força bruta (SSH)" />
         </div>

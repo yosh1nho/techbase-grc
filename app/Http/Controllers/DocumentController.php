@@ -563,4 +563,114 @@ class DocumentController extends Controller
             'has_file'         => !empty($d->attach_path ?? $d->file_path),
         ];
     }
+
+
+// =========================================================================
+// POST /api/documents/gemini-analyse
+// Recebe texto extraído do frontend e envia ao Gemini para análise.
+// Body: { text: string, doc_id?: int }
+// =========================================================================
+    public function geminiAnalyse(\Illuminate\Http\Request $request, \App\Services\GeminiClient $gemini)
+    {
+        // Validação básica dos dados recebidos do frontend
+        $request->validate([
+            'text' => 'required|string',
+            'doc_id' => 'required'
+        ]);
+
+        try {
+            $text = $request->input('text');
+
+            // 1. Definição do Prompt com a estrutura solicitada
+            $prompt = "És um Auditor de Segurança da Informação rigoroso (ISO 27001 e NIS2). "
+                    . "Analisa o documento abaixo exclusivamente do ponto de vista de Governance, Risk e Compliance (GRC). "
+                    . "REGRA 1: Não incluas frases introdutórias (ex: 'Aqui está a análise'). Começa imediatamente no primeiro título '## Resumo'. "
+                    . "REGRA 2: Se o documento NÃO for uma política de segurança, procedimento de TI, evidência técnica, relatório de auditoria ou documento corporativo relacionado com Cibersegurança/GRC (por exemplo, se for um contrato de estágio, uma fatura, ou um texto aleatório), deves RESPONDER APENAS a seguinte frase: "
+                    . "'O documento fornecido não parece ser uma evidência ou política de Segurança da Informação válida para análise no contexto GRC.' Não escrevas mais nada. "
+                    . "Se o documento for válido para GRC, estrutura a tua resposta exatamente assim:\n\n"
+                    . "## Resumo\nO que este documento cobre (2-3 frases).\n\n"
+                    . "## Pontos Fortes\nO que está bem definido e coberto do ponto de vista de segurança.\n\n"
+                    . "## Lacunas Identificadas\nO que falta, está incompleto ou representa um risco técnico.\n\n"
+                    . "## Alinhamento NIS2 / QNRCS\nQue controlos este documento potencialmente cobre e quais ficam por cobrir.\n\n"
+                    . "## Recomendações\n3 a 5 melhorias técnicas concretas e acionáveis para melhorar a postura de segurança.\n\n"
+                    . "---\nDocumento a analisar:\n"
+                    . $text;
+
+            // 2. Chamada ao serviço Gemini existente no projeto
+            $respostaIA = $gemini->generate($prompt);
+
+            // 3. Retorno da resposta estruturada para o frontend
+            return response()->json([
+                'success' => true,
+                'analysis' => $respostaIA
+            ]);
+
+        } catch (\Exception $e) {
+            // Registo do erro para diagnóstico no laravel.log
+            \Log::error("Erro na Análise Gemini do Documento ID {$request->doc_id}: " . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Erro ao processar a análise: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+// =========================================================================
+// GET /api/documents/{id}/extract-text
+// Extrai texto puro do ficheiro para enviar ao Gemini.
+// Suporta: PDF (via smalot/pdfparser), TXT, MD
+// =========================================================================
+public function extractText(int $id): JsonResponse
+{
+    $doc = DB::table('document as d')
+        ->leftJoin('attachment as a', 'a.id_attachment', '=', 'd.id_attachment')
+        ->select(['d.id_doc', 'd.title', 'a.file_path as attach_path', 'a.mime_type', 'a.original_name'])
+        ->where('d.id_doc', $id)
+        ->whereNull('d.deleted_at')
+        ->first();
+
+    if (!$doc) {
+        return response()->json(['success' => false, 'message' => 'Documento não encontrado.'], 404);
+    }
+
+    $filePath = $doc->attach_path ?? null;
+    if (!$filePath || !Storage::disk('attachments')->exists($filePath)) {
+        return response()->json(['success' => false, 'message' => 'Ficheiro não encontrado.'], 404);
+    }
+
+    $absolutePath = Storage::disk('attachments')->path($filePath);
+    $mime         = strtolower($doc->mime_type ?? '');
+    $name         = strtolower($doc->original_name ?? '');
+
+    try {
+        // PDF
+        if ($mime === 'application/pdf' || str_ends_with($name, '.pdf')) {
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf    = $parser->parseFile($absolutePath);
+            $text   = $pdf->getText();
+
+        // TXT / MD
+        } elseif (in_array($mime, ['text/plain', 'text/markdown']) || preg_match('/\.(txt|md)$/', $name)) {
+            $text = file_get_contents($absolutePath);
+
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tipo de ficheiro não suportado para extração de texto.',
+                'text'    => '',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'text'    => $text ?: '',
+            'length'  => strlen($text ?? ''),
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('extractText falhou', ['doc_id' => $id, 'error' => $e->getMessage()]);
+        return response()->json(['success' => false, 'message' => 'Erro ao extrair texto: ' . $e->getMessage(), 'text' => ''], 500);
+    }
+}
 }

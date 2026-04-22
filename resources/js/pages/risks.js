@@ -160,7 +160,6 @@
         <thead>
           <tr>
             <th style="width:4px;padding:0"></th>
-            <th>Ativo</th>
             <th>Risco</th>
             <th>Score</th>
             <th>Nível</th>
@@ -178,30 +177,24 @@
     risks.forEach(r => {
       const score = r.score ?? (r.probability * r.impact) ?? 1;
       const lvl = riskLevel(score);
-      const asset = r.asset_name || r.hostname || "—";
+      // ✂️ AS VARIÁVEIS DO ATIVO FORAM APAGADAS AQUI
       const owner = r.owner_name || r.risk_owner || "—";
       const due = r.due ? r.due.slice(0, 10) : "—";
       const btnText = hasPerm('risk.edit') ? 'Editar' : 'Ver';
 
       let actionBtns = `<button class="btn small" data-edit="${r.id_risk}">${btnText}</button>`;
 
-      // Só mostra o botão de Criar Plano se tiver permissão (ajuste o nome da permissão se necessário)
-      if (hasPerm('risk.plan.manage')) {
+      if (hasPerm('treatment.manage')) {
         actionBtns += ` <button class="btn small ok" data-treat="${r.id_risk}">Plano</button>`;
       }
 
-      // Só mostra o botão de Apagar se tiver permissão
-      if (hasPerm('risk.delete')) {
+      if (hasPerm('risk.edit')) {
         actionBtns += ` <button class="btn small" style="color:#f87171;opacity:.8" data-del="${r.id_risk}">Apagar</button>`;
       }
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td class="rk-risk-bar-cell"><div class="rk-risk-bar-inner" style="background:${lvl.color}"></div></td>
-        <td style="max-width:140px">
-          <b style="font-size:13px">${asset}</b>
-          ${r.asset_criticality ? `<div class="muted" style="font-size:10px">${r.asset_criticality}</div>` : ""}
-        </td>
         <td style="max-width:300px">
           <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.title || r.description || "—"}</div>
           ${r.threat ? `<div class="muted" style="font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚡ ${r.threat}</div>` : ""}
@@ -221,16 +214,10 @@
           </div>
         </td>`;
 
-      // Editar
-      tr.querySelector("[data-edit]").addEventListener("click", () => openRiskModal(r));
-
-      // Editar / Ver (este existe sempre porque criaste-o em actionBtns logo no início)
+      // Eventos
       tr.querySelector("[data-edit]")?.addEventListener("click", () => openRiskModal(r));
-
-      // Criar plano de tratamento (Só adiciona o evento se o botão existir)
       tr.querySelector("[data-treat]")?.addEventListener("click", () => openTreatModal(r));
 
-      // Apagar (Só adiciona o evento se o botão existir)
       tr.querySelector("[data-del]")?.addEventListener("click", async () => {
         const nm = r.title || r.description || `Risco #${r.id_risk}`;
         if (!confirm(`Apagar "${nm}"? Esta acção não pode ser desfeita.`)) return;
@@ -371,10 +358,8 @@
 
   // ── Guardar risco ────────────────────────────────────────────────────────────
   async function saveRisk() {
-    const assetId = document.getElementById("rm_asset")?.value;
     const title = document.getElementById("rm_title")?.value?.trim();
 
-    if (!assetId) { showToast("warn", "Selecciona um ativo."); return; }
     if (!title) { showToast("warn", "Preenche o título do risco."); return; }
 
     const btn = document.getElementById("rmSave");
@@ -382,7 +367,6 @@
     btn.textContent = "A guardar...";
 
     const payload = {
-      id_asset: Number(assetId),
       title,
       description: document.getElementById("rm_desc")?.value?.trim() || null,
       threat: document.getElementById("rm_threat")?.value?.trim() || null,
@@ -424,11 +408,10 @@
   // ── IA: analisar risco ───────────────────────────────────────────────────────
   async function runAiAnalysis() {
     const title = document.getElementById("rm_title")?.value?.trim();
-    const assetId = document.getElementById("rm_asset")?.value;
-    const asset = ASSETS.find(x => x.id_asset == assetId);
 
-    if (!title && !asset) {
-      showToast("warn", "Preenche pelo menos o título do risco ou selecciona um ativo.");
+    // Já não validamos o ativo, pois o risco agora é de negócio
+    if (!title) {
+      showToast("warn", "Preenche pelo menos o título do risco para a IA poder analisar.");
       return;
     }
 
@@ -437,25 +420,27 @@
     const btn = document.getElementById("rmAiBtn");
 
     aiOut.style.display = "block";
-    aiOut.innerHTML = '<span class="muted">A analisar...</span>';
+    aiOut.innerHTML = '<span class="muted">A analisar com base no QNRCS e NIS2...</span>';
     if (aiAct) aiAct.style.display = "none";
     btn.disabled = true;
 
-    // Construir prompt contextual
-    const assetCtx = asset
-      ? `Ativo: ${asset.display_name || asset.hostname} (tipo: ${asset.asset_type || "—"}, criticidade: ${asset.criticality || "—"}).`
-      : "";
-    const riskCtx = title ? `Risco identificado: "${title}".` : "";
+    // Construir prompt contextual (removida a menção ao ativo)
+    const riskCtx = `Risco identificado: "${title}".`;
     const threatCtx = document.getElementById("rm_threat")?.value?.trim()
-      ? `Ameaça actual: ${document.getElementById("rm_threat").value}.` : "";
+      ? `Ameaça atual: ${document.getElementById("rm_threat").value}.` : "";
 
-    const prompt = `Sou um gestor de GRC. ${assetCtx} ${riskCtx} ${threatCtx}
-Analisa este risco segundo o QNRCS e NIS2 e devolve:
-1. Descrição do risco em 2 linhas
-2. Ameaça principal (1 linha)
-3. Vulnerabilidade mais provável (1 linha)
-4. 3 a 5 acções de mitigação concretas (bullets)
-5. Probabilidade sugerida (1-5) e Impacto sugerido (1-5) com justificação breve`;
+    // Prompt super estruturado para o parseSuggestion conseguir extrair os dados facilmente
+    const prompt = `Sou um gestor de GRC. ${riskCtx} ${threatCtx}
+Analisa este risco segundo o QNRCS e NIS2 e devolve EXATAMENTE a seguinte estrutura:
+1. Descrição: [Descrição do risco em 2 linhas]
+2. Ameaça: [Nome da ameaça principal]
+3. Vulnerabilidade: [Vulnerabilidade mais provável]
+4. Probabilidade: [Número de 1 a 5]
+5. Impacto: [Número de 1 a 5]
+6. Acções de mitigação concretas:
+- [Ação 1]
+- [Ação 2]
+- [Ação 3]`;
 
     try {
       const res = await fetch("/chat/ask", {
@@ -463,6 +448,7 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
         headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": csrf(), Accept: "application/json" },
         body: JSON.stringify({ question: prompt }),
       });
+
       const data = await res.json();
       const text = data.answer || data.content || data.message || "";
 
@@ -487,26 +473,32 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
 
   // Parse básico da resposta da IA para extrair campos
   function parseSuggestion(text) {
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    let prob = null, impact = null, threat = "", vuln = "";
 
-    // Tentar extrair probabilidade e impacto
-    let prob = null, impact = null;
-    const probMatch = text.match(/probabilidade[:\s]+(\d)/i);
-    const impactMatch = text.match(/impacto[:\s]+(\d)/i);
+    // Regex para extrair os números e textos (ignora maiúsculas/minúsculas e formatações de markdown)
+    const probMatch = text.match(/probabilidade[:\s*]+(\d)/i);
+    const impactMatch = text.match(/impacto[:\s*]+(\d)/i);
+    const threatMatch = text.match(/ameaça[:\s*]+(.*?)(?=\n|$)/i);
+    const vulnMatch = text.match(/vulnerabilidade[:\s*]+(.*?)(?=\n|$)/i);
+
     if (probMatch) prob = Number(probMatch[1]);
     if (impactMatch) impact = Number(impactMatch[1]);
+    if (threatMatch) threat = threatMatch[1].replace(/[\*]/g, '').trim();
+    if (vulnMatch) vuln = vulnMatch[1].replace(/[\*]/g, '').trim();
 
     // Extrair bullets como acções
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
     const bullets = lines
       .filter(l => l.startsWith("•") || l.startsWith("-") || l.match(/^\d+\./))
       .map(l => l.replace(/^[•\-\d\.]\s*/, "").trim())
       .filter(Boolean);
 
-    return { prob, impact, actions: bullets.join("\n"), raw: text };
+    return { prob, impact, threat, vuln, actions: bullets.join("\n"), raw: text };
   }
 
   function applyAiSuggestion() {
     if (!AI_SUGGESTION) return;
+
     if (AI_SUGGESTION.prob && AI_SUGGESTION.prob >= 1 && AI_SUGGESTION.prob <= 5) {
       const el = document.getElementById("rm_prob");
       if (el) el.value = AI_SUGGESTION.prob;
@@ -515,11 +507,21 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
       const el = document.getElementById("rm_impact");
       if (el) el.value = AI_SUGGESTION.impact;
     }
+    if (AI_SUGGESTION.threat) {
+      const el = document.getElementById("rm_threat");
+      if (el) el.value = AI_SUGGESTION.threat;
+    }
+    if (AI_SUGGESTION.vuln) {
+      // Ajusta o ID aqui caso o teu input de vulnerabilidade se chame de outra forma!
+      const el = document.getElementById("rm_vulnerability") || document.getElementById("rm_vuln");
+      if (el) el.value = AI_SUGGESTION.vuln;
+    }
     if (AI_SUGGESTION.actions) {
       const el = document.getElementById("rm_actions");
-      if (el && !el.value.trim()) el.value = AI_SUGGESTION.actions;
+      if (el) el.value = AI_SUGGESTION.actions;
     }
-    updateScoreUI();
+
+    if (typeof updateScoreUI === "function") updateScoreUI();
     showToast("ok", "Sugestões da IA aplicadas.");
   }
 
@@ -686,12 +688,14 @@ Analisa este risco segundo o QNRCS e NIS2 e devolve:
         strategy: document.getElementById("tm_strategy")?.value || "Mitigar",
         due: document.getElementById("tm_due")?.value || null,
         owner: Number(document.getElementById("tm_owner")?.value) || null,
-        priority: document.getElementById("tm_priority")?.value || "Média",
-        origin_type: "risk",
+        priority: document.getElementById("tm_priority")?.value || "Média"
       });
 
       showToast("ok", "Plano de tratamento criado.");
       closeTreatModal();
+
+      // Recarrega a tabela de riscos ou vai para a página de tratamento
+      if (typeof loadAll === "function") loadAll();
 
     } catch (e) {
       showToast("err", "Erro ao criar plano: " + e.message);

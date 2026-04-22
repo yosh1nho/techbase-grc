@@ -36,6 +36,7 @@ class TreatmentPlanController extends Controller
                 'rtp.status',
                 'rtp.created_at',
                 'rtp.owner_id',
+                'rtp.description',
                 // Risco
                 'r.title      as risk_title',
                 'r.description as risk_description',
@@ -97,6 +98,7 @@ class TreatmentPlanController extends Controller
                 'owner_id'         => $plan->owner_id,
                 'owner_name'       => $plan->owner_name,
                 'owner_email'      => $plan->owner_email,
+                'description'      => $plan->description,
                 'risk_title'       => $plan->risk_title,
                 'risk_description' => $plan->risk_description,
                 'risk_origin'      => $plan->risk_origin,
@@ -124,10 +126,13 @@ class TreatmentPlanController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'risk_id'  => ['required', 'integer', 'exists:risk,id_risk'],
-            'strategy' => ['required', Rule::in(self::STRATEGIES)],
-            'owner'    => ['required', 'integer', 'exists:User,id_user'],
-            'due'      => ['required', 'date', 'after_or_equal:today'],
+            'risk_id'     => ['required', 'integer', 'exists:risk,id_risk'],
+            'strategy'    => ['required', Rule::in(self::STRATEGIES)],
+            'owner'       => ['required', 'integer', 'exists:User,id_user'],
+            'due'         => ['required', 'date', 'after_or_equal:today'],
+            'description' => ['nullable', 'string'],
+            'priority'    => ['nullable', 'string'],
+            'origin_type' => ['nullable', 'string'],
         ]);
 
         // Verificar que não existe já um plano activo para este risco
@@ -146,12 +151,14 @@ class TreatmentPlanController extends Controller
         }
 
         $id = DB::table('risktreatmentplan')->insertGetId([
-            'id_risk'    => $data['risk_id'],
-            'strategy'   => $data['strategy'],
-            'owner_id'   => $data['owner'],
-            'due_date'   => $data['due'],
-            'status'     => 'To do',
-            'created_at' => now(),
+            'id_risk'     => $data['risk_id'],
+            'strategy'    => $data['strategy'],
+            'owner_id'    => $data['owner'],
+            'due_date'    => $data['due'],
+            'status'      => 'To do',
+            'description' => $data['description'] ?? null,
+            'origin_type' => $data['origin_type'] ?? 'manual',
+            'created_at'  => now(),
         ], 'id_plan');
 
         // Devolver o plano completo (reutiliza a lógica do index para um único plano)
@@ -176,18 +183,20 @@ class TreatmentPlanController extends Controller
         }
 
         $data = $request->validate([
-            'status'   => ['sometimes', Rule::in(self::STATUSES)],
-            'strategy' => ['sometimes', Rule::in(self::STRATEGIES)],
-            'owner'    => ['sometimes', 'integer', 'exists:User,id_user'],
-            'due'      => ['sometimes', 'date'],
+            'status'      => ['sometimes', Rule::in(self::STATUSES)],
+            'strategy'    => ['sometimes', Rule::in(self::STRATEGIES)],
+            'owner'       => ['sometimes', 'integer', 'exists:User,id_user'],
+            'due'         => ['sometimes', 'date'],
+            'description' => ['sometimes', 'nullable', 'string'],
         ]);
 
         // Mapear campos do request para colunas da BD
         $updates = [];
-        if (isset($data['status']))   $updates['status']   = $data['status'];
-        if (isset($data['strategy'])) $updates['strategy'] = $data['strategy'];
-        if (isset($data['owner']))    $updates['owner_id'] = $data['owner'];
-        if (isset($data['due']))      $updates['due_date'] = $data['due'];
+        if (isset($data['status']))      $updates['status']      = $data['status'];
+        if (isset($data['strategy']))    $updates['strategy']    = $data['strategy'];
+        if (isset($data['owner']))       $updates['owner_id']    = $data['owner'];
+        if (isset($data['due']))         $updates['due_date']    = $data['due'];
+        if (array_key_exists('description', $data)) $updates['description'] = $data['description'];
 
         if (empty($updates)) {
             return response()->json(['success' => false, 'message' => 'Nenhum campo para actualizar.'], 422);
@@ -256,7 +265,7 @@ class TreatmentPlanController extends Controller
             ->leftJoin('User as u',  'u.id_user',   '=', 'rtp.owner_id')
             ->select([
                 'rtp.id_plan', 'rtp.id_risk', 'rtp.strategy',
-                'rtp.due_date', 'rtp.status', 'rtp.created_at', 'rtp.owner_id',
+                'rtp.due_date', 'rtp.status', 'rtp.created_at', 'rtp.owner_id', 'rtp.description',
                 'r.title as risk_title', 'r.description as risk_description', 'r.origin as risk_origin',
                 'a.id_asset', 'a.display_name as asset_name', 'a.hostname as asset_hostname', 'a.type as asset_type',
                 'u.name as owner_name', 'u.email as owner_email',
@@ -286,6 +295,7 @@ class TreatmentPlanController extends Controller
             'owner_id'         => $plan->owner_id,
             'owner_name'       => $plan->owner_name,
             'owner_email'      => $plan->owner_email,
+            'description'      => $plan->description,
             'risk_title'       => $plan->risk_title,
             'risk_description' => $plan->risk_description,
             'risk_origin'      => $plan->risk_origin,

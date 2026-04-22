@@ -631,7 +631,7 @@
         <button id="vwReupload" class="btn" type="button" title="Carregar nova versão">Nova versão</button>
         @endpermission
         @permission('docs.edit')
-        <button id="vwAiAssist" class="btn" type="button" title="Assistente IA">✦ IA</button>
+        <button id="vwGeminiAnalyse" class="btn" type="button" title="Analisar com Gemini">✦ Analisar com IA</button>
         @endpermission
         <a id="vwDownload" class="btn" target="_blank" style="text-decoration:none">Download</a>
         @permission('docs.approve_links')
@@ -693,6 +693,27 @@
 
       </div>
 
+    </div>
+  </div>
+</div>
+
+{{-- MODAL: Análise Gemini do documento --}}
+<div id="geminiModal" class="modal-overlay" style="display:none">
+  <div class="modal-card" style="width:min(780px,96vw);max-height:90vh;overflow:auto">
+    <div class="modal-header">
+      <div>
+        <div class="muted" style="font-size:11px">Análise IA • Gemini</div>
+        <div style="font-size:17px;font-weight:700">Análise do documento</div>
+        <div class="muted" style="font-size:12px;margin-top:2px" id="geminiDocName">—</div>
+      </div>
+      <button id="geminiClose" class="btn" type="button">Fechar</button>
+    </div>
+    <div style="padding:12px 0 0">
+      <div id="geminiLoading" style="display:none;text-align:center;padding:32px 0">
+        <div style="font-size:28px;margin-bottom:10px">🤖</div>
+        <div class="muted">A analisar com Gemini...</div>
+      </div>
+      <div id="geminiResult" style="white-space:pre-wrap;font-size:13px;line-height:1.7;padding:8px 4px;font-family:inherit"></div>
     </div>
   </div>
 </div>
@@ -786,6 +807,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     @push('scripts')
         @vite(['resources/js/pages/docs.js'])
     @endpush

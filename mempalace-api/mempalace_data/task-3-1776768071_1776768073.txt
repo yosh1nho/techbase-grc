@@ -1,0 +1,1 @@
+[GERAL_SOC] | DATA DO TRATAMENTO: 2026-04-21 | Tarefa Concluída por testeview: 'Definir e implementar estratégias de avaliação e resposta aos riscos.'. Detalhes: Sem descrição. Plano Pai: 'TP-4'. Ação de mitigação aplicada com sucesso.

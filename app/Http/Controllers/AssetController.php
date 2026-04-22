@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Services\GeminiClient;
+use App\Services\MemPalaceClient;
 
 class AssetController extends Controller
 {
@@ -359,13 +360,11 @@ class AssetController extends Controller
         return response()->json($analyses);
     }
 
+
     // =========================================================================
     // POST /api/assets/{id}/analyze - Gerar nova análise com IA
     // =========================================================================
-// =========================================================================
-    // POST /api/assets/{id}/analyze - Gerar nova análise com IA
-    // =========================================================================
-    public function analyze($id, GeminiClient $gemini): JsonResponse 
+    public function analyze($id, GeminiClient $gemini, MemPalaceClient $memPalace): JsonResponse 
     {
         try {
             // 1. Recolher Contexto do Ativo
@@ -376,7 +375,7 @@ class AssetController extends Controller
             $risks = DB::table('risk')->where('id_asset', $id)->whereNotIn('status', ['Fechado', 'Aceite'])->get();
             $riskContext = $risks->isEmpty() ? "Nenhum risco aberto." : $risks->map(fn($r) => "- Risco {$r->id_risk}: {$r->title} (Severidade: " . ($r->score ?? 'N/A') . ")")->join("\n");
 
-            // NOVO: 2.5 Recolher as Tags do Ativo
+            // 3. Recolher as Tags do Ativo
             $tags = DB::table('asset_tag_map as m')
                 ->join('asset_tag as t', 't.id_tag', '=', 'm.id_tag')
                 ->where('m.id_asset', $id)
@@ -384,7 +383,13 @@ class AssetController extends Controller
                 ->toArray();
             $tagsList = empty($tags) ? "Nenhuma tag atribuída" : implode(', ', $tags);
 
-            // 3. Montar o Prompt para o CISO Virtual (Agora com as Tags!)
+            // 🧠 4. RECALL MEMPALACE: O que aconteceu a este ativo no passado?
+            // Usamos a mesma estrutura de TAG exata que gravámos no Pilar A!
+            $structuredTag = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
+            $historyQuery = "Busca estrita para {$structuredTag}: incidentes anteriores, alertas críticos, malwares e soluções aplicadas.";
+            $historicoMemPalace = $memPalace->recall($historyQuery);
+
+            // 5. Montar o Prompt para o CISO Virtual
             $prompt = "Atuando como um CISO experiente, faz uma análise de postura de segurança concisa e direta ao ponto para o seguinte ativo:\n\n"
                     . "NOME: {$asset->display_name}\n"
                     . "TIPO: {$asset->type}\n"
@@ -393,15 +398,18 @@ class AssetController extends Controller
                     . "SISTEMA OPERATIVO: {$asset->os_name} {$asset->os_version}\n"
                     . "IP: {$asset->ip}\n"
                     . "ESTADO DO AGENTE WAZUH: {$asset->agent_status}\n\n"
+                    . "CONTEXTO HISTÓRICO (DIÁRIO DE SOC / INCIDENTES PASSADOS):\n"
+                    . "{$historicoMemPalace}\n\n"
                     . "RISCOS ABERTOS:\n{$riskContext}\n\n"
-                    . "Fornece um resumo executivo da postura (1 parágrafo), destaca as principais vulnerabilidades/preocupações baseadas nos dados, e sugere 2 ações imediatas. Usa formatação HTML simples (<b>, <br>, <ul>, <li>) para eu injetar diretamente na interface. Não uses Markdown com asteriscos.";
+                    . "Fornece um resumo executivo da postura (1 parágrafo), destaca as principais vulnerabilidades/preocupações baseadas nos dados e no histórico, e sugere 2 ações imediatas. Usa formatação HTML simples (<b>, <br>, <ul>, <li>) para eu injetar diretamente na interface. Não uses Markdown com asteriscos.";
 
-            // 4. Chamar a API do Gemini 
+            // 6. Chamar a API do Gemini 
             $aiText = $gemini->generate($prompt);
 
             if (empty($aiText)) throw new \Exception("A IA devolveu uma resposta vazia.");
             $aiText = preg_replace('/\*\*(.*?)\*\*/s', '<b>$1</b>', $aiText);
-            // 5. Guardar na Base de Dados
+            
+            // 7. Guardar na Base de Dados (PostgreSQL!)
             $analysisId = DB::table('asset_ai_analysis')->insertGetId([
                 'id_asset' => $id,
                 'analysis_text' => $aiText,
@@ -416,7 +424,6 @@ class AssetController extends Controller
             return response()->json(['message' => 'Falha ao gerar análise IA: ' . $e->getMessage()], 500);
         }
     }
-
 
     // =========================================================================
     // PUT /api/assets/{id}

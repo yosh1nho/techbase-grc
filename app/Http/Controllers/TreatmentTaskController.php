@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Services\MemPalaceClient;
 
 class TreatmentTaskController extends Controller
 {
@@ -139,7 +140,7 @@ class TreatmentTaskController extends Controller
             return response()->json(['success' => false, 'message' => 'Nenhum campo para actualizar.'], 422);
         }
 
-        // Mapear para colunas da BD (o frontend envia assigned_to, due_date directamente)
+        // Mapear para colunas da BD
         $updates = array_filter([
             'title'       => $data['title']       ?? null,
             'description' => $data['description'] ?? null,
@@ -148,7 +149,50 @@ class TreatmentTaskController extends Controller
             'due_date'    => array_key_exists('due_date', $data)    ? $data['due_date']    : null,
         ], fn($v) => $v !== null);
 
+        // 1. Atualizar a base de dados relacional
         DB::table('treatmenttask')->where('id_task', $taskId)->update($updates);
+
+        // =====================================================================
+        // 🧠 2. MINE MEMPALACE — grava quando tarefa é concluída
+        // =====================================================================
+if (isset($updates['status']) && in_array($updates['status'], ['Concluído', 'Concluida', 'Done'])) {
+            try {
+                $updatedTask = DB::table('treatmenttask')->where('id_task', $taskId)->first();
+                $plan = DB::table('risktreatmentplan')->where('id_plan', $planId)->first(); 
+                
+                // 🎯 Dynamic Tagging
+                $assets = DB::table('asset')->get();
+                $tags = [];
+                foreach ($assets as $asset) {
+                    // 👇 ALTERADO AQUI TAMBÉM 👇
+                    if (stripos($updatedTask->title, $asset->hostname) !== false || 
+                        stripos($updatedTask->description ?? '', $asset->hostname) !== false ||
+                        ($plan && stripos($plan->description ?? '', $asset->hostname) !== false)) {
+                        $tags[] = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
+                    }
+                }
+                
+                $tagString = empty($tags) ? "[GERAL_SOC]" : implode(" ", $tags);
+                $userName = DB::table('User')->where('id_user', session('tb_user.id'))->value('name') ?? 'Analista SOC';
+                
+                // 👇 ALTERADO AQUI TAMBÉM 👇
+                $planTitle = $plan ? "TP-" . $plan->id_plan : 'Sem plano';
+                
+                $textoParaGravar = "{$tagString} | DATA DO TRATAMENTO: " . now()->format('Y-m-d') . " | "
+                                 . "Tarefa Concluída por {$userName}: '{$updatedTask->title}'. "
+                                 . "Detalhes: " . strip_tags($updatedTask->description ?? 'Sem descrição') . ". "
+                                 . "Plano Pai: '{$planTitle}'. Ação de mitigação aplicada com sucesso.";
+
+                $memPalace = new \App\Services\MemPalaceClient();
+                $memPalace->remember("task-{$taskId}-" . time(), $textoParaGravar);
+                
+                \Log::info("✅ [MemPalace] Tarefa guardada com sucesso: " . $textoParaGravar);
+
+            } catch (\Exception $e) {
+                \Log::error("❌ [MemPalace ERRO Task]: " . $e->getMessage());
+            }
+        }
+        // =====================================================================
 
         $updated = $this->findTaskWithDetails($taskId);
 
