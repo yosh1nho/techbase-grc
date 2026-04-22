@@ -272,7 +272,7 @@ Route::middleware('mock.auth')->group(function () {
     Route::put('/api/cncs-reports/{id}',          [CncsReportController::class, 'update']);
     Route::post('/api/cncs-reports/{id}/submit',  [CncsReportController::class, 'submit']);
     Route::delete('/api/cncs-reports/{id}',       [CncsReportController::class, 'destroy']);
-    Route::post('/api/cncs-reports/ai-summary', [CncsReportController::class, 'aiSummary']);
+
     // ── Users (rota provisória) ───────────────────────────────────────────────
     Route::get('/api/users', function () {
         return DB::table('User')->select('id_user', 'name', 'email')->get();
