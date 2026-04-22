@@ -1,1 +1,0 @@
-[ASSET_ID: 19] [HOSTNAME: techbase] | DATA: 2026-04-21 10:38 | testeview comentou no plano 'TP-3': O servidor techbase foi formatado com sucesso e restaurado a partir do último backup limpo (Acronis). O hash d41d8cd98f00b204e9800998ecf8427e foi colocado na blocklist da firewall. Ameaça erradicada definitivamente

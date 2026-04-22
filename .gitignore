@@ -19,7 +19,7 @@
 /storage/*.key
 /storage/pail
 /vendor
-/mempalace_data
+/mempalace-api/mempalace_data/
 Homestead.json
 Homestead.yaml
 Thumbs.db
