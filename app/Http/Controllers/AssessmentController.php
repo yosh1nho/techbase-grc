@@ -204,11 +204,15 @@ class AssessmentController extends Controller
             ], 'id_assessment');
 
             // Ligar frameworks
+            $frameworksToInsert = [];
             foreach ($data['framework_ids'] as $fwId) {
-                DB::table('assessmentframework')->insert([
+                $frameworksToInsert[] = [
                     'id_assessment' => $assessmentId,
                     'id_framework'  => $fwId,
-                ]);
+                ];
+            }
+            if (!empty($frameworksToInsert)) {
+                DB::table('assessmentframework')->insert($frameworksToInsert);
             }
 
             DB::commit();
@@ -231,12 +235,13 @@ class AssessmentController extends Controller
 
         // ── 4. Executar análise IA por ativo ──────────────────────────────────
         $totalMaturity = 0;
+        $resultsToInsert = [];
 
         foreach ($assets as $asset) {
             try {
                 $result = $this->analyseAsset($asset, $frameworks, $data['period'], $userId);
 
-                DB::table('assessmentresult')->insert([
+                $resultsToInsert[] = [
                     'id_assessment' => $assessmentId,
                     'id_asset'      => $asset->id_asset,
                     'status'        => $result['status'],
@@ -247,7 +252,7 @@ class AssessmentController extends Controller
                     'domains_json'  => json_encode($result['domains']),
                     'period'        => $data['period'],
                     'createdat'     => now(),
-                ]);
+                ];
 
                 $totalMaturity += $result['maturity'];
 
@@ -256,7 +261,7 @@ class AssessmentController extends Controller
                     'error' => $e->getMessage(),
                 ]);
                 // Inserir resultado com erro para não bloquear os outros ativos
-                DB::table('assessmentresult')->insert([
+                $resultsToInsert[] = [
                     'id_assessment' => $assessmentId,
                     'id_asset'      => $asset->id_asset,
                     'status'        => 'error',
@@ -265,8 +270,12 @@ class AssessmentController extends Controller
                     'summary'       => 'Erro na análise: ' . $e->getMessage(),
                     'ai_analysis'   => null,
                     'createdat'     => now(),
-                ]);
+                ];
             }
+        }
+
+        if (!empty($resultsToInsert)) {
+            DB::table('assessmentresult')->insert($resultsToInsert);
         }
 
         // ── 5. Calcular maturidade global e marcar como completo ──────────────
