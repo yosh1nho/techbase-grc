@@ -297,29 +297,32 @@ class AssetController extends Controller
 
             // 3. LÓGICA DAS TAGS: Criar se não existir e Associar
             if (!empty($data['tags'])) {
-                $tagIdsToLink = [];
-                foreach ($data['tags'] as $name) {
-                    $cleanName = strtolower(trim($name));
-                    if (empty($cleanName)) continue;
-                    
-                    // Verifica se a tag já existe
-                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
-                    
-                    if (!$existingTag) {
-                        // Se não existe, cria com uma cor base!
-                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId([
-                            'name' => $cleanName,
-                            'color' => '#60a5fa'
-                        ], 'id_tag');
-                    } else {
-                        // Se existe, usa o ID
-                        $tagIdsToLink[] = $existingTag->id_tag;
-                    }
-                }
+                $cleanNames = array_unique(array_filter(array_map(fn($n) => strtolower(trim($n)), $data['tags'])));
 
-                // Associa ao ativo (evitando duplicados)
-                foreach (array_unique($tagIdsToLink) as $tagId) {
-                    DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
+                if (!empty($cleanNames)) {
+                    $existingTags = DB::table('asset_tag')
+                        ->whereIn('name', $cleanNames)
+                        ->get(['id_tag', 'name'])
+                        ->keyBy('name');
+
+                    $newTagNames = array_diff($cleanNames, $existingTags->keys()->toArray());
+
+                    if (!empty($newTagNames)) {
+                        $newTagsData = array_map(fn($name) => ['name' => $name, 'color' => '#60a5fa'], $newTagNames);
+                        DB::table('asset_tag')->insert($newTagsData);
+
+                        $newTags = DB::table('asset_tag')
+                            ->whereIn('name', $newTagNames)
+                            ->get(['id_tag', 'name'])
+                            ->keyBy('name');
+
+                        $existingTags = $existingTags->merge($newTags);
+                    }
+
+                    $tagIdsToLink = $existingTags->pluck('id_tag')->unique()->toArray();
+                    $mapData = array_map(fn($tagId) => ['id_asset' => $id, 'id_tag' => $tagId], $tagIdsToLink);
+
+                    DB::table('asset_tag_map')->insert($mapData);
                 }
             }
 
@@ -464,20 +467,32 @@ class AssetController extends Controller
             DB::table('asset_tag_map')->where('id_asset', $id)->delete();
 
             if (!empty($data['tags'])) {
-                $tagIdsToLink = [];
-                foreach ($data['tags'] as $name) {
-                    $cleanName = strtolower(trim($name));
-                    if (empty($cleanName)) continue;
-                    
-                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
-                    if (!$existingTag) {
-                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId(['name' => $cleanName, 'color' => '#60a5fa'], 'id_tag');
-                    } else {
-                        $tagIdsToLink[] = $existingTag->id_tag;
+                $cleanNames = array_unique(array_filter(array_map(fn($n) => strtolower(trim($n)), $data['tags'])));
+
+                if (!empty($cleanNames)) {
+                    $existingTags = DB::table('asset_tag')
+                        ->whereIn('name', $cleanNames)
+                        ->get(['id_tag', 'name'])
+                        ->keyBy('name');
+
+                    $newTagNames = array_diff($cleanNames, $existingTags->keys()->toArray());
+
+                    if (!empty($newTagNames)) {
+                        $newTagsData = array_map(fn($name) => ['name' => $name, 'color' => '#60a5fa'], $newTagNames);
+                        DB::table('asset_tag')->insert($newTagsData);
+
+                        $newTags = DB::table('asset_tag')
+                            ->whereIn('name', $newTagNames)
+                            ->get(['id_tag', 'name'])
+                            ->keyBy('name');
+
+                        $existingTags = $existingTags->merge($newTags);
                     }
-                }
-                foreach (array_unique($tagIdsToLink) as $tagId) {
-                    DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
+
+                    $tagIdsToLink = $existingTags->pluck('id_tag')->unique()->toArray();
+                    $mapData = array_map(fn($tagId) => ['id_asset' => $id, 'id_tag' => $tagId], $tagIdsToLink);
+
+                    DB::table('asset_tag_map')->insert($mapData);
                 }
             }
 
