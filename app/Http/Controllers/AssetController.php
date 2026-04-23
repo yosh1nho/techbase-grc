@@ -36,6 +36,9 @@ class AssetController extends Controller
                 'u.name as owner', 
                 // Nova coluna — criticality
                 DB::raw("COALESCE(a.criticality, 'medium') as criticality"),
+                // Risco intrínseco
+                DB::raw("COALESCE(a.probability, 3) as probability"),
+                DB::raw("COALESCE(a.impact, 3) as impact"),
             ])
             ->get();
 
@@ -288,8 +291,8 @@ class AssetController extends Controller
                 'status'       => 'nullable|string|max:50',
                 'owner_id'     => 'nullable|integer',
                 'ip'           => 'nullable|string|max:45',
-                'prob'         => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
-                'impact'       => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
+                'probability'  => 'nullable|integer|min:1|max:5',
+                'impact'       => 'nullable|integer|min:1|max:5',
                 'description'  => 'nullable|string',
                 'tags'         => 'nullable|array',         
                 'tags.*'       => 'string|max:100',
@@ -297,7 +300,7 @@ class AssetController extends Controller
 
             $criticality = $data['criticality'] ?? 'medium';
 
-            // 2. Inserir na Base de Dados (SEM O PROB E IMPACT AQUI DENTRO!!!)
+            // 2. Inserir na Base de Dados
             $id = DB::table('asset')->insertGetId([
                 'source'       => 'manual',
                 'display_name' => $data['display_name'],
@@ -308,6 +311,8 @@ class AssetController extends Controller
                 'status'       => $data['status'] ?? $criticality,
                 'owner_id'     => $data['owner_id'] ?? null,
                 'description'  => $data['description'] ?? null,
+                'probability'  => $data['probability'] ?? 3,
+                'impact'       => $data['impact'] ?? 3,
                 'created_at'   => now(),
                 'updatedat'    => now(),
             ], 'id_asset');
@@ -457,6 +462,8 @@ class AssetController extends Controller
                 'status'       => 'nullable|string|max:50',
                 'owner_id'     => 'nullable|integer',
                 'ip'           => 'nullable|string|max:45',
+                'probability'  => 'nullable|integer|min:1|max:5',
+                'impact'       => 'nullable|integer|min:1|max:5',
                 'description'  => 'nullable|string',
                 'tags'         => 'nullable|array',         
                 'tags.*'       => 'string|max:100',
@@ -474,6 +481,8 @@ class AssetController extends Controller
                 'status'       => $data['status'] ?? $criticality,
                 'owner_id'     => $data['owner_id'] ?? null,
                 'description'  => $data['description'] ?? null,
+                'probability'  => $data['probability'] ?? 3,
+                'impact'       => $data['impact'] ?? 3,
                 'updatedat'    => now(),
             ]);
 
@@ -505,6 +514,45 @@ class AssetController extends Controller
         } catch (\Exception $e) {
             \Log::error('Erro ao atualizar ativo', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erro interno ao atualizar ativo', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // =========================================================================
+    // PATCH /api/assets/{id}
+    // Actualiza apenas campos parciais — usado pelo botão "Guardar risco"
+    // =========================================================================
+    public function patch(Request $request, $id): JsonResponse
+    {
+        $asset = DB::table('asset')->where('id_asset', $id)->first();
+        if (!$asset) {
+            return response()->json(['message' => 'Ativo não encontrado.'], 404);
+        }
+
+        try {
+            $data = $request->validate([
+                'probability' => 'sometimes|integer|min:1|max:5',
+                'impact'      => 'sometimes|integer|min:1|max:5',
+            ]);
+
+            if (empty($data)) {
+                return response()->json(['message' => 'Nenhum campo válido para actualizar.'], 422);
+            }
+
+            $update = array_filter([
+                'probability' => $data['probability'] ?? null,
+                'impact'      => $data['impact']      ?? null,
+                'updatedat'   => now(),
+            ], fn($v) => $v !== null);
+
+            DB::table('asset')->where('id_asset', $id)->update($update);
+
+            return response()->json(['message' => 'Risco actualizado com sucesso.']);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Dados inválidos', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao actualizar risco do ativo', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erro interno', 'error' => $e->getMessage()], 500);
         }
     }
 }

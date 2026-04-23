@@ -118,7 +118,7 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/api/assets/{id}/analyses', [AssetController::class, 'getAnalyses'])->middleware(CheckPermission::class.':assets.view');
     Route::post('/api/assets/{id}/analyze', [AssetController::class, 'analyze'])->middleware(CheckPermission::class.':assets.edit');
     Route::put('/api/assets/{id}', [AssetController::class, 'update']);
-    
+Route::patch('/api/assets/{id}/risk', [AssetController::class, 'patch']);    
     // ── Chat ──────────────────────────────────────────────────────────────────
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 

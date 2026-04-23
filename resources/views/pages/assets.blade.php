@@ -287,46 +287,59 @@
                         </div>
                     </div>
 
-                    <div class="info-section">
+                    <div class="info-section risk-intrinsic-card">
+
                         <div class="info-section-title">Risco Intrínseco</div>
-                        <div class="risk-score-block">
-                            <div class="risk-score-nums">
-                                <div class="risk-num-item">
-                                    <div class="risk-num" id="mProb">—</div>
-                                    <div class="risk-num-lbl">Probabilidade</div>
-                                </div>
-                                <div class="risk-num-sep">×</div>
-                                <div class="risk-num-item">
-                                    <div class="risk-num" id="mImpact">—</div>
-                                    <div class="risk-num-lbl">Impacto</div>
-                                </div>
-                                <div class="risk-num-sep">=</div>
-                                <div class="risk-num-item">
-                                    <div class="risk-num risk-num-score" id="mScoreVal">—</div>
-                                    <div class="risk-num-lbl" id="mClassChip">—</div>
-                                </div>
+                        {{-- Score de topo --}}
+                        <div class="ri-score-hero">
+                            <div class="ri-score-num" id="mScoreVal">—</div>
+                            <div class="ri-score-label" id="mClassChip">—</div>
+                            <div class="ri-score-sub">Probabilidade × Impacto</div>
+                        </div>
+                    
+                        {{-- Selects editáveis --}}
+                        @permission('assets.edit')
+                        <div class="ri-selects">
+                            <div class="ri-select-group">
+                                <label class="ri-select-label">Probabilidade (1–5)</label>
+                                <select class="ri-select" id="riskProbSelect">
+                                    <option value="1">1 — Muito Baixo</option>
+                                    <option value="2">2 — Baixo</option>
+                                    <option value="3" selected>3 — Possível</option>
+                                    <option value="4">4 — Provável</option>
+                                    <option value="5">5 — Muito Provável</option>
+                                </select>
+                            </div>
+                            <div class="ri-select-group">
+                                <label class="ri-select-label">Impacto (1–5)</label>
+                                <select class="ri-select" id="riskImpactSelect">
+                                    <option value="1">1 — Insignificante</option>
+                                    <option value="2">2 — Menor</option>
+                                    <option value="3" selected>3 — Moderado</option>
+                                    <option value="4">4 — Maior</option>
+                                    <option value="5">5 — Catastrófico</option>
+                                </select>
                             </div>
                         </div>
-                        <div class="matrix-wrap" style="margin-top:12px;">
-                            <div class="matrix-ylabel">Impacto</div>
-                            <div class="matrix">
-                                <div class="matrix-grid">
-                                    <div class="matrix-rowlabels" id="impactLabels"></div>
-                                    <div class="matrix-cells"     id="riskMatrix"></div>
-                                    <div class="matrix-collabels" id="probLabels"></div>
-                                    <div class="matrix-bottomlabel">Probabilidade</div>
-                                </div>
+                    
+                        {{-- Botão guardar (aparece só quando há alteração) --}}
+                        <div id="riSaveWrap" style="display:none; padding: 0 16px 4px; text-align:right;">
+                            <button type="button" class="btn-primary btn-sm" id="btnSaveRisk">Guardar risco</button>
+                        </div>
+                        @endpermission
+                    
+                        {{-- Matriz 5×5 --}}
+                        <div class="ri-matrix-wrap">
+                            <div class="ri-matrix-ylabel">← Probabilidade</div>
+                            <div class="ri-matrix-inner">
+                                <div class="ri-matrix-rowlabels" id="probLabels"></div>
+                                <div class="ri-matrix-cells"     id="riskMatrix"></div>
+                                <div class="ri-matrix-collabels" id="impactLabels"></div>
+                                <div class="ri-matrix-xlabel">Impacto →</div>
                             </div>
                         </div>
+                    
                     </div>
-
-                    <div class="info-section">
-                        <div class="info-section-title">Descrição</div>
-                        <div class="desc-text" id="mNotes">—</div>
-                    </div>
-
-                </div>
-            </div>
 
             {{-- quick actions footer --}}
             <div class="ov-actions">
@@ -1039,6 +1052,188 @@ tr[id^="ai-panel"] {
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 8px 12px;
+}
+
+
+/* ── Card principal ── */
+.risk-intrinsic-card { padding: 0 !important; overflow: hidden; }
+ 
+/* ── Score hero ── */
+.ri-score-hero {
+    text-align: center;
+    padding: 22px 20px 16px;
+    background: var(--modal-bg, rgba(255,255,255,.02));
+    border-bottom: 1px solid var(--modal-border);
+}
+.ri-score-num {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--warn);
+}
+.ri-score-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--warn);
+    margin-top: 2px;
+    letter-spacing: .5px;
+}
+.ri-score-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+ 
+/* Cores por nível */
+.ri-score-hero[data-level="vlow"]  .ri-score-num,
+.ri-score-hero[data-level="vlow"]  .ri-score-label { color: var(--muted); }
+.ri-score-hero[data-level="low"]   .ri-score-num,
+.ri-score-hero[data-level="low"]   .ri-score-label { color: var(--ok); }
+.ri-score-hero[data-level="med"]   .ri-score-num,
+.ri-score-hero[data-level="med"]   .ri-score-label { color: var(--warn); }
+.ri-score-hero[data-level="high"]  .ri-score-num,
+.ri-score-hero[data-level="high"]  .ri-score-label { color: var(--bad); }
+.ri-score-hero[data-level="vhigh"] .ri-score-num,
+.ri-score-hero[data-level="vhigh"] .ri-score-label { color: var(--bad); }
+ 
+/* ── Selects ── */
+.ri-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--modal-border);
+}
+.ri-select-group { display: flex; flex-direction: column; gap: 4px; }
+.ri-select-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.ri-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(255,255,255,.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+    border: 1px solid var(--modal-border);
+    border-radius: 8px;
+    padding: 8px 28px 8px 10px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.ri-select:hover { border-color: rgba(79,156,249,.4); }
+.ri-select:focus { outline: none; border-color: #4f9cf9; }
+ 
+:root[data-theme="light"] .ri-select {
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+ 
+/* ── Matriz ── */
+.ri-matrix-wrap {
+    display: grid;
+    grid-template-columns: 14px 1fr;
+    gap: 6px;
+    padding: 14px 12px 14px;
+    align-items: center;
+}
+.ri-matrix-ylabel {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    text-align: center;
+}
+.ri-matrix-inner {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 4px;
+}
+.ri-matrix-rowlabels {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-rows: repeat(5, 36px);
+    gap: 3px;
+}
+.ri-matrix-rowlabels .lbl {
+    display: flex;
+    align-items: center;
+    font-size: 9px;
+    color: var(--muted);
+    padding-left: 2px;
+    line-height: 1.2;
+}
+.ri-matrix-cells {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows:    repeat(5, 36px);
+    gap: 3px;
+}
+.ri-matrix-collabels {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+}
+.ri-matrix-collabels .lbl {
+    text-align: center;
+    font-size: 9px;
+    color: var(--muted);
+    line-height: 1.2;
+    padding-top: 2px;
+}
+.ri-matrix-xlabel {
+    grid-column: 2;
+    grid-row: 3;
+    text-align: center;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+ 
+/* Células da matriz — design limpo igual ao mockup */
+.mcell {
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: default;
+    transition: filter .12s, transform .12s;
+    position: relative;
+}
+.mcell:hover { filter: brightness(1.12); transform: scale(1.05); z-index: 1; }
+ 
+/* Paleta suave (igual às imagens enviadas) */
+.mcell.vlow  { background: #d1fae5; color: #065f46; }  /* verde muito claro */
+.mcell.low   { background: #a7f3d0; color: #065f46; }  /* verde claro */
+.mcell.med   { background: #fde68a; color: #78350f; }  /* amarelo */
+.mcell.high  { background: #fed7aa; color: #7c2d12; }  /* laranja claro */
+.mcell.vhigh { background: #fca5a5; color: #7f1d1d; }  /* vermelho claro */
+ 
+:root[data-theme="dark"] .mcell.vlow  { background: #064e3b; color: #6ee7b7; }
+:root[data-theme="dark"] .mcell.low   { background: #065f46; color: #6ee7b7; }
+:root[data-theme="dark"] .mcell.med   { background: #78350f; color: #fde68a; }
+:root[data-theme="dark"] .mcell.high  { background: #7c2d12; color: #fed7aa; }
+:root[data-theme="dark"] .mcell.vhigh { background: #7f1d1d; color: #fca5a5; }
+ 
+/* Marcador da célula activa */
+.mcell.ri-active {
+    outline: 2.5px solid var(--text);
+    outline-offset: -2px;
+    transform: scale(1.08);
+    z-index: 2;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
 }
 
 </style>
