@@ -77,19 +77,8 @@
                 <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
             </div>
             <div class="cncs-step-body">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                <button id="btnAiFill" class="btn" style="
-                    flex:1;
-                    background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(168,85,247,.12));
-                    border:1px solid rgba(99,102,241,.35);
-                    color:#a78bfa;font-weight:600;gap:8px;
-                ">
-                                <i data-lucide="sparkles" style="width:14px;height:14px;flex-shrink:0;"></i>
-                                <span id="btnAiFillLabel">Preencher com IA</span>
-                                <span id="btnAiFillSpinner" style="display:none;width:12px;height:12px;border:2px solid rgba(167,139,250,.3);border-top-color:#a78bfa;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;"></span>
-                </button>
-            </div>
-            <p class="field-hint">Auto-preenchidas com base nos dados do sistema. Edita antes de exportar.</p>
+                <p class="field-hint">Auto-preenchidas com base nos dados do sistema. Edita antes de exportar.</p>
+
                 <div class="field-group">
                     <label>3 — Atividades de segurança</label>
                     <textarea id="cncsManualActivities" rows="4" placeholder="Carregando dados..."></textarea>

@@ -36,6 +36,9 @@ class AssetController extends Controller
                 'u.name as owner', 
                 // Nova coluna — criticality
                 DB::raw("COALESCE(a.criticality, 'medium') as criticality"),
+                // Risco intrínseco
+                DB::raw("COALESCE(a.probability, 3) as probability"),
+                DB::raw("COALESCE(a.impact, 3) as impact"),
             ])
             ->get();
 
@@ -97,15 +100,31 @@ class AssetController extends Controller
 
         // Resolver nomes → ids (criar a tag se não existir)
         if (!empty($data['tag_names'])) {
-            foreach ($data['tag_names'] as $name) {
-                $name = strtolower(trim($name));
-                $tag  = DB::table('asset_tag')->where('name', $name)->first();
-                if (!$tag) {
-                    $id = DB::table('asset_tag')->insertGetId(['name' => $name], 'id_tag');
-                } else {
-                    $id = $tag->id_tag;
+            $cleanNames = array_unique(array_filter(array_map(fn($n) => strtolower(trim($n)), $data['tag_names'])));
+
+            if (!empty($cleanNames)) {
+                $existingTags = DB::table('asset_tag')
+                    ->whereIn('name', $cleanNames)
+                    ->get(['id_tag', 'name'])
+                    ->keyBy('name');
+
+                $newTagNames = array_diff($cleanNames, $existingTags->keys()->toArray());
+
+                if (!empty($newTagNames)) {
+                    $newTagsData = array_map(fn($name) => ['name' => $name], $newTagNames);
+                    DB::table('asset_tag')->insert($newTagsData);
+
+                    $newTags = DB::table('asset_tag')
+                        ->whereIn('name', $newTagNames)
+                        ->get(['id_tag', 'name'])
+                        ->keyBy('name');
+
+                    $existingTags = $existingTags->merge($newTags);
                 }
-                $tagIds->push($id);
+
+                foreach ($existingTags as $tag) {
+                    $tagIds->push($tag->id_tag);
+                }
             }
         }
 
@@ -124,8 +143,9 @@ class AssetController extends Controller
 
         $toInsert = $tagIds->reject(fn($id) => in_array($id, $existing));
 
-        foreach ($toInsert as $tagId) {
-            DB::table('asset_tag_map')->insert(['id_asset' => $assetId, 'id_tag' => $tagId]);
+        if ($toInsert->isNotEmpty()) {
+            $mapData = $toInsert->map(fn($tagId) => ['id_asset' => $assetId, 'id_tag' => $tagId])->toArray();
+            DB::table('asset_tag_map')->insert($mapData);
         }
 
         // Devolver tags actuais do asset
@@ -271,8 +291,8 @@ class AssetController extends Controller
                 'status'       => 'nullable|string|max:50',
                 'owner_id'     => 'nullable|integer',
                 'ip'           => 'nullable|string|max:45',
-                'prob'         => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
-                'impact'       => 'nullable|integer', // Lemos isto do JS só para não dar erro de validação
+                'probability'  => 'nullable|integer|min:1|max:5',
+                'impact'       => 'nullable|integer|min:1|max:5',
                 'description'  => 'nullable|string',
                 'tags'         => 'nullable|array',         
                 'tags.*'       => 'string|max:100',
@@ -280,7 +300,7 @@ class AssetController extends Controller
 
             $criticality = $data['criticality'] ?? 'medium';
 
-            // 2. Inserir na Base de Dados (SEM O PROB E IMPACT AQUI DENTRO!!!)
+            // 2. Inserir na Base de Dados
             $id = DB::table('asset')->insertGetId([
                 'source'       => 'manual',
                 'display_name' => $data['display_name'],
@@ -291,38 +311,37 @@ class AssetController extends Controller
                 'status'       => $data['status'] ?? $criticality,
                 'owner_id'     => $data['owner_id'] ?? null,
                 'description'  => $data['description'] ?? null,
+                'probability'  => $data['probability'] ?? 3,
+                'impact'       => $data['impact'] ?? 3,
                 'created_at'   => now(),
                 'updatedat'    => now(),
             ], 'id_asset');
 
             // 3. LÓGICA DAS TAGS: Criar se não existir e Associar
             if (!empty($data['tags'])) {
-                $cleanNames = array_unique(array_filter(array_map(fn($n) => strtolower(trim($n)), $data['tags'])));
+                $tagIdsToLink = [];
+                foreach ($data['tags'] as $name) {
+                    $cleanName = strtolower(trim($name));
+                    if (empty($cleanName)) continue;
 
-                if (!empty($cleanNames)) {
-                    $existingTags = DB::table('asset_tag')
-                        ->whereIn('name', $cleanNames)
-                        ->get(['id_tag', 'name'])
-                        ->keyBy('name');
+                    // Verifica se a tag já existe
+                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
 
-                    $newTagNames = array_diff($cleanNames, $existingTags->keys()->toArray());
-
-                    if (!empty($newTagNames)) {
-                        $newTagsData = array_map(fn($name) => ['name' => $name, 'color' => '#60a5fa'], $newTagNames);
-                        DB::table('asset_tag')->insert($newTagsData);
-
-                        $newTags = DB::table('asset_tag')
-                            ->whereIn('name', $newTagNames)
-                            ->get(['id_tag', 'name'])
-                            ->keyBy('name');
-
-                        $existingTags = $existingTags->merge($newTags);
+                    if (!$existingTag) {
+                        // Se não existe, cria com uma cor base!
+                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId([
+                            'name' => $cleanName,
+                            'color' => '#60a5fa'
+                        ], 'id_tag');
+                    } else {
+                        // Se existe, usa o ID
+                        $tagIdsToLink[] = $existingTag->id_tag;
                     }
+                }
 
-                    $tagIdsToLink = $existingTags->pluck('id_tag')->unique()->toArray();
-                    $mapData = array_map(fn($tagId) => ['id_asset' => $id, 'id_tag' => $tagId], $tagIdsToLink);
-
-                    DB::table('asset_tag_map')->insert($mapData);
+                // Associa ao ativo (evitando duplicados)
+                foreach (array_unique($tagIdsToLink) as $tagId) {
+                    DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
                 }
             }
 
@@ -443,6 +462,8 @@ class AssetController extends Controller
                 'status'       => 'nullable|string|max:50',
                 'owner_id'     => 'nullable|integer',
                 'ip'           => 'nullable|string|max:45',
+                'probability'  => 'nullable|integer|min:1|max:5',
+                'impact'       => 'nullable|integer|min:1|max:5',
                 'description'  => 'nullable|string',
                 'tags'         => 'nullable|array',         
                 'tags.*'       => 'string|max:100',
@@ -460,6 +481,8 @@ class AssetController extends Controller
                 'status'       => $data['status'] ?? $criticality,
                 'owner_id'     => $data['owner_id'] ?? null,
                 'description'  => $data['description'] ?? null,
+                'probability'  => $data['probability'] ?? 3,
+                'impact'       => $data['impact'] ?? 3,
                 'updatedat'    => now(),
             ]);
 
@@ -467,34 +490,23 @@ class AssetController extends Controller
             DB::table('asset_tag_map')->where('id_asset', $id)->delete();
 
             if (!empty($data['tags'])) {
-                $cleanNames = array_unique(array_filter(array_map(fn($n) => strtolower(trim($n)), $data['tags'])));
+                $tagIdsToLink = [];
+                foreach ($data['tags'] as $name) {
+                    $cleanName = strtolower(trim($name));
+                    if (empty($cleanName)) continue;
 
-                if (!empty($cleanNames)) {
-                    $existingTags = DB::table('asset_tag')
-                        ->whereIn('name', $cleanNames)
-                        ->get(['id_tag', 'name'])
-                        ->keyBy('name');
-
-                    $newTagNames = array_diff($cleanNames, $existingTags->keys()->toArray());
-
-                    if (!empty($newTagNames)) {
-                        $newTagsData = array_map(fn($name) => ['name' => $name, 'color' => '#60a5fa'], $newTagNames);
-                        DB::table('asset_tag')->insert($newTagsData);
-
-                        $newTags = DB::table('asset_tag')
-                            ->whereIn('name', $newTagNames)
-                            ->get(['id_tag', 'name'])
-                            ->keyBy('name');
-
-                        $existingTags = $existingTags->merge($newTags);
+                    $existingTag = DB::table('asset_tag')->where('name', $cleanName)->first();
+                    if (!$existingTag) {
+                        $tagIdsToLink[] = DB::table('asset_tag')->insertGetId(['name' => $cleanName, 'color' => '#60a5fa'], 'id_tag');
+                    } else {
+                        $tagIdsToLink[] = $existingTag->id_tag;
                     }
-
-                    $tagIdsToLink = $existingTags->pluck('id_tag')->unique()->toArray();
-                    $mapData = array_map(fn($tagId) => ['id_asset' => $id, 'id_tag' => $tagId], $tagIdsToLink);
-
-                    DB::table('asset_tag_map')->insert($mapData);
+                }
+                foreach (array_unique($tagIdsToLink) as $tagId) {
+                    DB::table('asset_tag_map')->insert(['id_asset' => $id, 'id_tag' => $tagId]);
                 }
             }
+
             return response()->json(['message' => 'Ativo atualizado com sucesso']);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -502,6 +514,45 @@ class AssetController extends Controller
         } catch (\Exception $e) {
             \Log::error('Erro ao atualizar ativo', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Erro interno ao atualizar ativo', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // =========================================================================
+    // PATCH /api/assets/{id}
+    // Actualiza apenas campos parciais — usado pelo botão "Guardar risco"
+    // =========================================================================
+    public function patch(Request $request, $id): JsonResponse
+    {
+        $asset = DB::table('asset')->where('id_asset', $id)->first();
+        if (!$asset) {
+            return response()->json(['message' => 'Ativo não encontrado.'], 404);
+        }
+
+        try {
+            $data = $request->validate([
+                'probability' => 'sometimes|integer|min:1|max:5',
+                'impact'      => 'sometimes|integer|min:1|max:5',
+            ]);
+
+            if (empty($data)) {
+                return response()->json(['message' => 'Nenhum campo válido para actualizar.'], 422);
+            }
+
+            $update = array_filter([
+                'probability' => $data['probability'] ?? null,
+                'impact'      => $data['impact']      ?? null,
+                'updatedat'   => now(),
+            ], fn($v) => $v !== null);
+
+            DB::table('asset')->where('id_asset', $id)->update($update);
+
+            return response()->json(['message' => 'Risco actualizado com sucesso.']);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Dados inválidos', 'errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            \Log::error('Erro ao actualizar risco do ativo', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Erro interno', 'error' => $e->getMessage()], 500);
         }
     }
 }

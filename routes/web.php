@@ -118,7 +118,7 @@ Route::middleware('mock.auth')->group(function () {
     Route::get('/api/assets/{id}/analyses', [AssetController::class, 'getAnalyses'])->middleware(CheckPermission::class.':assets.view');
     Route::post('/api/assets/{id}/analyze', [AssetController::class, 'analyze'])->middleware(CheckPermission::class.':assets.edit');
     Route::put('/api/assets/{id}', [AssetController::class, 'update']);
-    
+Route::patch('/api/assets/{id}/risk', [AssetController::class, 'patch']);    
     // ── Chat ──────────────────────────────────────────────────────────────────
     Route::post('/chat/ask', [ChatController::class, 'ask'])->middleware('throttle:60,1');
 
@@ -272,7 +272,7 @@ Route::middleware('mock.auth')->group(function () {
     Route::put('/api/cncs-reports/{id}',          [CncsReportController::class, 'update']);
     Route::post('/api/cncs-reports/{id}/submit',  [CncsReportController::class, 'submit']);
     Route::delete('/api/cncs-reports/{id}',       [CncsReportController::class, 'destroy']);
-    Route::post('/api/cncs-reports/ai-summary', [CncsReportController::class, 'aiSummary']);
+
     // ── Users (rota provisória) ───────────────────────────────────────────────
     Route::get('/api/users', function () {
         return DB::table('User')->select('id_user', 'name', 'email')->get();

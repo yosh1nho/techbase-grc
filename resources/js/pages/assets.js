@@ -281,67 +281,66 @@
     function buildMatrix(selectedProb, selectedImpact) {
         const cells = $("#riskMatrix");
         const probLabels = $("#probLabels");
-        const impactLabels = $("#impactLabels");
-        if (!cells || !probLabels || !impactLabels) return;
+        const impLabels = $("#impactLabels");
+        if (!cells || !probLabels || !impLabels) return;
 
         cells.innerHTML = "";
         probLabels.innerHTML = "";
-        impactLabels.innerHTML = "";
+        impLabels.innerHTML = "";
 
-        const probText = ["(1) Muito Baixo", "(2) Baixo", "(3) Médio", "(4) Alto", "(5) Muito Alto"];
-        const impactText = ["(5) Muito Alto", "(4) Alto", "(3) Médio", "(2) Baixo", "(1) Muito Baixo"];
+        // Eixo Vertical (Probabilidade de cima para baixo: 5 -> 1)
+        const probText = ["(5) Muito Alto", "(4) Alto", "(3) Médio", "(2) Baixo", "(1) Muito Baixo"];
+        // Eixo Horizontal (Impacto da esquerda para a direita: 1 -> 5)
+        const impactText = ["(1) Muito Baixo", "(2) Baixo", "(3) Médio", "(4) Alto", "(5) Muito Alto"];
 
-        for (let p = 1; p <= 5; p++) {
+        // Preencher Eixo Y (Vertical - Probabilidade)
+        probText.forEach(t => {
             const d = document.createElement("div");
             d.className = "lbl";
-            d.textContent = probText[p - 1];
+            d.textContent = t;
             probLabels.appendChild(d);
-        }
+        });
 
-        for (let i = 0; i < 5; i++) {
+        // Preencher Eixo X (Horizontal - Impacto)
+        impactText.forEach(t => {
             const d = document.createElement("div");
             d.className = "lbl";
-            d.textContent = impactText[i];
-            impactLabels.appendChild(d);
-        }
+            d.textContent = t;
+            impLabels.appendChild(d);
+        });
 
-        // impacto 5->1, prob 1->5
-        for (let impact = 5; impact >= 1; impact--) {
-            for (let prob = 1; prob <= 5; prob++) {
+        // células: Probabilidade 5→1 (linhas), Impacto 1→5 (colunas)
+        for (let prob = 5; prob >= 1; prob--) {
+            for (let impact = 1; impact <= 5; impact++) {
                 const score = prob * impact;
-                const cls = classify(score);
-
+                const cl = classify(score);
                 const div = document.createElement("div");
-                div.className = `mcell ${cls.cellClass}`;
+                div.className = `mcell ${cl.cellClass}`;
+                if (prob === selectedProb && impact === selectedImpact) {
+                    div.classList.add("ri-active");
+                }
                 div.dataset.prob = String(prob);
                 div.dataset.impact = String(impact);
-
-                div.innerHTML = `
-          <div>
-            <small>${cls.label}</small>
-            <div class="score">${score}</div>
-          </div>
-        `;
-
+                div.innerHTML = `<small>${cl.label}</small><div class="score">${score}</div>`;
                 cells.appendChild(div);
             }
         }
 
-        // remove markers
-        cells.querySelectorAll(".marker").forEach((m) => m.remove());
+        // actualiza o hero de score
+        const score = selectedProb * selectedImpact;
+        const cl = classify(score);
+        const hero = document.querySelector(".ri-score-hero");
+        const numEl = $("#mScoreVal");
+        const lblEl = $("#mClassChip");
+        if (numEl) { numEl.textContent = score; numEl.style.color = ""; }
+        if (lblEl) { lblEl.textContent = cl.label; lblEl.style.color = ""; }
+        if (hero) { hero.dataset.level = cl.cellClass; }
 
-        // anchor marker inside the target cell
-        const row = 5 - selectedImpact; // impact 5 => row 0
-        const col = selectedProb - 1;
-        const index = row * 5 + col;
-        const target = cells.children[index];
-
-        if (target) {
-            const marker = document.createElement("div");
-            marker.className = "marker";
-            marker.textContent = `${selectedProb}×${selectedImpact}`;
-            target.appendChild(marker);
-        }
+        // sincroniza os selects
+        const ps = $("#riskProbSelect");
+        const is = $("#riskImpactSelect");
+        if (ps) ps.value = String(selectedProb);
+        if (is) is.value = String(selectedImpact);
     }
 
     // Função para carregar os riscos do ativo aberto
@@ -628,8 +627,8 @@
                     createdBy: a.create_by ?? (a.source === 'acronis' ? 'Inserido automaticamente pelo Acronis' : 'Registo manual'),
                     acronis_synced_at: a.updatedat,   // usar updatedat como proxy do sync
 
-                    prob: 3,
-                    impact: 3,
+                    prob: Number(a.probability ?? 3),
+                    impact: Number(a.impact ?? 3),
 
                     controls: [],
                     risks: [],
@@ -840,26 +839,13 @@
         }
 
         // ── Risk score ──
-        setTxt("#mProb", String(asset.prob));
-        setTxt("#mImpact", String(asset.impact));
-        const score = asset.prob * asset.impact;
-        const cls = classify(score);
-        const scoreEl = $("#mScoreVal");
-        if (scoreEl) {
-            scoreEl.textContent = score;
-            const scoreColors = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
-            scoreEl.style.color = scoreColors[cls.cellClass] || 'var(--text)';
-        }
-        const classEl = $("#mClassChip");
-        if (classEl) {
-            classEl.textContent = cls.label;
-            const cc = { vlow: 'var(--muted)', low: 'var(--ok)', med: 'var(--warn)', high: 'var(--bad)', vhigh: 'var(--bad)' };
-            classEl.style.color = cc[cls.cellClass] || 'var(--text)';
-        }
+        buildMatrix(asset.prob, asset.impact);
+
+        // guarda os originais para detectar alterações
+        const riSaveWrap = $("#riSaveWrap");
+        if (riSaveWrap) riSaveWrap.style.display = "none";
 
         setTxt("#mNotes", asset.notes);
-
-        buildMatrix(asset.prob, asset.impact);
 
         renderRiskTreat(asset);
         loadAssetRisks(assetId);
@@ -1040,7 +1026,9 @@
             owner_id: owner_id,
             ip: ip || null,
             description: notes || null,
-            tags: finalTags
+            tags: finalTags,
+            probability: prob,
+            impact: impact
         };
 
         const btn = document.getElementById("btnSaveAsset");
@@ -1413,6 +1401,71 @@
         bindChange("#fType", () => toggleIpFieldByType($("#fType")?.value));
         bindClick("#btnSaveAsset", saveAssetFromForm);
         bindClick("#btnDeleteAsset", deleteAssetMock);
+
+        // ── Risco Intrínseco: selects reactivos + guardar ──
+        (function setupRiskSelects() {
+            const ps = $("#riskProbSelect");
+            const is = $("#riskImpactSelect");
+            const saveWrap = $("#riSaveWrap");
+            const saveBtn = $("#btnSaveRisk");
+            if (!ps || !is) return;
+
+            function onRiskChange() {
+                const p = Number(ps.value);
+                const i = Number(is.value);
+                buildMatrix(p, i);
+                // mostra o botão guardar apenas se difere do ativo aberto
+                const asset = assets.find(a => String(a.id) === String(currentAssetId));
+                if (saveWrap) {
+                    saveWrap.style.display =
+                        (asset && (p !== asset.prob || i !== asset.impact)) ? "" : "none";
+                }
+            }
+
+            ps.addEventListener("change", onRiskChange);
+            is.addEventListener("change", onRiskChange);
+
+            if (saveBtn) {
+                saveBtn.addEventListener("click", async () => {
+                    if (!currentAssetId) return;
+                    const p = Number(ps.value);
+                    const i = Number(is.value);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+
+                    saveBtn.disabled = true;
+                    saveBtn.textContent = "A guardar…";
+
+                    try {
+                        const res = await fetch(`/api/assets/${currentAssetId}/risk`, {
+                            method: "PATCH",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Accept": "application/json",
+                                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || ""
+                            },
+                            body: JSON.stringify({ probability: p, impact: i })
+                        });
+                        if (!res.ok) throw new Error("HTTP " + res.status);
+
+                        // actualiza asset em memória
+                        const asset = assets.find(a => String(a.id) === String(currentAssetId));
+                        if (asset) { asset.prob = p; asset.impact = i; }
+
+                        if (saveWrap) saveWrap.style.display = "none";
+                        saveBtn.textContent = "✓ Guardado";
+                        setTimeout(() => {
+                            saveBtn.disabled = false;
+                            saveBtn.textContent = "Guardar risco";
+                        }, 1800);
+
+                    } catch (e) {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = "Erro — tentar de novo";
+                        console.error("Erro ao guardar risco:", e);
+                    }
+                });
+            }
+        })();
 
         // Botões de navegação (Mock)
         bindClick("#btnGoRisks", () => goTo("/riscos"));
