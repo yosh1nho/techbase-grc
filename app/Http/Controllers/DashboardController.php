@@ -196,74 +196,142 @@ class DashboardController extends Controller
     // GET /api/dashboard/wazuh-alerts
     // Vai buscar os últimos alertas ao Elasticsearch
     // =========================================================================
-    public function getWazuhAlerts(): JsonResponse
-    {
-        try {
-            $response = Http::withOptions(['verify' => false]) // Ignora SSL auto-assinado
-                ->withBasicAuth(env('ELASTIC_USER'), env('ELASTIC_PASS'))
-                ->post('https://192.168.10.20:9200/wazuh-alerts-*/_search', [
-                    'size' => 50, // Traz os últimos 50
-                    'sort' => [['@timestamp' => 'desc']]
-                ]);
+public function getWazuhAlerts(Request $request): JsonResponse
+{
+    $page = (int) $request->query('page', 1);
+    $search = $request->query('q');
+    $severity = $request->query('severity', 'all');
+    
+    // 1. Receber as novas datas
+    $dateFrom = $request->query('dateFrom');
+    $dateTo = $request->query('dateTo');
+    
+    $limit = 50;
+    $from = ($page - 1) * $limit;
 
-            if (!$response->successful()) {
-                throw new \Exception("Erro ao conectar ao Elasticsearch: " . $response->body());
+    try {
+        $query = [
+            'bool' => [
+                'must' => []
+            ]
+        ];
+
+        // 2. Filtro de Datas no Elasticsearch
+        if (!empty($dateFrom) || !empty($dateTo)) {
+            $dateRange = [];
+            if (!empty($dateFrom)) $dateRange['gte'] = $dateFrom . 'T00:00:00.000Z';
+            if (!empty($dateTo)) $dateRange['lte'] = $dateTo . 'T23:59:59.999Z';
+            $query['bool']['must'][] = ['range' => ['@timestamp' => $dateRange]];
+        }
+
+            // Se houver texto de pesquisa
+            if (!empty($search)) {
+                $query['bool']['must'][] = [
+                    'multi_match' => [
+                        'query' => $search,
+                        'fields' => ['rule.description', 'agent.name', 'rule.id'],
+                        'fuzziness' => 'AUTO'
+                    ]
+                ];
             }
 
-            $hits = $response->json('hits.hits') ?? [];
-            
-            // Vamos formatar e limpar os dados para enviar para o Frontend
+            // Se houver filtro de severidade (Wazuh levels: Critical >= 10, Medium 5-9, Low < 5)
+            if ($severity !== 'all') {
+                $range = match($severity) {
+                    'critical' => ['gte' => 10],
+                    'medium'   => ['gte' => 5, 'lt' => 10],
+                    'low'      => ['lt' => 5],
+                    default    => null
+                };
+                if ($range) {
+                    $query['bool']['must'][] = ['range' => ['rule.level' => $range]];
+                }
+            }
+
+            $body = [
+                'size' => $limit,
+                'from' => $from,
+                'sort' => [['@timestamp' => 'desc']],
+            ];
+
+            if (!empty($query['bool']['must'])) {
+                $body['query'] = $query;
+            }
+
+            $response = Http::withOptions(['verify' => false])
+                ->withBasicAuth(env('ELASTIC_USER'), env('ELASTIC_PASS'))
+                ->post('https://192.168.10.20:9200/wazuh-alerts-*/_search', $body);
+
+            if (!$response->successful()) throw new \Exception("Erro SIEM: " . $response->body());
+
+            $data = $response->json();
+            $hits = $data['hits']['hits'] ?? [];
+            $total = $data['hits']['total']['value'] ?? 0;
+
             $alerts = array_map(function($hit) {
-                $source = $hit['_source'];
-                $rule = $source['rule'] ?? [];
+                $s = $hit['_source'];
+                $rule = $s['rule'] ?? [];
                 
                 return [
                     'id' => $hit['_id'],
-                    'timestamp' => $source['@timestamp'] ?? null,
-                    'agent' => $source['agent']['name'] ?? 'Desconhecido',
+                    'timestamp' => $s['@timestamp'] ?? null,
+                    'agent' => $s['agent']['name'] ?? 'Desconhecido',
                     'rule_id' => $rule['id'] ?? null,
                     'description' => $rule['description'] ?? 'Sem descrição',
                     'level' => $rule['level'] ?? 0,
-                    'mitre_tactics' => $rule['mitre_tactics'] ?? [],
-                    'mitre_techniques' => $rule['mitre_techniques'] ?? [],
+
+                    // 🎯 MITRE — estrutura real do Wazuh: rule.mitre.tactic / rule.mitre.technique
+                    'mitre_tactics'    => $rule['mitre']['tactic']    ?? [],
+                    'mitre_techniques' => $rule['mitre']['technique']  ?? [],
+                    'mitre_ids'        => $rule['mitre']['id']         ?? [],
+                    
                     'compliance' => array_keys(array_filter([
                         'PCI DSS' => isset($rule['pci_dss']),
                         'GDPR' => isset($rule['gdpr']),
                         'NIST' => isset($rule['nist_800_53']),
                         'CIS' => isset($rule['cis']),
+                        'SOC 2' => isset($rule['soc_2']),
                     ])),
-                    'remediation' => $source['data']['sca']['check']['remediation'] ?? null,
+                    
+                    'remediation' => $s['data']['sca']['check']['remediation'] ?? null,
                 ];
             }, $hits);
-
-            return response()->json($alerts);
+            return response()->json([
+                'data' => $alerts,
+                'total' => $total,
+                'current_page' => $page,
+                'last_page' => ceil($total / $limit)
+            ]);
 
         } catch (\Exception $e) {
-            \Log::error('Erro ao buscar alertas Wazuh: ' . $e->getMessage());
-            return response()->json(['error' => 'Falha ao buscar alertas do SIEM.'], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
+
     // =========================================================================
-    // POST /api/dashboard/wazuh-alerts/{id}/analyze
-    // Gera análise IA de um alerta c/ RAG Duplo (ElasticSearch + MemPalace)
-    // =========================================================================
-// =========================================================================
     // POST /api/dashboard/wazuh-alerts/{id}/analyze
     // Gera análise IA de um alerta c/ RAG Duplo (ElasticSearch + MemPalace)
     // =========================================================================
     public function analyzeWazuhAlert(Request $request, $id, GeminiClient $gemini, MemPalaceClient $memPalace): JsonResponse
     {
         try {
-            // 1. Verificar se já existe análise na BD
-            $existing = DB::table('wazuh_alert_analysis')->where('wazuh_alert_id', $id)->first();
-            if ($existing) {
-                return response()->json([
-                    'success' => true, 
-                    'text' => $existing->analysis_text, 
-                    'cached' => true,
-                    'date' => date('d/m/Y H:i', strtotime($existing->created_at))
-                ]);
+            // 1. Verificar se já existe análise na BD (a menos que seja forçado)
+            $force = $request->query('force', false);
+            
+            if (!$force) {
+                $existing = DB::table('wazuh_alert_analysis')->where('wazuh_alert_id', $id)->first();
+                if ($existing) {
+                    return response()->json([
+                        'success' => true, 
+                        'text' => $existing->analysis_text, 
+                        'cached' => true,
+                        'date' => date('d/m/Y H:i', strtotime($existing->created_at))
+                    ]);
+                }
+            } else {
+                // Se for force, apagamos o registo antigo para não acumular lixo
+                DB::table('wazuh_alert_analysis')->where('wazuh_alert_id', $id)->delete();
             }
 
             // 2. Buscar os dados deste alerta ao SIEM (Elasticsearch)
@@ -325,24 +393,36 @@ class DashboardController extends Controller
             $historicoMemPalace = $memPalace->recall($historyQuery);
 
             // 5. Montar o Prompt
-            $desc = $hit['rule']['description'] ?? 'Sem descrição';
-            $level = $hit['rule']['level'] ?? 'N/A';
-            $mitreTac = implode(', ', $hit['rule']['mitre_tactics'] ?? ['Nenhuma']);
-            $mitreTech = implode(', ', $hit['rule']['mitre_techniques'] ?? ['Nenhuma']);
-            $remed = $hit['data']['sca']['check']['remediation'] ?? 'Nenhuma sugerida pelo Wazuh.';
+            $desc      = $hit['rule']['description'] ?? 'Sem descrição';
+            $level     = $hit['rule']['level'] ?? 'N/A';
+            $mitreTac  = implode(', ', $hit['rule']['mitre']['tactic']     ?? []);
+            $mitreTech = implode(', ', $hit['rule']['mitre']['technique']   ?? []);
+            $mitreIds  = implode(', ', $hit['rule']['mitre']['id']          ?? []);
+            $remed     = $hit['data']['sca']['check']['remediation'] ?? 'Nenhuma sugerida pelo Wazuh.';
+
+            // Bloco MITRE apenas se houver dados
+            $mitreBlock = '';
+            if (!empty($mitreTac) || !empty($mitreTech) || !empty($mitreIds)) {
+                $mitreBlock = "MAPEAMENTO MITRE ATT&CK:\n"
+                            . (!empty($mitreIds)  ? "- IDs das Técnicas : {$mitreIds}\n"  : '')
+                            . (!empty($mitreTac)  ? "- Táticas          : {$mitreTac}\n"  : '')
+                            . (!empty($mitreTech) ? "- Técnicas         : {$mitreTech}\n" : '');
+            } else {
+                $mitreBlock = "MAPEAMENTO MITRE ATT&CK: Não disponível para esta regra.\n";
+            }
 
             $prompt = "Atuando como SOC Analyst de Nível 3, analisa o seguinte alerta do SIEM Wazuh.\n\n"
                     . "DADOS DO ATIVO NO INVENTÁRIO:\n{$assetContext}\n\n"
                     . "DADOS DO ALERTA ATUAL:\n"
-                    . "- Regra: {$desc} (Severidade: {$level})\n"
-                    . "- Táticas MITRE: {$mitreTac}\n"
-                    . "- Técnicas MITRE: {$mitreTech}\n"
+                    . "- Regra  : {$desc}\n"
+                    . "- Severidade Wazuh: {$level}/15\n"
                     . "- Sugestão do Sistema: {$remed}\n\n"
+                    . $mitreBlock . "\n"
                     . "CONTEXTO HISTÓRICO (DIÁRIO DE SOC):\n{$historicoMemPalace}\n\n"
                     . "Fornece a resposta usando APENAS HTML simples (<b>, <ul>, <li>, <br>). Sem Markdown. Divide em 3 partes:\n"
-                    . "1. <b>Resumo do Risco:</b> O impacto no negócio (tendo em conta a criticidade do ativo) e se há um padrão histórico preocupante baseado no Diário de SOC.\n"
-                    . "2. <b>Ameaça (MITRE Context):</b> Como um atacante explora isto.\n"
-                    . "3. <b>Plano de Mitigação:</b> 2 a 3 passos práticos para a equipa atuar.";
+                    . "1. <b>Resumo do Risco:</b> Impacto no negócio considerando a criticidade do ativo. Indica se há padrão histórico preocupante no Diário de SOC.\n"
+                    . "2. <b>Ameaça MITRE ATT&CK:</b> Explica especificamente as técnicas mapeadas (". ($mitreIds ?: 'sem ID') .") — como o atacante as usa e qual o objetivo tático.\n"
+                    . "3. <b>Plano de Mitigação:</b> 3 a 4 passos práticos e concretos para a equipa atuar imediatamente.";
 
             // 6. Chamar o Gemini
             $aiText = $gemini->generate($prompt);

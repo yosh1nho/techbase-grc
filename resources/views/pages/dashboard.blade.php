@@ -43,14 +43,12 @@
                 <span class="muted" style="font-size:13px">total</span>
             </div>
 
-            {{-- barra de severidade proporcional --}}
             <div id="riskBar" style="display:flex;height:6px;border-radius:99px;overflow:hidden;gap:2px;margin:10px 0 8px">
                 <div id="riskBarHigh" style="background:#f87171;border-radius:99px;transition:width .4s"></div>
                 <div id="riskBarMed"  style="background:#fbbf24;border-radius:99px;transition:width .4s"></div>
                 <div id="riskBarLow"  style="background:#34d399;border-radius:99px;transition:width .4s"></div>
             </div>
 
-            {{-- legenda da barra --}}
             <div style="display:flex;gap:14px;font-size:12px">
                 <span style="display:flex;align-items:center;gap:5px">
                     <span style="width:8px;height:8px;border-radius:50%;background:#f87171;display:inline-block"></span>
@@ -66,7 +64,6 @@
                 </span>
             </div>
 
-            {{-- top risco em destaque --}}
             <div id="riskTopItem" style="display:none;margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2)">
                 <div style="font-size:10px;font-weight:700;letter-spacing:.06em;color:#f87171;margin-bottom:3px">RISCO MAIS CRÍTICO</div>
                 <div id="riskTopTitle" style="font-size:13px;font-weight:600"></div>
@@ -84,7 +81,6 @@
                 <span class="muted" style="font-size:13px" id="treatmentOverdueLabel">em atraso</span>
             </div>
 
-            {{-- barra de progresso --}}
             <div style="display:flex;height:6px;border-radius:99px;overflow:hidden;gap:2px;margin:10px 0 8px">
                 <div id="treatBarDone"    style="background:#34d399;border-radius:99px;transition:width .4s;width:0%"></div>
                 <div id="treatBarDoing"   style="background:#60a5fa;border-radius:99px;transition:width .4s;width:0%"></div>
@@ -117,12 +113,11 @@
                 <p class="big" id="nis2Pct" style="margin:0">—</p>
                 <span class="muted" style="font-size:13px">ponderado</span>
             </div>
-        
-            {{-- barra de progresso --}}
+
             <div style="height:6px;border-radius:99px;overflow:hidden;background:rgba(255,255,255,.08);margin:10px 0 8px">
                 <div id="nis2Bar" style="height:100%;border-radius:99px;transition:width .6s ease,background .4s;width:0%"></div>
             </div>
-        
+
             <div style="display:flex;gap:14px;font-size:12px">
                 <span style="display:flex;align-items:center;gap:5px">
                     <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
@@ -137,12 +132,12 @@
                     <span class="muted">Não conf.</span> <b id="nis2NonCompliant">—</b>
                 </span>
             </div>
-        
+
             <div class="hint" style="margin-top:10px">
                 <span id="nis2Total">—</span> controlos · Clique para detalhar por artigo.
             </div>
         </a>
-        
+
         {{-- COMPLIANCE QNRCS --}}
         <a class="card dash-card link-card" href="{{ route('compliance') }}?framework=QNRCS" style="text-decoration:none">
             <h3>Conformidade QNRCS</h3>
@@ -150,12 +145,11 @@
                 <p class="big" id="qnrcsPct" style="margin:0">—</p>
                 <span class="muted" style="font-size:13px">ponderado</span>
             </div>
-        
-            {{-- barra de progresso --}}
+
             <div style="height:6px;border-radius:99px;overflow:hidden;background:rgba(255,255,255,.08);margin:10px 0 8px">
                 <div id="qnrcsBar" style="height:100%;border-radius:99px;transition:width .6s ease,background .4s;width:0%"></div>
             </div>
-        
+
             <div style="display:flex;gap:14px;font-size:12px">
                 <span style="display:flex;align-items:center;gap:5px">
                     <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block"></span>
@@ -170,7 +164,7 @@
                     <span class="muted">Não conf.</span> <b id="qnrcsNonCompliant">—</b>
                 </span>
             </div>
-        
+
             <div class="hint" style="margin-top:10px">
                 <span id="qnrcsTotal">—</span> controlos · Clique para detalhar por grupo.
             </div>
@@ -178,7 +172,7 @@
 
     </div>
 
-    {{-- PRÓXIMAS AÇÕES (ponto 5: dinâmico via JS) --}}
+    {{-- PRÓXIMAS AÇÕES --}}
     <div class="section-title" style="margin-top:24px">Próximas ações</div>
     <div class="card" style="padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
@@ -194,8 +188,6 @@
 
     <div class="section-title">Visão rápida</div>
     <div class="split">
-
-        {{-- Top lacunas por domínio — preenchido pelo JS --}}
         <div class="card">
             <h3>Top lacunas por grupo/domínio</h3>
             <p class="muted" style="font-size:12px;margin:2px 0 12px">Grupos com mais controlos não conformes ou parciais.</p>
@@ -203,8 +195,6 @@
                 <div class="muted" style="font-size:13px;padding:8px 0">A carregar...</div>
             </div>
         </div>
-
-        {{-- Recomendações dinâmicas — preenchido pelo JS --}}
         <div class="card">
             <h3>Prioridades de acção</h3>
             <p class="muted" style="font-size:12px;margin:2px 0 12px">Controlos GAP com maior impacto para resolver primeiro.</p>
@@ -212,34 +202,27 @@
                 <div class="muted" style="font-size:13px;padding:8px 0">A carregar...</div>
             </div>
         </div>
-
     </div>
 
 
-
-    
-
-{{-- MODAL: ALERTAS RECENTES --}}
-<div id="alertsModal" class="modal-overlay is-hidden">
+{{-- ═══════════════════════════════════════════════════════════
+     MODAL ALERTAS — FULL-SCREEN SPLIT-PANE
+     ═══════════════════════════════════════════════════════════ --}}
+<div id="alertsModal" class="modal-overlay alerts-overlay is-hidden">
     <div class="modal-card am-alerts-modal">
 
-        {{-- ── TOPO: Logo + Título + Fechar ── --}}
+        {{-- ── TOPBAR ── --}}
         <div class="am-modal-topbar">
             <div class="am-modal-brand">
                 <div class="am-brand-dot"></div>
-                <span class="am-brand-label">SIEM WAZUH · AO VIVO</span>
+                <span class="am-brand-label">SIEM Wazuh · Ao Vivo</span>
             </div>
-            <button id="alertsModalClose" class="am-close-btn" aria-label="Fechar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <div class="am-topbar-title">Alertas de Cibersegurança</div>
+            <button id="alertsModalClose" class="am-close-btn" aria-label="Fechar modal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
             </button>
-        </div>
-
-        {{-- ── HEADER COM TÍTULO ── --}}
-        <div class="am-modal-header">
-            <div>
-                <h2 class="am-modal-title">Alertas de Cibersegurança</h2>
-                <p class="am-modal-subtitle">Eventos em tempo real detetados pelo SIEM Wazuh</p>
-            </div>
         </div>
 
         {{-- ── KPI STRIP ── --}}
@@ -287,151 +270,77 @@
             </div>
         </div>
 
-        {{-- ── SEPARADOR COM CONTAGEM ── --}}
-        <div class="am-results-bar">
-            <span id="alertResultCount" class="am-results-count">— alertas</span>
-            <div class="am-results-line"></div>
-        </div>
+        {{-- ── SPLIT PANE: Lista + Detalhes ── --}}
+        <div class="am-body-split">
 
-        {{-- ── TABELA ── --}}
-        <div class="am-table-wrap">
-            <table class="am-table">
-                <thead>
-                    <tr>
-                        <th style="width:140px">Data/Hora</th>
-                        <th style="width:120px">Agente</th>
-                        <th>Regra Disparada</th>
-                        <th style="width:90px;text-align:center">Nível</th>
-                        <th style="width:160px">Contexto</th>
-                    </tr>
-                </thead>
-                <tbody id="alertsTableBody">
-                    <tr>
-                        <td colspan="5" class="am-loading-cell">
-                            <span class="am-spinner"></span>
-                            A carregar alertas do SIEM…
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            {{-- PAINEL ESQUERDO: Tabela de alertas --}}
+            <div class="am-list-pane">
+
+                <div class="am-results-bar">
+                    <span id="alertResultCount" class="am-results-count">— alertas</span>
+                </div>
+
+                <div class="am-table-wrap">
+                    <table class="am-table">
+                        <colgroup>
+                            <col class="col-date">
+                            <col class="col-agent">
+                            <col class="col-rule">
+                            <col class="col-level">
+                            <col class="col-ctx">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Agente</th>
+                                <th>Regra Disparada</th>
+                                <th style="text-align:center">Nível</th>
+                                <th>Contexto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTableBody">
+                            <tr>
+                                <td colspan="5" class="am-loading-cell">
+                                    <span class="am-spinner"></span>
+                                    A carregar alertas do SIEM…
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Paginação --}}
+                <div id="alertsPagination" class="am-pagination"></div>
+
+            </div>
+
+            {{-- PAINEL DIREITO: Detalhes do alerta selecionado --}}
+            <div class="am-detail-pane" id="alertDetailPane">
+                <div class="am-detail-empty" id="alertDetailEmpty">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <p>Selecione um alerta para ver os detalhes</p>
+                </div>
+                <div class="am-detail-content" id="alertDetailContent" style="display:none">
+                    {{-- Preenchido dinamicamente pelo JS --}}
+                </div>
+            </div>
+
         </div>
 
         {{-- ── RODAPÉ ── --}}
         <div class="am-modal-footer">
-            Clique num alerta para expandir os detalhes e gerar um <strong>Plano de Ação com Inteligência Artificial</strong>.
+            <span>Clique num alerta para expandir os detalhes e gerar um <strong>Plano de Ação com Inteligência Artificial</strong>.</span>
+            <span style="opacity:0.5">Eventos em tempo real · SIEM Wazuh</span>
         </div>
 
     </div>
 </div>
-
-<style>
-        /* ── Alerts Modal ── */
-        .am-alerts-modal { padding: 0; display: flex; flex-direction: column; }
-        .am-alerts-header {
-            display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-            padding: 20px 20px 16px; border-bottom: 1px solid var(--modal-border);
-        }
-        .am-alerts-eyebrow {
-            font-size: 11px; font-weight: 600; letter-spacing: .07em;
-            text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
-        }
-        .am-alerts-title { font-size: 20px; font-weight: 800; }
-
-        .am-alerts-kpis {
-            display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 0; border-bottom: 1px solid var(--modal-border);
-        }
-        .am-akpi {
-            padding: 14px 16px; text-align: center;
-            border-right: 1px solid var(--modal-border);
-        }
-        .am-akpi:last-child { border-right: none; }
-        .am-akpi-num { font-size: 26px; font-weight: 900; line-height: 1; }
-        .am-akpi-label { font-size: 11px; color: var(--muted); margin-top: 3px; }
-        .am-akpi-critical { background: rgba(248,113,113,.05); }
-        .am-akpi-critical .am-akpi-num { color: #f87171; }
-        .am-akpi-medium   { background: rgba(251,191,36,.04); }
-        .am-akpi-medium   .am-akpi-num { color: #fbbf24; }
-        .am-akpi-low      { background: rgba(52,211,153,.04); }
-        .am-akpi-low      .am-akpi-num { color: #34d399; }
-
-        /* KPI como filtro clicável */
-        .am-akpi-btn {
-            all: unset; cursor: pointer;
-            transition: background .15s, opacity .15s, box-shadow .15s;
-            position: relative;
-        }
-        .am-akpi-btn[aria-pressed="false"] { opacity: .45; }
-        .am-akpi-btn[aria-pressed="false"]:hover { opacity: .7; }
-        .am-akpi-btn[aria-pressed="true"] { opacity: 1; }
-
-        /* Total activo */
-        .am-akpi-btn:not(.am-akpi-critical):not(.am-akpi-medium):not(.am-akpi-low)[aria-pressed="true"] {
-            background: rgba(100,116,139,.1);
-            box-shadow: inset 0 0 0 1.5px rgba(100,116,139,.35);
-        }
-        /* Críticos activo */
-        .am-akpi-btn.am-akpi-critical[aria-pressed="true"] {
-            background: rgba(248,113,113,.14) !important;
-            box-shadow: inset 0 0 0 1.5px rgba(248,113,113,.45);
-        }
-        /* Médios activo */
-        .am-akpi-btn.am-akpi-medium[aria-pressed="true"] {
-            background: rgba(251,191,36,.12) !important;
-            box-shadow: inset 0 0 0 1.5px rgba(251,191,36,.4);
-        }
-        /* Baixos activo */
-        .am-akpi-btn.am-akpi-low[aria-pressed="true"] {
-            background: rgba(52,211,153,.1) !important;
-            box-shadow: inset 0 0 0 1.5px rgba(52,211,153,.35);
-        }
-
-        .am-alerts-filters {
-            display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
-            padding: 14px 20px; border-bottom: 1px solid var(--modal-border);
-        }
-        .am-alerts-sep {
-            padding: 8px 20px 4px;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .am-alerts-sep::after {
-            content: ''; flex: 1; height: 1px; background: var(--modal-border);
-        }
-
-        .am-alerts-list {
-            display: flex; flex-direction: column; gap: 0;
-            max-height: 400px; overflow-y: auto;
-            padding: 0 20px 4px;
-        }
-        .am-alert-card {
-            display: flex; align-items: flex-start; gap: 14px;
-            padding: 13px 0; border-bottom: 1px solid var(--modal-border);
-            cursor: pointer; transition: background .12s;
-            border-radius: 0;
-        }
-        .am-alert-card:last-child { border-bottom: none; }
-        .am-alert-card:hover { background: rgba(255,255,255,.03); margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
-        .am-alert-icon {
-            width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .am-alert-icon svg { display: block; }
-        .am-alert-body { flex: 1; min-width: 0; }
-        .am-alert-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
-        .am-alert-sev {
-            font-size: 10px; font-weight: 800; letter-spacing: .07em;
-            padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
-        }
-        .am-alert-cat  { font-size: 12px; font-weight: 600; }
-        .am-alert-ts   { font-size: 11px; color: var(--muted); margin-left: auto; }
-        .am-alert-asset { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
-        .am-alert-msg   { font-size: 12px; color: var(--muted); line-height: 1.45; }
-        .am-alert-arrow { display:flex; align-items:center; color: var(--muted); flex-shrink: 0; align-self: center; opacity: .6; }
-    </style>
-
-
-
-
 
     {{-- Rotas para o JS (sem hardcode) --}}
     <script>

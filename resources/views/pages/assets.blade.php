@@ -341,13 +341,16 @@
                     
                     </div>
 
+                </div>{{-- /ov-col right --}}
+            </div>{{-- /ov-grid --}}
+
             {{-- quick actions footer --}}
             <div class="ov-actions">
                 <button class="btn-ghost btn-sm" type="button" id="btnGoDocs">↗ Evidências</button>
                 <button class="btn-ghost btn-sm" type="button" id="btnGoAssessments">↗ Avaliações</button>
                 <button class="btn-ghost btn-sm" type="button" id="btnGoRisks">↗ Ver riscos</button>
             </div>
-        </div>
+        </div>{{-- /tab-overview --}}
 
 {{-- TAB: RISK --}}
         <div class="am-tab-panel" id="tab-risk">
@@ -369,7 +372,8 @@
         </div>
 
         {{-- TAB: AI POSTURE ANALYSIS --}}
-        <div class="tab-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div class="am-tab-panel" id="tab-ai">
+            <div class="tab-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
                 <div>
                     <div class="tab-panel-title" style="display:flex; align-items:center; gap:8px;">
                         Análise de Postura de Segurança
@@ -389,7 +393,7 @@
             <div id="aiAnalysisHistory" style="display:flex; flex-direction:column; gap:16px; margin-top:20px;">
                 <div class="muted" style="font-size:12px;text-align:center;padding:20px;">A carregar histórico de análises...</div>
             </div>
-        </div>
+        </div>{{-- /tab-ai --}}
 
     </div>{{-- /modal-card --}}
 </div>

@@ -9,7 +9,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-   
+    <!-- CSS do Driver.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <!-- JS do Driver.js -->
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
     <script>
         // Passa o array de permissões da sessão do Laravel para uma variável global JS
         window.TB_PERMISSIONS = @json(session('tb_user.permissions', []));
@@ -830,346 +833,422 @@
         }
 
         /* Modal overlay (Techbase) */
-    .modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: var(--modal-overlay);
-    backdrop-filter: blur(2px);
-    }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: var(--modal-overlay);
+            backdrop-filter: blur(2px);
+        }
 
-    .modal-overlay.is-hidden {
-    display: none !important;
-    }
+        .modal-overlay.is-hidden {
+        display: none !important;
+        }
 
-    .modal-card {
-    width: min(920px, 96vw);
-    max-height: 88vh;
-    overflow: auto;
-    border-radius: 16px;
-    border: 1px solid var(--modal-border);
-    background: var(--modal-bg);
-    color: var(--text);
-    box-shadow: 0 20px 60px rgba(0,0,0,.55);
-    padding: 16px;
-    }
+        .modal-card {
+        width: min(920px, 96vw);
+        max-height: 88vh;
+        overflow: auto;
+        border-radius: 16px;
+        border: 1px solid var(--modal-border);
+        background: var(--modal-bg);
+        color: var(--text);
+        box-shadow: 0 20px 60px rgba(0,0,0,.55);
+        padding: 16px;
+        }
 
-    .modal-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    }
+        .modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        }
 
-    .kanban {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    }
+        .kanban {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        }
 
-    .kanban-col {
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    background: rgba(255,255,255,.02);
-    overflow: hidden;
-    }
+        .kanban-col {
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 14px;
+        background: rgba(255,255,255,.02);
+        overflow: hidden;
+        }
 
-    .kanban-col-head {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    }
+        .kanban-col-head {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255,255,255,.06);
+        }
 
-    .kanban-drop {
-    min-height: 240px;
-    padding: 10px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    }
+        .kanban-drop {
+        min-height: 240px;
+        padding: 10px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        }
 
-    .kcard {
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: 14px;
-    padding: 10px;
-    background: rgba(10,15,25,.85);
-    cursor: grab;
-    }
+        .kcard {
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 14px;
+        padding: 10px;
+        background: rgba(10,15,25,.85);
+        cursor: grab;
+        }
 
-    .kcard:active { cursor: grabbing; }
+        .kcard:active { cursor: grabbing; }
 
-    .kcard:hover { background: rgba(10,15,25,.95); }
+        .kcard:hover { background: rgba(10,15,25,.95); }
 
-    .kcard-top {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    }
+        .kcard-top {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        }
 
-    .kmeta { font-size: 12px; opacity: .85; }
-    .kdesc { margin-top:8px; opacity:.9; }
-    .krow { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
+        .kmeta { font-size: 12px; opacity: .85; }
+        .kdesc { margin-top:8px; opacity:.9; }
+        .krow { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
 
-    /* ===== Light theme overrides (sem quebrar o dark) ===== */
-    :root[data-theme="light"] .sidebar{
-    background: var(--sidebar-bg);
-    border-right: 1px solid var(--line);
-    }
+        /* ===== Light theme overrides (sem quebrar o dark) ===== */
+        :root[data-theme="light"] .sidebar{
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--line);
+        }
 
-    :root[data-theme="light"] .topbar{
-    background: var(--topbar-bg);
-    border: 1px solid var(--line);
-    }
+        :root[data-theme="light"] .topbar{
+        background: var(--topbar-bg);
+        border: 1px solid var(--line);
+        }
 
-    :root[data-theme="light"] .card{
-    background: var(--card-bg);
-    border: 1px solid var(--line);
-    }
+        :root[data-theme="light"] .card{
+        background: var(--card-bg);
+        border: 1px solid var(--line);
+        }
 
-    :root[data-theme="light"] .panel{
-    background: var(--panel-bg);
-    border: 1px solid var(--line);
-    }
+        :root[data-theme="light"] .panel{
+        background: var(--panel-bg);
+        border: 1px solid var(--line);
+        }
 
-    :root[data-theme="light"] .search{
-    background: rgba(255,255,255,.70);
-    border: 1px solid var(--field-border);
-    color: var(--muted);
-    }
-
-    :root[data-theme="light"] input,
-    :root[data-theme="light"] select,
-    :root[data-theme="light"] textarea{
-    background: #ffffff;
-    border: 1.5px solid rgba(15,23,42,.18);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(15,23,42,.07);
-    }
-
-    :root[data-theme="light"] input:not([type="checkbox"]):focus,
-    :root[data-theme="light"] select:focus,
-    :root[data-theme="light"] textarea:focus {
-    border-color: rgba(37,99,235,.50) !important;
-    box-shadow: 0 0 0 3px rgba(37,99,235,.10);
-    }
-
-    /* seta do select visível no light */
-    :root[data-theme="light"] select {
-    background-color: #ffffff;
-    background-image:
-        linear-gradient(45deg, transparent 50%, rgba(15,23,42,.55) 50%),
-        linear-gradient(135deg, rgba(15,23,42,.55) 50%, transparent 50%);
-    background-position: calc(100% - 18px) 55%, calc(100% - 12px) 55%;
-    background-size: 6px 6px, 6px 6px;
-    background-repeat: no-repeat;
-    }
-
-    :root[data-theme="light"] th,
-    :root[data-theme="light"] td{
-    border-bottom: 1px solid rgba(15,23,42,.08);
-    }
-
-    :root[data-theme="light"] tr:hover td{
-    background: var(--hover-row);
-    }
-
-    :root[data-theme="light"] .nav a:hover{
-    background: var(--hover-link);
-    border-color: rgba(37,99,235,.18);
-    }
-
-    :root[data-theme="light"] .btn{
-    background: rgba(255,255,255,.80);
-    border: 1px solid rgba(15,23,42,.12);
-    color: var(--text);
-    }
-
-    /* ── Overrides de padrões hardcoded nas pages ── */
-
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.62)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .62)"] {
-        background: rgba(15,23,42,.45) !important;
-    }
-    :root[data-theme="light"] [style*="background:rgba(18,26,43,.96)"],
-    :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .96)"],
-    :root[data-theme="light"] [style*="background:rgba(18,26,43,.98)"],
-    :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .98)"] {
-        background: rgba(255,255,255,.98) !important;
-        border-color: rgba(15,23,42,.12) !important;
-    }
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.1"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .1"],
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.12)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .12)"],
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.14)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .14)"],
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.16)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .16)"],
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.18)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .18)"],
-    :root[data-theme="light"] [style*="background:rgba(0,0,0,.22)"],
-    :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .22)"] {
-        background: rgba(15,23,42,.04) !important;
-        border-color: rgba(15,23,42,.10) !important;
-    }
-    :root[data-theme="light"] [style*="background:rgba(255,255,255,.06)"],
-    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .06)"],
-    :root[data-theme="light"] [style*="background:rgba(255,255,255,.08)"],
-    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .08)"],
-    :root[data-theme="light"] [style*="background:rgba(255,255,255,.14)"],
-    :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .14)"] {
-        background: rgba(15,23,42,.05) !important;
-        border-color: rgba(15,23,42,.10) !important;
-    }
-    :root[data-theme="light"] [style*="background:#0b1220"] {
-        background: #f8faff !important;
-        border-color: rgba(15,23,42,.12) !important;
-    }
-    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.10)"],
-    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.08)"],
-    :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.12)"] {
-        border-color: rgba(15,23,42,.12) !important;
-    }
-    :root[data-theme="light"] .chip {
-        background: rgba(15,23,42,.06);
-        border-color: rgba(15,23,42,.12);
+        :root[data-theme="light"] .search{
+        background: rgba(255,255,255,.70);
+        border: 1px solid var(--field-border);
         color: var(--muted);
-    }
-    :root[data-theme="light"] .chip.ok   { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
-    :root[data-theme="light"] .chip.warn { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
-    :root[data-theme="light"] .chip.bad  { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
-    :root[data-theme="light"] .tag        { background: rgba(15,23,42,.06); border-color: rgba(15,23,42,.1); }
-    :root[data-theme="light"] .tag.ok     { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
-    :root[data-theme="light"] .tag.warn   { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
-    :root[data-theme="light"] .tag.bad    { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
-    :root[data-theme="light"] .pill {
+        }
+
+        :root[data-theme="light"] input,
+        :root[data-theme="light"] select,
+        :root[data-theme="light"] textarea{
+        background: #ffffff;
+        border: 1.5px solid rgba(15,23,42,.18);
+        color: var(--text);
+        box-shadow: 0 1px 3px rgba(15,23,42,.07);
+        }
+
+        :root[data-theme="light"] input:not([type="checkbox"]):focus,
+        :root[data-theme="light"] select:focus,
+        :root[data-theme="light"] textarea:focus {
+        border-color: rgba(37,99,235,.50) !important;
+        box-shadow: 0 0 0 3px rgba(37,99,235,.10);
+        }
+
+        /* seta do select visível no light */
+        :root[data-theme="light"] select {
+        background-color: #ffffff;
+        background-image:
+            linear-gradient(45deg, transparent 50%, rgba(15,23,42,.55) 50%),
+            linear-gradient(135deg, rgba(15,23,42,.55) 50%, transparent 50%);
+        background-position: calc(100% - 18px) 55%, calc(100% - 12px) 55%;
+        background-size: 6px 6px, 6px 6px;
+        background-repeat: no-repeat;
+        }
+
+        :root[data-theme="light"] th,
+        :root[data-theme="light"] td{
+        border-bottom: 1px solid rgba(15,23,42,.08);
+        }
+
+        :root[data-theme="light"] tr:hover td{
+        background: var(--hover-row);
+        }
+
+        :root[data-theme="light"] .nav a:hover{
+        background: var(--hover-link);
+        border-color: rgba(37,99,235,.18);
+        }
+
+        :root[data-theme="light"] .btn{
         background: rgba(255,255,255,.80);
-        border-color: rgba(15,23,42,.12);
-        color: var(--muted);
-    }
-    :root[data-theme="light"] .badge {
-        background: rgba(15,23,42,.06);
-        border-color: rgba(15,23,42,.10);
-    }
-    :root[data-theme="light"] .foot { border-top-color: var(--line); }
-    :root[data-theme="light"] .sidebar-toggle {
-        background: rgba(15,23,42,.05);
-        border-color: rgba(15,23,42,.12);
-        color: var(--muted);
-    }
-    :root[data-theme="light"] .sidebar-toggle:hover {
-        background: rgba(15,23,42,.09);
+        border: 1px solid rgba(15,23,42,.12);
         color: var(--text);
-    }
-    :root[data-theme="light"] .nav a.active {
-        background: rgba(14,165,163,.08);
-        border-color: rgba(14,165,163,.20);
-    }
-    :root[data-theme="light"] .cs-menu {
-        background: rgba(255,255,255,.98);
-        border-color: rgba(15,23,42,.12);
-        box-shadow: 0 10px 30px rgba(15,23,42,.12);
-    }
-    :root[data-theme="light"] .cs-btn {
-        background: var(--field-bg);
-        border-color: var(--field-border);
-        color: var(--text);
-    }
-    :root[data-theme="light"] .cs-opt:hover {
-        background: rgba(37,99,235,.06);
-        border-color: rgba(37,99,235,.15);
-    }
-    :root[data-theme="light"] .cs-search {
-        background: var(--field-bg);
-        border-color: var(--field-border);
-        color: var(--text);
-    }
-    :root[data-theme="light"] .kcard {
-        background: rgba(255,255,255,.90);
-        border-color: rgba(15,23,42,.12);
-    }
-    :root[data-theme="light"] .kanban-col {
-        background: rgba(15,23,42,.03);
-        border-color: rgba(15,23,42,.10);
-    }
+        }
 
-    /* painéis dentro de modais no light */
-    :root[data-theme="light"] .modal-card .panel,
-    :root[data-theme="light"] .modal-card .two > div {
-        background: rgba(15,23,42,.04);
-        border-color: rgba(15,23,42,.09);
-        color: var(--text);
-    }
-    :root[data-theme="light"] .modal-card .muted { color: var(--muted); }
-    :root[data-theme="light"] .modal-card input,
-    :root[data-theme="light"] .modal-card select,
-    :root[data-theme="light"] .modal-card textarea {
-        background: rgba(255,255,255,.9);
-        border-color: rgba(15,23,42,.15);
-        color: var(--text);
-    }
-    :root[data-theme="light"] .modal-card .modal-header {
-        border-bottom-color: rgba(15,23,42,.10);
-    }
+        /* ── Overrides de padrões hardcoded nas pages ── */
 
-    /* ── Botão toggle de tema ── */
-    .btn-theme-toggle {
-        padding: 7px 10px;
-        border-radius: 10px;
-        font-size: 15px;
-        line-height: 1;
-        min-width: 36px;
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.62)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .62)"] {
+            background: rgba(15,23,42,.45) !important;
+        }
+        :root[data-theme="light"] [style*="background:rgba(18,26,43,.96)"],
+        :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .96)"],
+        :root[data-theme="light"] [style*="background:rgba(18,26,43,.98)"],
+        :root[data-theme="light"] [style*="background: rgba(18, 26, 43, .98)"] {
+            background: rgba(255,255,255,.98) !important;
+            border-color: rgba(15,23,42,.12) !important;
+        }
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.1"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .1"],
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.12)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .12)"],
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.14)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .14)"],
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.16)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .16)"],
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.18)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .18)"],
+        :root[data-theme="light"] [style*="background:rgba(0,0,0,.22)"],
+        :root[data-theme="light"] [style*="background: rgba(0, 0, 0, .22)"] {
+            background: rgba(15,23,42,.04) !important;
+            border-color: rgba(15,23,42,.10) !important;
+        }
+        :root[data-theme="light"] [style*="background:rgba(255,255,255,.06)"],
+        :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .06)"],
+        :root[data-theme="light"] [style*="background:rgba(255,255,255,.08)"],
+        :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .08)"],
+        :root[data-theme="light"] [style*="background:rgba(255,255,255,.14)"],
+        :root[data-theme="light"] [style*="background: rgba(255, 255, 255, .14)"] {
+            background: rgba(15,23,42,.05) !important;
+            border-color: rgba(15,23,42,.10) !important;
+        }
+        :root[data-theme="light"] [style*="background:#0b1220"] {
+            background: #f8faff !important;
+            border-color: rgba(15,23,42,.12) !important;
+        }
+        :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.10)"],
+        :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.08)"],
+        :root[data-theme="light"] [style*="border:1px solid rgba(255,255,255,.12)"] {
+            border-color: rgba(15,23,42,.12) !important;
+        }
+        :root[data-theme="light"] .chip {
+            background: rgba(15,23,42,.06);
+            border-color: rgba(15,23,42,.12);
+            color: var(--muted);
+        }
+        :root[data-theme="light"] .chip.ok   { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
+        :root[data-theme="light"] .chip.warn { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
+        :root[data-theme="light"] .chip.bad  { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
+        :root[data-theme="light"] .tag        { background: rgba(15,23,42,.06); border-color: rgba(15,23,42,.1); }
+        :root[data-theme="light"] .tag.ok     { background: rgba(14,165,163,.10); border-color: rgba(14,165,163,.25); color: #0a6362; }
+        :root[data-theme="light"] .tag.warn   { background: rgba(217,119,6,.10);  border-color: rgba(217,119,6,.25);  color: #9a5c04; }
+        :root[data-theme="light"] .tag.bad    { background: rgba(225,29,72,.10);  border-color: rgba(225,29,72,.25);  color: #a01535; }
+        :root[data-theme="light"] .pill {
+            background: rgba(255,255,255,.80);
+            border-color: rgba(15,23,42,.12);
+            color: var(--muted);
+        }
+        :root[data-theme="light"] .badge {
+            background: rgba(15,23,42,.06);
+            border-color: rgba(15,23,42,.10);
+        }
+        :root[data-theme="light"] .foot { border-top-color: var(--line); }
+        :root[data-theme="light"] .sidebar-toggle {
+            background: rgba(15,23,42,.05);
+            border-color: rgba(15,23,42,.12);
+            color: var(--muted);
+        }
+        :root[data-theme="light"] .sidebar-toggle:hover {
+            background: rgba(15,23,42,.09);
+            color: var(--text);
+        }
+        :root[data-theme="light"] .nav a.active {
+            background: rgba(14,165,163,.08);
+            border-color: rgba(14,165,163,.20);
+        }
+        :root[data-theme="light"] .cs-menu {
+            background: rgba(255,255,255,.98);
+            border-color: rgba(15,23,42,.12);
+            box-shadow: 0 10px 30px rgba(15,23,42,.12);
+        }
+        :root[data-theme="light"] .cs-btn {
+            background: var(--field-bg);
+            border-color: var(--field-border);
+            color: var(--text);
+        }
+        :root[data-theme="light"] .cs-opt:hover {
+            background: rgba(37,99,235,.06);
+            border-color: rgba(37,99,235,.15);
+        }
+        :root[data-theme="light"] .cs-search {
+            background: var(--field-bg);
+            border-color: var(--field-border);
+            color: var(--text);
+        }
+        :root[data-theme="light"] .kcard {
+            background: rgba(255,255,255,.90);
+            border-color: rgba(15,23,42,.12);
+        }
+        :root[data-theme="light"] .kanban-col {
+            background: rgba(15,23,42,.03);
+            border-color: rgba(15,23,42,.10);
+        }
+
+        /* painéis dentro de modais no light */
+        :root[data-theme="light"] .modal-card .panel,
+        :root[data-theme="light"] .modal-card .two > div {
+            background: rgba(15,23,42,.04);
+            border-color: rgba(15,23,42,.09);
+            color: var(--text);
+        }
+        :root[data-theme="light"] .modal-card .muted { color: var(--muted); }
+        :root[data-theme="light"] .modal-card input,
+        :root[data-theme="light"] .modal-card select,
+        :root[data-theme="light"] .modal-card textarea {
+            background: rgba(255,255,255,.9);
+            border-color: rgba(15,23,42,.15);
+            color: var(--text);
+        }
+        :root[data-theme="light"] .modal-card .modal-header {
+            border-bottom-color: rgba(15,23,42,.10);
+        }
+
+        /* ── Botão toggle de tema ── */
+        .btn-theme-toggle {
+            padding: 7px 10px;
+            border-radius: 10px;
+            font-size: 15px;
+            line-height: 1;
+            min-width: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s, transform .1s;
+        }
+        .btn-theme-toggle:hover { transform: rotate(12deg); }
+        :root[data-theme="light"] .btn-theme-toggle {
+            background: rgba(15,23,42,.07);
+            border-color: rgba(15,23,42,.12);
+        }
+
+        .search-icon{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width: 18px;
+        height: 18px;
+        margin-right: 8px;
+        }
+        .search-icon svg{
+        width: 18px;
+        height: 18px;
+        stroke-width: 1.8;
+        opacity: .9;
+        }
+
+        .theme-icon-light{ display:none; }
+        :root[data-theme="light"] .theme-icon-dark{ display:none; }
+        :root[data-theme="light"] .theme-icon-light{ display:inline-flex; }
+
+        .btn-icon{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        }
+        .btn-icon svg{
+        width: 18px;
+        height: 18px;
+        stroke-width: 1.8;
+        }
+
+        /* ── Tags pequenas na Kanban ── */
+        .kcard-tag {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        transition: background .15s, transform .1s;
-    }
-    .btn-theme-toggle:hover { transform: rotate(12deg); }
-    :root[data-theme="light"] .btn-theme-toggle {
-        background: rgba(15,23,42,.07);
-        border-color: rgba(15,23,42,.12);
-    }
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 6px;
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        margin-right: 6px;
+        }
 
-    .search-icon{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width: 18px;
-    height: 18px;
-    margin-right: 8px;
-    }
-    .search-icon svg{
-    width: 18px;
-    height: 18px;
-    stroke-width: 1.8;
-    opacity: .9;
-    }
+        .kcard-tag-high   { background: rgba(225,29,72,.10); color: #a01535; }
+        .kcard-tag-medium { background: rgba(217,119,6,.10);  color: #9a5c04; }
+        .kcard-tag-low    { background: rgba(14,165,163,.10); color: #0a6362; }
+        .kcard-tag-info   { background: rgba(59,130,246,.10); color: #1e40af; }
+        .kcard-tag-muted  { background: rgba(148,163,184,.10); color: #475569; }
+        .kcard-tag-custom { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.18); }
 
-    .theme-icon-light{ display:none; }
-    :root[data-theme="light"] .theme-icon-dark{ display:none; }
-    :root[data-theme="light"] .theme-icon-light{ display:inline-flex; }
+        .kcard-tag-custom[data-theme="light"] {
+        background: rgba(220,38,38,.08);
+        border-color: rgba(220,38,38,.18);
+        color: #a01535;
+        }
 
-    .btn-icon{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    }
-    .btn-icon svg{
-    width: 18px;
-    height: 18px;
-    stroke-width: 1.8;
-    }
+        /* ── Badges de situação e urgência ── */
+        .kcard-status-badge,
+        .kcard-due-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 24px;
+        padding: 0 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 500;
+        white-space: nowrap;
+        }
 
+        /* Badge de status */
+        .kcard-status-badge.tsb-todo    { background: rgba(148,163,184,.10); color: #475569; }
+        .kcard-status-badge.tsb-doing   { background: rgba(96,165,250,.10);   color: #1e40af; }
+        .kcard-status-badge.tsb-done    { background: rgba(16,185,129,.10);   color: #065f46; }
+        .kcard-status-badge.tsb-overdue { background: rgba(248,103,103,.12);  color: #b91c1c; }
+        
+        /* Badge de situação no modo claro */
+        .kcard-status-badge.tsb-todo[data-theme="light"], 
+        .kcard-status-badge.tsb-doing[data-theme="light"], 
+        .kcard-status-badge.tsb-done[data-theme="light"], 
+        .kcard-status-badge.tsb-overdue[data-theme="light"] {
+            background: rgba(148,163,184,.10);
+            color: #475569;
+        }
+        .kcard-status-badge.tsb-doing[data-theme="light"] { background: rgba(96,165,250,.12); color: #1e40af; }
+        .kcard-status-badge.tsb-done[data-theme="light"] { background: rgba(16,185,129,.10); color: #065f46; }
+        .kcard-status-badge.tsb-overdue[data-theme="light"] { background: rgba(248,103,103,.12); color: #b91c1c; }
+        .kcard-status-badge.tsb-todo[data-theme="light"] { background: rgba(148,163,184,.10); color: #475569; }
+
+        /* Badge de urgência */
+        .kcard-due-badge.kcard-due-soon    { background: rgba(250,204,21,.10); color: #92400e; }
+        .kcard-due-badge.kcard-due-ok      { background: rgba(34,197,94,.10);  color: #166534; }
+        .kcard-due-badge.kcard-due-overdue { background: rgba(248,103,103,.12); color: #b91c1c; }
+        
+        /* Badge de urgência no modo claro */
+        .kcard-due-badge.kcard-due-soon[data-theme="light"] {
+            background: rgba(250,204,21,.12);
+            color: #92400e;
+        }
+        .kcard-due-badge.kcard-due-ok[data-theme="light"] { 
+            background: rgba(34,197,94,.12);  color: #166534; 
+        }
+        .kcard-due-badge.kcard-due-overdue[data-theme="light"] { 
+            background: rgba(248,103,103,.12); color: #b91c1c; 
+        }
     </style>
 </head>
 
@@ -1191,7 +1270,8 @@
             ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13', 'perm' => 'questionnaire.view'],
             ['route' => 'chat', 'label' => 'Chat de Governação', 'badge' => 'RF14–RF15', 'perm' => 'chat.use'],
             ['route' => 'audit', 'label' => 'Auditoria', 'badge' => 'RNF5', 'perm' => 'audit.view'],
-            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'], 
+            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'],
+            ['route' => 'incidents','label' => 'Incidentes','perm'  => 'compliance.view','badge' => ''],
             ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'badge' => 'RF20', 'perm' => 'compliance.view'],
         ];
     @endphp
@@ -1232,6 +1312,7 @@
                         'assessments'     => 'clipboard-check',
                         'risks'           => 'alert-triangle',
                         'treatment'       => 'list-checks',
+                        'incidents'      => 'siren',
                         'questionnaire'   => 'file-pen-line',
                         'chat'            => 'messages-square',
                         'audit'           => 'scroll-text',
@@ -1268,39 +1349,38 @@
 
         <main class="main">
             <header class="topbar">
-                <div class="top-left">
-                    <div class="pill"><span class="dot"></span> Org: <b style="color:var(--text)">{{ $org }}</b></div>
-                    <div class="pill">Framework: <b style="color:var(--text)">{{ $framework }}</b> • v{{ $fwVersion }}
-                    </div>
-                </div>
 
-                <div class="search" title="Pesquisa global (mock)">
-                    <span class="search-icon">
-                        <i data-lucide="search"></i>
+            <div class="search" title="Pesquisa global (mock)">
+                <span class="search-icon">
+                    <i data-lucide="search"></i>
+                </span>
+                <input placeholder="Pesquisar ativos, controlos, evidências, riscos..." />
+            </div>
+
+            <div class="actions" style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn ok" type="button">+ Nova avaliação</button>
+                <button class="btn primary" type="button">Upload documento</button>
+                <button class="btn" type="button">Perfil</button>
+                <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+                    @csrf
+                    <button class="btn" type="submit">Sair</button>
+                </form>
+
+
+                <button id="btnGlobalHelp" class="btn btn-theme-toggle" type="button" title="Guia da Página" aria-label="Ajuda" style="margin-left: 8px; color: var(--info);">
+                    <i data-lucide="help-circle"></i>
+                </button>
+
+                <button id="btnThemeToggle" class="btn btn-theme-toggle" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+                    <span class="theme-icon theme-icon-dark">
+                        <i data-lucide="moon"></i>
                     </span>
-                    <input placeholder="Pesquisar ativos, controlos, evidências, riscos..." />
-                </div>
-
-                <div class="actions">
-                    <button class="btn ok" type="button">+ Nova avaliação</button>
-                    <button class="btn primary" type="button">Upload documento</button>
-                    <button class="btn" type="button">Perfil</button>
-                    <form method="POST" action="{{ route('logout') }}" style="margin:0;">
-                        @csrf
-                        <button class="btn" type="submit">Sair</button>
-                    </form>
-
-                    <button id="btnThemeToggle" class="btn btn-theme-toggle" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
-                        <span class="theme-icon theme-icon-dark">
-                            <i data-lucide="moon"></i>
-                        </span>
-                        <span class="theme-icon theme-icon-light">
-                            <i data-lucide="sun"></i>
-                        </span>
-                    </button>
-
-                </div>
-            </header>
+                    <span class="theme-icon theme-icon-light">
+                        <i data-lucide="sun"></i>
+                    </span>
+                </button>
+            </div>
+        </header>
 
             <div style="margin-top:14px">
                 @yield('content')
@@ -1521,6 +1601,7 @@
 
     </script>
     @vite(['resources/js/audit-store.js'])
+    @vite(['resources/js/pages/walkthrough.js'])
 </body>
 
 </html>

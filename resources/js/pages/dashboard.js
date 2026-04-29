@@ -16,165 +16,242 @@ let API = {
 let WAZUH_ALERTS = [];
 let ALERTS = [];   // formato normalizado usado por renderAlertCardBreakdown, buildNextActions, etc.
 
-// Carrega os alertas da API
-async function loadWazuhAlerts() {
+
+// Variáveis globais (Agora com as datas)
+window.alertFilters = { page: 1, q: '', severity: 'all', dateFrom: '', dateTo: '' };
+
+window.loadWazuhAlerts = async function (page = 1) {
+    window.alertFilters.page = page;
+    const { q, severity, dateFrom, dateTo } = window.alertFilters;
+
     try {
-        const res = await fetch('/api/dashboard/wazuh-alerts');
-        if (res.ok) {
-            WAZUH_ALERTS = await res.json();
+        const listWrap = document.getElementById('alertsTableBody');
+        if (listWrap) listWrap.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px"><span class="am-spinner"></span> A pesquisar no SIEM...</td></tr>`;
 
-            // Mapear para o formato usado pelo dashboard (Crítico >= 8, Médio 4-7, Baixo < 4)
-            ALERTS = WAZUH_ALERTS.map(a => ({
-                id: a.id,
-                ts: a.timestamp ? new Date(a.timestamp).toISOString().slice(0, 16).replace('T', ' ') : '—',
-                sev: a.level >= 8 ? 'critical' : a.level >= 4 ? 'medium' : 'low',
-                asset: a.agent || '—',
-                cat: a.rule_id ? 'Wazuh-' + a.rule_id : 'WazuhAlert',
-                msg: a.description || '—',
-            }));
+        // URL atualizado com as datas!
+        const res = await fetch(`/api/dashboard/wazuh-alerts?page=${page}&q=${encodeURIComponent(q)}&severity=${severity}&dateFrom=${dateFrom}&dateTo=${dateTo}`); if (!res.ok) return;
 
-            renderAlertCardBreakdown();
-            updateAlertModalKpis();
-            renderAlertsTable();
+        const result = await res.json();
+        const WAZUH_DATA = result.data || [];
+
+        // 1. CORREÇÃO: Guardar os dados brutos para a tabela usar
+        WAZUH_ALERTS = WAZUH_DATA;
+
+        // 2. Mapeamento
+        ALERTS = WAZUH_DATA.map(a => ({
+            id: a.id,
+            ts: a.timestamp ? new Date(a.timestamp).toLocaleString() : '—',
+            sev: a.level >= 10 ? 'critical' : a.level >= 5 ? 'medium' : 'low',
+            level: a.level,
+            asset: a.agent,
+            cat: a.rule_id ? `Regra ${a.rule_id}` : 'Geral',
+            msg: a.description,
+            raw: a
+        }));
+
+        // 3. Atualizar KPIs do Dashboard Principal
+        if (q === '' && severity === 'all') {
+            const countEl = document.getElementById('alertCount');
+            if (countEl) countEl.textContent = result.total;
+            const subEl = document.getElementById('alertSub');
+            if (subEl) subEl.textContent = "Eventos totais no SIEM";
         }
+
+        // 4. Atualizar KPIs dentro do Modal (Nesta Página)
+        const cCrit = ALERTS.filter(a => a.sev === 'critical').length;
+        const cMed = ALERTS.filter(a => a.sev === 'medium').length;
+        const cLow = ALERTS.filter(a => a.sev === 'low').length;
+
+        if (document.getElementById('akpiTotal')) document.getElementById('akpiTotal').textContent = result.total;
+        if (document.getElementById('akpiCritical')) document.getElementById('akpiCritical').textContent = cCrit;
+        if (document.getElementById('akpiMedium')) document.getElementById('akpiMedium').textContent = cMed;
+        if (document.getElementById('akpiLow')) document.getElementById('akpiLow').textContent = cLow;
+        if (document.getElementById('alertResultCount')) document.getElementById('alertResultCount').textContent = `${WAZUH_ALERTS.length} nesta página`;
+
+        if (typeof renderAlertsTable === 'function') renderAlertsTable();
+        window.renderAlertPagination(result.current_page, result.last_page, result.total);
+
     } catch (e) {
-        console.error('Erro a carregar Wazuh:', e);
+        console.error("Erro Alertas:", e);
     }
-}
+};
+
+window.renderAlertPagination = function (current, last, total) {
+    const wrap = document.getElementById('alertsPagination');
+    if (!wrap) return;
+
+    if (total === 0) {
+        wrap.innerHTML = `<span class="am-results-count">Nenhum alerta encontrado</span>`;
+        return;
+    }
+
+    wrap.innerHTML = `
+        <div class="muted" style="font-size:11px;">Total: <b style="color:var(--text)">${total}</b> alertas</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn small" ${current <= 1 ? 'disabled' : ''} onclick="window.loadWazuhAlerts(${current - 1})">Anterior</button>
+            <span style="font-size:11px; color:var(--muted)">${current} / ${last}</span>
+            <button class="btn small" ${current >= last ? 'disabled' : ''} onclick="window.loadWazuhAlerts(${current + 1})">Próximo</button>
+        </div>
+    `;
+};
 
 // Mapa: safeId → id real do alerta (necessário para a chamada à API)
 const _alertIdMap = {};
 
-// Renderizar a tabela no Modal
 function renderAlertsTable() {
     const tbody = $('#alertsTableBody');
     if (!tbody) return;
 
     if (WAZUH_ALERTS.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center muted" style="padding: 30px;">Nenhum alerta recente encontrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="am-loading-cell">Nenhum alerta recente encontrado.</td></tr>';
+        // Clear detail pane
+        window._showAlertDetailEmpty();
         return;
     }
 
-    const sevFilter = $('#alertSeverity')?.value || 'all';
-    const q = ($('#alertSearch')?.value || '').toLowerCase().trim();
-
-    const filtered = WAZUH_ALERTS.filter(a => {
-        let matchSev = true;
-        // 👈 MAPEAMENTO CORRIGIDO PARA BATER CERTO COM OS BOTÕES
-        const normalizedSev = a.level >= 8 ? 'critical' : a.level >= 4 ? 'medium' : 'low';
-        if (sevFilter !== 'all') matchSev = normalizedSev === sevFilter;
-        const matchQ = !q || a.description.toLowerCase().includes(q) || a.agent.toLowerCase().includes(q);
-        return matchSev && matchQ;
-    });
-
-    tbody.innerHTML = filtered.map((a, idx) => {
+    tbody.innerHTML = WAZUH_ALERTS.map((a, idx) => {
         const safeId = `alert_${idx}`;
         _alertIdMap[safeId] = a.id;
         const dateStr = new Date(a.timestamp).toLocaleString('pt-PT');
-        let badgeBg = a.level >= 8 ? '#f87171' : a.level >= 4 ? '#fbbf24' : '#34d399';
-
-        const mitreTac = Array.isArray(a.mitre_tactics) ? a.mitre_tactics : [];
-        const mitreTech = Array.isArray(a.mitre_techniques) ? a.mitre_techniques : [];
+        const badgeClass = a.level >= 10 ? 'critical' : a.level >= 5 ? 'medium' : 'low';
         const comp = Array.isArray(a.compliance) ? a.compliance : [];
-
-        const tableTags = [...comp, ...mitreTac.map(t => 'MITRE: ' + t)].slice(0, 3);
+        const mitreTac = Array.isArray(a.mitre_tactics) ? a.mitre_tactics : [];
+        const tableTags = [...comp, ...mitreTac.map(t => 'MITRE: ' + t)].slice(0, 2);
         const tableTagsHtml = tableTags.length
             ? tableTags.map(t => `<span class="soc-chip">${t}</span>`).join('')
-            : '<span class="muted">—</span>';
-
-        const compChips = comp.length
-            ? comp.map(c => `<span class="soc-chip">${c}</span>`).join('')
-            : '<span class="muted">Nenhuma</span>';
+            : '<span class="muted" style="font-size:11px">—</span>';
 
         return `
-        <tr data-row-click="true" onclick="toggleAlertAiPanel('${safeId}')">
+        <tr data-row-click="true" data-safe-id="${safeId}" onclick="window.selectAlertRow('${safeId}')">
             <td class="muted" style="font-size:11px;">${dateStr}</td>
-            <td style="font-weight:600; color:var(--text);">${a.agent}</td>
-            <td style="font-size:12px; color:var(--text);">${a.description}</td>
-            <td style="text-align:center;">
-                <span style="padding:3px 10px; border-radius:6px; font-size:11px; font-weight:800;
-                             background:${badgeBg}18; color:${badgeBg}; border:1px solid ${badgeBg}35;">
-                    ${a.level}
-                </span>
-            </td>
-            <td><div style="display:flex; gap:4px; flex-wrap:wrap;">${tableTagsHtml}</div></td>
-        </tr>
-        <tr id="ai-panel-${safeId}" class="detail-row" style="display:none;">
-            <td colspan="5">
-                <div class="alert-details-container">
-
-                    <div class="details-grid">
-
-                        <div class="detail-card">
-                            <h4><i data-lucide="terminal" style="width:13px;height:13px;"></i> Contexto Técnico</h4>
-                            <div class="info-pair"><span class="label">ID da Regra</span><span class="value">${a.rule_id || 'N/A'}</span></div>
-                            <div class="info-pair"><span class="label">Agente</span><span class="value">${a.agent}</span></div>
-                            <div class="info-pair"><span class="label">Severidade Original</span><span class="value" style="color:${badgeBg};">${a.level}</span></div>
-                        </div>
-
-                        <div class="detail-card">
-                            <h4><i data-lucide="shield-alert" style="width:13px;height:13px;"></i> MITRE ATT&CK</h4>
-                            <div class="info-pair"><span class="label">Táticas</span><span class="value">${mitreTac.length ? mitreTac.join(', ') : '<span class="muted">Sem mapeamento</span>'}</span></div>
-                            <div class="info-pair"><span class="label">Técnicas</span><span class="value">${mitreTech.length ? mitreTech.join(', ') : '<span class="muted">Sem mapeamento</span>'}</span></div>
-                        </div>
-
-                        <div class="detail-card">
-                            <h4><i data-lucide="clipboard-check" style="width:13px;height:13px;"></i> Conformidade</h4>
-                            <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:4px;">
-                                ${compChips}
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="remedy-banner">
-                        <div class="detail-card">
-                            <h4><i data-lucide="list-checks" style="width:13px;height:13px;"></i> Remediação Sugerida (Wazuh)</h4>
-                            <p style="font-size:13px; color:var(--text); line-height:1.65; margin:0;">
-                                ${a.remediation || 'O Wazuh não forneceu passos automáticos de remediação para esta regra.'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="ai-soc-banner">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
-                            <div style="display:flex; align-items:center; gap:10px; color:var(--info);">
-                                <i data-lucide="bot" style="width:16px;height:16px;"></i>
-                                <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.07em;">
-                                    Plano de Mitigação Estratégico (IA)
-                                </span>
-                            </div>
-                            <button class="btn-ai-action" onclick="event.stopPropagation(); analyzeAlert('${safeId}')" id="btn-ai-${safeId}">
-                                <i data-lucide="sparkles" style="width:13px;height:13px;"></i>
-                                Gerar Análise Profunda
-                            </button>
-                        </div>
-                        <div id="ai-content-${safeId}" style="font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6;">
-                            Cruze estes dados com a nossa base de conhecimento GRC para um plano de ação completo.
-                        </div>
-                    </div>
-
-                </div>
-            </td>
-        </tr>
-        `;
+            <td style="font-weight:600; color:var(--text); font-size:12px;">${a.agent}</td>
+            <td class="am-td-msg">${a.description}</td>
+            <td style="text-align:center;"><span class="wz-badge ${badgeClass}">${a.level}</span></td>
+            <td><div style="display:flex; gap:3px; flex-wrap:wrap;">${tableTagsHtml}</div></td>
+        </tr>`;
     }).join('');
 
     if (window.lucide) lucide.createIcons();
 }
 
-// Expandir/Colapsar o painel da IA por baixo da linha
-window.toggleAlertAiPanel = function (safeId) {
-    const panel = document.getElementById('ai-panel-' + safeId);
-    if (panel) {
-        const isHidden = panel.style.display === 'none' || panel.style.display === '';
-        panel.style.display = isHidden ? 'table-row' : 'none';
-        if (isHidden && window.lucide) lucide.createIcons();
-    }
+// Mostrar estado vazio no painel de detalhes
+window._showAlertDetailEmpty = function () {
+    const empty = document.getElementById('alertDetailEmpty');
+    const content = document.getElementById('alertDetailContent');
+    if (empty) empty.style.display = 'flex';
+    if (content) content.style.display = 'none';
 };
 
+// Selecionar linha e mostrar detalhes no painel direito
+window.selectAlertRow = function (safeId) {
+    // Highlight da linha selecionada
+    $$('[data-safe-id]').forEach(tr => tr.classList.remove('am-row-active'));
+    const activeRow = $(`[data-safe-id="${safeId}"]`);
+    if (activeRow) activeRow.classList.add('am-row-active');
+
+    const idx = parseInt(safeId.replace('alert_', ''), 10);
+    const a = WAZUH_ALERTS[idx];
+    if (!a) return;
+
+    const textColor = a.level >= 10 ? '#f87171' : a.level >= 5 ? '#fbbf24' : '#34d399';
+    const badgeClass = a.level >= 10 ? 'critical' : a.level >= 5 ? 'medium' : 'low';
+    const mitreTac = Array.isArray(a.mitre_tactics) ? a.mitre_tactics : [];
+    const mitreTech = Array.isArray(a.mitre_techniques) ? a.mitre_techniques : [];
+    const comp = Array.isArray(a.compliance) ? a.compliance : [];
+    const dateStr = new Date(a.timestamp).toLocaleString('pt-PT');
+
+    const compChips = comp.length
+        ? comp.map(c => `<span class="soc-chip">${c}</span>`).join('')
+        : '<span class="muted" style="font-size:12px">Nenhuma</span>';
+
+    const empty = document.getElementById('alertDetailEmpty');
+    const content = document.getElementById('alertDetailContent');
+    if (empty) empty.style.display = 'none';
+    if (!content) return;
+    content.style.display = 'flex';
+
+    content.innerHTML = `
+        <div class="am-detail-header">
+            <div style="flex:1;min-width:0;">
+                <div class="am-detail-badge-row">
+                    <span class="wz-badge ${badgeClass}">Nível ${a.level}</span>
+                    <span style="font-size:11px;color:var(--muted);">${dateStr}</span>
+                </div>
+                <h3 class="am-detail-title">${a.description}</h3>
+                <p class="am-detail-meta">Agente: <strong style="color:var(--text)">${a.agent}</strong> · Regra ID: <strong style="color:var(--text)">${a.rule_id || 'N/A'}</strong></p>
+            </div>
+        </div>
+
+        <div class="am-detail-grid">
+            <div class="am-detail-card">
+                <h4>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    Contexto Técnico
+                </h4>
+                <div class="am-info-pair"><span class="label">ID da Regra</span><span class="value">${a.rule_id || 'N/A'}</span></div>
+                <div class="am-info-pair"><span class="label">Agente</span><span class="value">${a.agent}</span></div>
+                <div class="am-info-pair"><span class="label">Nível de Severidade</span><span class="value" style="color:${textColor};font-weight:700;">${a.level}</span></div>
+            </div>
+
+            <div class="am-detail-card">
+                <h4>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    MITRE ATT&amp;CK
+                </h4>
+                <div class="am-info-pair"><span class="label">Táticas</span><span class="value">${mitreTac.length ? mitreTac.join(', ') : '<span class="muted">Sem mapeamento</span>'}</span></div>
+                <div class="am-info-pair"><span class="label">Técnicas</span><span class="value">${mitreTech.length ? mitreTech.join(', ') : '<span class="muted">Sem mapeamento</span>'}</span></div>
+            </div>
+
+            <div class="am-detail-card" style="grid-column: 1 / -1;">
+                <h4>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    Conformidade Regulatória
+                </h4>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;">${compChips}</div>
+            </div>
+        </div>
+
+        <div class="am-remedy-banner">
+            <h4>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Remediação Sugerida (Wazuh)
+            </h4>
+            <p>${a.remediation || 'O Wazuh não forneceu passos automáticos de remediação para esta regra.'}</p>
+        </div>
+
+        <div class="am-ai-banner">
+            <div class="am-ai-banner-header">
+                <div class="am-ai-label">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/><path d="M18 2l4 4-4 4"/><path d="M22 6h-4"/></svg>
+                    Plano de Mitigação Estratégico (IA)
+                </div>
+                <button class="btn-ai-action" onclick="event.stopPropagation(); window.analyzeAlert('${safeId}')" id="btn-ai-${safeId}">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    Gerar Análise Profunda
+                </button>
+            </div>
+            <div class="am-ai-body" id="ai-content-${safeId}">
+                Cruze estes dados com a nossa base de conhecimento GRC para um plano de ação completo.
+            </div>
+        </div>
+    `;
+
+    if (window.lucide) lucide.createIcons();
+
+    // Scroll the detail pane to top
+    const pane = document.getElementById('alertDetailPane');
+    if (pane) pane.scrollTop = 0;
+};
+
+// Manter compatibilidade com o código antigo (toggleAlertAiPanel já não expande rows, agora usa o painel)
+window.toggleAlertAiPanel = function (safeId) {
+    window.selectAlertRow(safeId);
+};
+
+
+
 // Chamar a API do Gemini para o Alerta
-window.analyzeAlert = async function (safeId) {
+window.analyzeAlert = async function (safeId, forceRegenerate = false) {
     const realId = _alertIdMap[safeId] || safeId;
     const btn = document.getElementById('btn-ai-' + safeId);
     const content = document.getElementById('ai-content-' + safeId);
@@ -186,19 +263,42 @@ window.analyzeAlert = async function (safeId) {
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-        const res = await fetch(`/api/dashboard/wazuh-alerts/${realId}/analyze`, {
+
+        // Passar um parâmetro extra ao backend se for para forçar a re-geração
+        let endpoint = `/api/dashboard/wazuh-alerts/${realId}/analyze`;
+        if (forceRegenerate) {
+            endpoint += '?force=true';
+        }
+
+        const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrfToken || '', 'Accept': 'application/json' }
         });
         const data = await res.json();
 
         if (res.ok) {
-            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M20 6 9 17l-5-5"/></svg> Analisado (${data.date})`;
-            btn.className = "btn-ghost btn-sm"; // Fica discreto após gerar
+            // Sucesso! Atualiza o texto do botão para permitir "Regerar"
+            btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg> Regerar Análise (${data.date})`;
+
+            // Reativar o botão, mas mudar a classe para parecer "secundário"
+            btn.disabled = false;
+            btn.className = "btn-ghost btn-sm";
+
+            // Alterar a ação do clique para a próxima vez forçar a re-geração
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                window.analyzeAlert(safeId, true);
+            };
+
+            // Se for do cache, dizemos de mansinho no topo. Se for fresco, mostramos a análise pura.
+            const cacheNotice = data.cached && !forceRegenerate
+                ? `<div style="font-size:10px; color:var(--warn); margin-bottom:8px; font-weight:600; text-transform:uppercase;">⚡ Análise recuperada do cache</div>`
+                : '';
 
             // Injetar o HTML gerado pela IA
             content.innerHTML = `
                 <div style="background: rgba(79,156,249,0.05); border-left: 3px solid #4f9cf9; padding: 12px 16px; border-radius: 4px;">
+                    ${cacheNotice}
                     ${data.text}
                 </div>
             `;
@@ -729,6 +829,16 @@ function init() {
         openAlerts.addEventListener('keydown', e => { if (e.key === 'Enter') openAlerts.click(); });
     }
 
+    $('#alertDateFrom')?.addEventListener('change', (e) => {
+        window.alertFilters.dateFrom = e.target.value;
+        window.loadWazuhAlerts(1);
+    });
+
+    $('#alertDateTo')?.addEventListener('change', (e) => {
+        window.alertFilters.dateTo = e.target.value;
+        window.loadWazuhAlerts(1);
+    });
+
     // 4. Fechar Modais
     $('#alertsModalClose')?.addEventListener('click', () => closeModal('#alertsModal'));
     $('#alertsModal')?.addEventListener('click', e => { if (e.target.id === 'alertsModal') closeModal('#alertsModal'); });
@@ -744,21 +854,33 @@ function init() {
             $$('[data-sev-filter]').forEach(b => b.setAttribute('aria-pressed', 'false'));
             btn.setAttribute('aria-pressed', 'true');
 
-            renderAlertsTable();
+            // Nova lógica: Atualiza os filtros e chama o servidor
+            window.alertFilters.severity = sev;
+            window.loadWazuhAlerts(1);
         });
     });
 
     // 6. Outros filtros (Busca e Select)
-    $('#alertSeverity')?.addEventListener('change', () => {
-        const val = $('#alertSeverity').value;
+    $('#alertSeverity')?.addEventListener('change', (e) => {
+        const val = e.target.value;
         $$('[data-sev-filter]').forEach(b => {
             b.setAttribute('aria-pressed', b.dataset.sevFilter === val ? 'true' : 'false');
         });
-        renderAlertsTable();
+
+        // Nova lógica: Atualiza os filtros e chama o servidor
+        window.alertFilters.severity = val;
+        window.loadWazuhAlerts(1);
     });
 
-    $('#alertSearch')?.addEventListener('input', renderAlertsTable);
-
+    // Nova Lógica de Pesquisa Debounced (espera meio segundo depois de digitares)
+    let searchTimeout;
+    $('#alertSearch')?.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            window.alertFilters.q = e.target.value;
+            window.loadWazuhAlerts(1); // Volta à página 1 com os resultados da pesquisa
+        }, 500);
+    });
     // 7. Tecla ESC para fechar
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {

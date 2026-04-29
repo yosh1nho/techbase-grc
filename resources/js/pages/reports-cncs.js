@@ -33,12 +33,12 @@ function fmtDate(val) {
 // ─────────────────────────────────────────────────────────────
 
 function initTabs() {
-    const tabAnnual   = document.getElementById('tabBtnAnnual');
-    const tab24h      = document.getElementById('tabBtn24h');
-    const formAnnual  = document.getElementById('formAnnual');
-    const form24h     = document.getElementById('form24h');
-    const prevAnnual  = document.getElementById('previewAnnual');
-    const prev24h     = document.getElementById('preview24h');
+    const tabAnnual = document.getElementById('tabBtnAnnual');
+    const tab24h = document.getElementById('tabBtn24h');
+    const formAnnual = document.getElementById('formAnnual');
+    const form24h = document.getElementById('form24h');
+    const prevAnnual = document.getElementById('previewAnnual');
+    const prev24h = document.getElementById('preview24h');
 
     if (!tabAnnual || !tab24h) { console.warn('Tab buttons not found'); return; }
 
@@ -49,8 +49,8 @@ function initTabs() {
 
         if (formAnnual) formAnnual.style.display = 'flex';
         if (prevAnnual) prevAnnual.style.display = 'block';
-        if (form24h)    form24h.style.display    = 'none';
-        if (prev24h)    prev24h.style.display    = 'none';
+        if (form24h) form24h.style.display = 'none';
+        if (prev24h) prev24h.style.display = 'none';
 
         if (window.lucide) window.lucide.createIcons();
     }
@@ -60,8 +60,8 @@ function initTabs() {
         tab24h.classList.remove('active-annual');
         tabAnnual.classList.remove('active-annual', 'active-24h');
 
-        if (form24h)    form24h.style.display    = 'flex';
-        if (prev24h)    prev24h.style.display    = 'block';
+        if (form24h) form24h.style.display = 'flex';
+        if (prev24h) prev24h.style.display = 'block';
         if (formAnnual) formAnnual.style.display = 'none';
         if (prevAnnual) prevAnnual.style.display = 'none';
 
@@ -93,7 +93,7 @@ function initSteps() {
 // ─────────────────────────────────────────────────────────────
 
 function initUrgentTooltip() {
-    const toggle  = $('#cncsIsUrgent');
+    const toggle = $('#cncsIsUrgent');
     const tooltip = $('#urgentTooltip');
     if (!toggle || !tooltip) return;
 
@@ -152,18 +152,18 @@ function updateNotifProgress() {
 
 // Mapeamentos: { src, dest, transform? }
 const SYNC_MAP_24H = [
-    { src: '#n24Entity',       dest: '#pv24Entity' },
-    { src: '#n24Nif',          dest: '#pv24Nif' },
-    { src: '#n24Description',  dest: '#pv24Description' },
+    { src: '#n24Entity', dest: '#pv24Entity' },
+    { src: '#n24Nif', dest: '#pv24Nif' },
+    { src: '#n24Description', dest: '#pv24Description' },
     { src: '#n24AffectedSystems', dest: '#pv24Systems' },
     { src: '#n24OperationalImpact', dest: '#pv24OperationalImpact' },
-    { src: '#n24Containment',  dest: '#pv24Containment' },
-    { src: '#n24Recovery',     dest: '#pv24Recovery' },
-    { src: '#n24SignerName',   dest: '#pv24SignerName' },
-    { src: '#n24SignerRole',   dest: '#pv24SignerRole' },
-    { src: '#n24Notes',        dest: '#pv24Notes' },
+    { src: '#n24Containment', dest: '#pv24Containment' },
+    { src: '#n24Recovery', dest: '#pv24Recovery' },
+    { src: '#n24SignerName', dest: '#pv24SignerName' },
+    { src: '#n24SignerRole', dest: '#pv24SignerRole' },
+    { src: '#n24Notes', dest: '#pv24Notes' },
     { src: '#n24DetectionMethod', dest: '#pv24DetectionMethod' },
-    { src: '#n24ThirdPartyRisk',  dest: '#pv24ThirdPartyRisk' },
+    { src: '#n24ThirdPartyRisk', dest: '#pv24ThirdPartyRisk' },
     {
         src: '#n24AffectedUsers',
         dest: '#pv24AffectedUsers',
@@ -183,19 +183,19 @@ const SYNC_MAP_24H = [
 
 // Select labels
 const SELECT_LABELS_24H = {
-    '#n24Sector':       '#pv24Sector',
-    '#n24EntityType':   '#pv24EntityType',
+    '#n24Sector': '#pv24Sector',
+    '#n24EntityType': '#pv24EntityType',
     '#n24IncidentType': '#pv24IncidentType',
-    '#n24Status':       '#pv24Status',
+    '#n24Status': '#pv24Status',
     '#n24AttackVector': '#pv24AttackVector',
-    '#n24Severity':     '#pv24Severity',
+    '#n24Severity': '#pv24Severity',
     '#n24PersonalData': '#pv24PersonalData',
 };
 
 function syncContactInfo() {
     const officer = $('#n24SecurityOfficer')?.value?.trim() || '—';
-    const email   = $('#n24ContactEmail')?.value?.trim();
-    const phone   = $('#n24ContactPhone')?.value?.trim();
+    const email = $('#n24ContactEmail')?.value?.trim();
+    const phone = $('#n24ContactPhone')?.value?.trim();
 
     let contact = officer;
     if (email) contact += ` · ${email}`;
@@ -223,9 +223,9 @@ function syncCrossBorder() {
 
 function syncDateTime24h() {
     const detectedAt = $('#n24DetectedAt')?.value;
-    const startedAt  = $('#n24StartedAt')?.value;
+    const startedAt = $('#n24StartedAt')?.value;
     setText('#pv24DetectedAt', fmtDateTime(detectedAt));
-    setText('#pv24StartedAt',  fmtDateTime(startedAt));
+    setText('#pv24StartedAt', fmtDateTime(startedAt));
 
     const submitDate = $('#n24SubmitDate')?.value;
     const submitTime = $('#n24SubmitTime')?.value;
@@ -297,7 +297,7 @@ function wireLiveSync24h() {
 let cachedReportData = null;
 
 async function fetchReportData() {
-    const year  = $('#cncsYear')?.value ?? new Date().getFullYear();
+    const year = $('#cncsYear')?.value ?? new Date().getFullYear();
     const scope = $('#cncsIncidentScope')?.value ?? 'relevant';
 
     try {
@@ -384,9 +384,9 @@ function renderMeasures(items) {
 }
 
 function fillManualFromAutoIfEmpty(data) {
-    const year   = $('#cncsYear')?.value ?? '—';
-    const actEl  = $('#cncsManualActivities');
-    const recEl  = $('#cncsManualRecs');
+    const year = $('#cncsYear')?.value ?? '—';
+    const actEl = $('#cncsManualActivities');
+    const recEl = $('#cncsManualRecs');
 
     if (actEl && !actEl.value.trim()) {
         actEl.value =
@@ -405,7 +405,7 @@ function fillManualFromAutoIfEmpty(data) {
 }
 
 function renderTextPreviews() {
-    const actText  = $('#cncsManualActivities')?.value?.trim();
+    const actText = $('#cncsManualActivities')?.value?.trim();
     const recsText = $('#cncsManualRecs')?.value?.trim();
     const extraText = $('#cncsExtra')?.value?.trim();
 
@@ -422,25 +422,25 @@ function renderTextPreviews() {
 }
 
 function renderSignature() {
-    const date    = $('#cncsReportDate')?.value;
+    const date = $('#cncsReportDate')?.value;
     const officer = $('#cncsSecurityOfficer')?.value?.trim();
-    const role    = $('#cncsSignature')?.value?.trim();
+    const role = $('#cncsSignature')?.value?.trim();
 
-    const pvDate    = $('#pvSignDate');
+    const pvDate = $('#pvSignDate');
     const pvOfficer = $('#pvSignOfficer');
-    const pvRole    = $('#pvSignRole');
+    const pvRole = $('#pvSignRole');
 
     if (pvDate) {
         pvDate.textContent = date ? new Date(date).toLocaleDateString('pt-PT') : '—';
-        pvDate.className   = 'sb-value' + (date ? '' : ' empty');
+        pvDate.className = 'sb-value' + (date ? '' : ' empty');
     }
     if (pvOfficer) {
         pvOfficer.textContent = officer || '—';
-        pvOfficer.className   = 'sb-value' + (officer ? '' : ' empty');
+        pvOfficer.className = 'sb-value' + (officer ? '' : ' empty');
     }
     if (pvRole) {
         pvRole.textContent = role || '—';
-        pvRole.className   = 'sb-value' + (role ? '' : ' empty');
+        pvRole.className = 'sb-value' + (role ? '' : ' empty');
     }
 }
 
@@ -448,7 +448,7 @@ function renderSignature() {
 // Tabela de conformidade (paginada)
 // ─────────────────────────────────────────────────────────────
 
-let compliancePage  = 1;
+let compliancePage = 1;
 let complianceTotal = 0;
 const COMPLIANCE_PER_PAGE = 20;
 
@@ -456,24 +456,24 @@ async function loadComplianceTable(page = 1) {
     compliancePage = page;
 
     const framework = $('#complianceFrameworkFilter')?.value ?? 'all';
-    const status    = $('#complianceStatusFilter')?.value ?? 'compliant,partial';
+    const status = $('#complianceStatusFilter')?.value ?? 'compliant,partial';
 
     const params = new URLSearchParams({ framework, status, page, per_page: COMPLIANCE_PER_PAGE });
 
-    const tbody   = $('#complianceTbody');
+    const tbody = $('#complianceTbody');
     const loading = $('#complianceLoading');
 
     if (loading) loading.style.display = 'flex';
-    if (tbody)   tbody.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
 
     try {
-        const res  = await fetch(`/api/cncs-reports/compliance-table?${params}`);
+        const res = await fetch(`/api/cncs-reports/compliance-table?${params}`);
         const data = await res.json();
 
         complianceTotal = data.pagination.total;
 
         if (loading) loading.style.display = 'none';
-        if (!tbody)  return;
+        if (!tbody) return;
 
         if (!data.data.length) {
             tbody.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">
@@ -498,9 +498,9 @@ async function loadComplianceTable(page = 1) {
             }
 
             const statusConfig = {
-                compliant:     { cls: 'ok',   label: 'Conforme' },
-                partial:       { cls: 'warn',  label: 'Parcial' },
-                non_compliant: { cls: 'bad',   label: 'Não conf.' },
+                compliant: { cls: 'ok', label: 'Conforme' },
+                partial: { cls: 'warn', label: 'Parcial' },
+                non_compliant: { cls: 'bad', label: 'Não conf.' },
             };
             const s = statusConfig[row.status] || statusConfig.non_compliant;
 
@@ -534,7 +534,7 @@ async function loadComplianceTable(page = 1) {
     } catch (e) {
         console.error('Erro ao carregar tabela de conformidade:', e);
         if (loading) loading.style.display = 'none';
-        if (tbody)   tbody.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">
             Erro ao carregar dados. Tenta novamente.
         </td></tr>`;
     }
@@ -546,7 +546,7 @@ function renderCompliancePager(pagination) {
 
     const { total, page, per_page, pages } = pagination;
     const from = (page - 1) * per_page + 1;
-    const to   = Math.min(page * per_page, total);
+    const to = Math.min(page * per_page, total);
 
     pager.innerHTML = `
         <span class="muted" style="font-size:12px">${from}–${to} de ${total} controlos</span>
@@ -563,8 +563,8 @@ function renderCompliancePager(pagination) {
 // ─────────────────────────────────────────────────────────────
 
 async function renderPreview() {
-    const year   = $('#cncsYear')?.value ?? '—';
-    const scope  = $('#cncsIncidentScope')?.value ?? 'relevant';
+    const year = $('#cncsYear')?.value ?? '—';
+    const scope = $('#cncsIncidentScope')?.value ?? 'relevant';
     const entity = $('#cncsEntity')?.value?.trim() || '—';
     const period = $('#cncsPeriod')?.value?.trim() || '—';
 
@@ -581,21 +581,21 @@ async function renderPreview() {
     }
 
     const scopeLabel = scope === 'relevant' ? 'Relevante/substancial' : 'Todos os incidentes';
-    setText('#pvSubtitle',    `${scopeLabel} · Ano ${year}`);
-    setText('#pvIncTotal',    data.kpis.incidents_total);
+    setText('#pvSubtitle', `${scopeLabel} · Ano ${year}`);
+    setText('#pvIncTotal', data.kpis.incidents_total);
     setText('#pvIncRelevant', data.kpis.incidents_relevant);
-    setText('#pvHighRisks',   data.kpis.high_risks);
-    setText('#pvEntity',      entity);
-    setText('#pvPeriod',      `${year} · ${period}`);
+    setText('#pvHighRisks', data.kpis.high_risks);
+    setText('#pvEntity', entity);
+    setText('#pvPeriod', `${year} · ${period}`);
 
     renderQuarterTable(data.quarters);
 
     const usersEl = $('#cncsUsersAffected');
-    const durEl   = $('#cncsDuration');
-    setText('#pvUsersAffected',     usersEl?.value || '—');
+    const durEl = $('#cncsDuration');
+    setText('#pvUsersAffected', usersEl?.value || '—');
     setText('#pvUsersAffectedHint', '');
-    setText('#pvDuration',          durEl?.value ? `${durEl.value} h` : '—');
-    setText('#pvDurationHint',      '');
+    setText('#pvDuration', durEl?.value ? `${durEl.value} h` : '—');
+    setText('#pvDurationHint', '');
 
     renderGeo([]);
     renderCrossBorder(false);
@@ -634,7 +634,7 @@ function renderPreview24h() {
 
     // Subtitle
     const entity = $('#n24Entity')?.value?.trim() || '—';
-    const now    = new Date().toLocaleDateString('pt-PT');
+    const now = new Date().toLocaleDateString('pt-PT');
     setText('#pv24Subtitle', `${entity} · Gerado em ${now}`);
 
     updateNotifProgress();
@@ -646,7 +646,7 @@ function renderPreview24h() {
 // ─────────────────────────────────────────────────────────────
 
 function buildCncsPdfDefinition(form, data) {
-    const now     = new Date();
+    const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
 
     const quarterRows = (data?.quarters || []).map(r => [
@@ -667,12 +667,12 @@ function buildCncsPdfDefinition(form, data) {
             alignment: 'center', fontSize: 8, color: '#888', margin: [0, 14, 0, 0],
         }),
         styles: {
-            h0:          { fontSize: 20, bold: true, alignment: 'center', color: '#0b1220' },
-            sub0:        { fontSize: 10, alignment: 'center', color: '#666', margin: [0, 4, 0, 0] },
-            h1:          { fontSize: 12, bold: true, margin: [0, 18, 0, 6], color: '#0b1220' },
-            p:           { fontSize: 10, lineHeight: 1.4, color: '#1a2535' },
-            label:       { fontSize: 10, bold: true, color: '#0b1220' },
-            muted:       { fontSize: 9, color: '#666' },
+            h0: { fontSize: 20, bold: true, alignment: 'center', color: '#0b1220' },
+            sub0: { fontSize: 10, alignment: 'center', color: '#666', margin: [0, 4, 0, 0] },
+            h1: { fontSize: 12, bold: true, margin: [0, 18, 0, 6], color: '#0b1220' },
+            p: { fontSize: 10, lineHeight: 1.4, color: '#1a2535' },
+            label: { fontSize: 10, bold: true, color: '#0b1220' },
+            muted: { fontSize: 9, color: '#666' },
             tableHeader: { bold: true, fontSize: 9, color: '#444', fillColor: '#f5f7fc' },
         },
         defaultStyle: { font: 'Roboto', fontSize: 10 },
@@ -761,26 +761,26 @@ async function exportPdfCNCS() {
         return;
     }
 
-    const year  = $('#cncsYear')?.value ?? '—';
+    const year = $('#cncsYear')?.value ?? '—';
     const scope = $('#cncsIncidentScope')?.value ?? 'relevant';
-    const data  = cachedReportData || await fetchReportData();
+    const data = cachedReportData || await fetchReportData();
 
     const form = {
         year, scope,
-        isUrgent:       $('#cncsIsUrgent')?.checked ?? false,
-        entityName:     $('#cncsEntity')?.value?.trim() || '—',
-        period:         $('#cncsPeriod')?.value?.trim() || '',
-        usersAffected:  $('#cncsUsersAffected')?.value?.trim() || '—',
-        duration:       $('#cncsDuration')?.value?.trim() || '—',
+        isUrgent: $('#cncsIsUrgent')?.checked ?? false,
+        entityName: $('#cncsEntity')?.value?.trim() || '—',
+        period: $('#cncsPeriod')?.value?.trim() || '',
+        usersAffected: $('#cncsUsersAffected')?.value?.trim() || '—',
+        duration: $('#cncsDuration')?.value?.trim() || '—',
         activitiesText: $('#cncsManualActivities')?.value?.trim() || '—',
-        recsText:       $('#cncsManualRecs')?.value?.trim() || '—',
-        extraText:      $('#cncsExtra')?.value?.trim() || '—',
-        reportDate:     $('#cncsReportDate')?.value || '',
-        securityOfficer:$('#cncsSecurityOfficer')?.value?.trim() || '',
-        signature:      $('#cncsSignature')?.value?.trim() || '',
+        recsText: $('#cncsManualRecs')?.value?.trim() || '—',
+        extraText: $('#cncsExtra')?.value?.trim() || '—',
+        reportDate: $('#cncsReportDate')?.value || '',
+        securityOfficer: $('#cncsSecurityOfficer')?.value?.trim() || '',
+        signature: $('#cncsSignature')?.value?.trim() || '',
     };
 
-    const def      = buildCncsPdfDefinition(form, data);
+    const def = buildCncsPdfDefinition(form, data);
     const filename = `cncs_relatorio_${year}_${new Date().toISOString().slice(0, 10)}.pdf`;
     window.pdfMake.createPdf(def).download(filename);
 }
@@ -797,7 +797,7 @@ function getSelectText(id) {
 }
 
 function buildNotif24hPdfDefinition(f) {
-    const now     = new Date();
+    const now = new Date();
     const dateStr = now.toLocaleString('pt-PT');
 
     return {
@@ -819,15 +819,15 @@ function buildNotif24hPdfDefinition(f) {
             margin: [50, 14, 50, 0],
         }),
         styles: {
-            title:   { fontSize: 18, bold: true, alignment: 'center', color: '#b71c1c' },
-            sub:     { fontSize: 10, alignment: 'center', color: '#666', margin: [0, 3, 0, 0] },
-            h1:      { fontSize: 11, bold: true, margin: [0, 16, 0, 5], color: '#b71c1c', decoration: 'underline' },
-            p:       { fontSize: 10, lineHeight: 1.45, color: '#1a1a2e' },
-            label:   { fontSize: 9,  bold: true, color: '#333', fillColor: '#fef2f2' },
-            value:   { fontSize: 10, color: '#1a1a2e' },
-            muted:   { fontSize: 8,  color: '#777' },
-            hdr:     { bold: true, fontSize: 9, color: '#555', fillColor: '#f5f5f5' },
-            urgent:  { fontSize: 10, bold: true, color: '#c62828' },
+            title: { fontSize: 18, bold: true, alignment: 'center', color: '#b71c1c' },
+            sub: { fontSize: 10, alignment: 'center', color: '#666', margin: [0, 3, 0, 0] },
+            h1: { fontSize: 11, bold: true, margin: [0, 16, 0, 5], color: '#b71c1c', decoration: 'underline' },
+            p: { fontSize: 10, lineHeight: 1.45, color: '#1a1a2e' },
+            label: { fontSize: 9, bold: true, color: '#333', fillColor: '#fef2f2' },
+            value: { fontSize: 10, color: '#1a1a2e' },
+            muted: { fontSize: 8, color: '#777' },
+            hdr: { bold: true, fontSize: 9, color: '#555', fillColor: '#f5f5f5' },
+            urgent: { fontSize: 10, bold: true, color: '#c62828' },
         },
         defaultStyle: { font: 'Roboto', fontSize: 10 },
         content: [
@@ -847,7 +847,7 @@ function buildNotif24hPdfDefinition(f) {
                     widths: ['*'],
                     body: [[{
                         text: '⚠ Esta notificação deve ser submetida ao CNCS dentro de 24 horas após deteção do incidente, conforme obrigação legal.\n' +
-                              'Email: incidentes@cncs.gov.pt  |  Telefone: +351 210 012 000 (24/7)',
+                            'Email: incidentes@cncs.gov.pt  |  Telefone: +351 210 012 000 (24/7)',
                         fontSize: 9, color: '#c62828', bold: true,
                         fillColor: '#fff8f8', margin: [8, 8, 8, 8],
                     }]],
@@ -981,7 +981,7 @@ function buildNotif24hPdfDefinition(f) {
                             safe(f.signerName),
                             safe(f.signerRole),
                             (f.submitDate && f.submitTime) ? `${fmtDate(f.submitDate)} ${f.submitTime}` :
-                            f.submitDate ? fmtDate(f.submitDate) : '—',
+                                f.submitDate ? fmtDate(f.submitDate) : '—',
                         ],
                     ],
                 },
@@ -1010,46 +1010,46 @@ async function exportPdf24h() {
     }
 
     const f = {
-        entity:              $('#n24Entity')?.value?.trim() || '—',
-        nif:                 $('#n24Nif')?.value?.trim() || '—',
-        sector:              getSelectText('#n24Sector'),
-        entityType:          getSelectText('#n24EntityType'),
-        securityOfficer:     $('#n24SecurityOfficer')?.value?.trim() || '—',
-        email:               $('#n24ContactEmail')?.value?.trim() || '—',
-        phone:               $('#n24ContactPhone')?.value?.trim() || '—',
-        detectedAt:          $('#n24DetectedAt')?.value || '',
-        startedAt:           $('#n24StartedAt')?.value || '',
-        detectedBy:          getSelectText('#n24DetectedBy'),
-        detectionMethod:     $('#n24DetectionMethod')?.value?.trim() || '—',
-        incidentType:        getSelectText('#n24IncidentType'),
-        description:         $('#n24Description')?.value?.trim() || '—',
-        status:              getSelectText('#n24Status'),
-        attackVector:        getSelectText('#n24AttackVector'),
-        personalData:        getSelectText('#n24PersonalData'),
+        entity: $('#n24Entity')?.value?.trim() || '—',
+        nif: $('#n24Nif')?.value?.trim() || '—',
+        sector: getSelectText('#n24Sector'),
+        entityType: getSelectText('#n24EntityType'),
+        securityOfficer: $('#n24SecurityOfficer')?.value?.trim() || '—',
+        email: $('#n24ContactEmail')?.value?.trim() || '—',
+        phone: $('#n24ContactPhone')?.value?.trim() || '—',
+        detectedAt: $('#n24DetectedAt')?.value || '',
+        startedAt: $('#n24StartedAt')?.value || '',
+        detectedBy: getSelectText('#n24DetectedBy'),
+        detectionMethod: $('#n24DetectionMethod')?.value?.trim() || '—',
+        incidentType: getSelectText('#n24IncidentType'),
+        description: $('#n24Description')?.value?.trim() || '—',
+        status: getSelectText('#n24Status'),
+        attackVector: getSelectText('#n24AttackVector'),
+        personalData: getSelectText('#n24PersonalData'),
         affectedSystemsList: $('#n24AffectedSystems')?.value?.trim() || '—',
-        affectedUsers:       $('#n24AffectedUsers')?.value?.trim() || '—',
-        affectedSystems2:    $('#n24AffectedSystems2')?.value?.trim() || '—',
-        criticalServices:    $('#n24CriticalServices')?.value?.trim() || '—',
-        crossBorder:         getSelectText('#n24CrossBorder'),
-        severity:            getSelectText('#n24Severity'),
-        criterion:           getSelectText('#n24Criterion'),
-        operationalImpact:   $('#n24OperationalImpact')?.value?.trim() || '—',
-        financialImpact:     $('#n24FinancialImpact')?.value?.trim() || '',
-        thirdPartyRisk:      $('#n24ThirdPartyRisk')?.value?.trim() || '—',
-        containment:         $('#n24Containment')?.value?.trim() || '—',
-        recovery:            $('#n24Recovery')?.value?.trim() || '—',
-        externalSupport:     getSelectText('#n24ExternalSupport'),
-        backupAvailable:     getSelectText('#n24BackupAvailable'),
-        otherAuthorities:    $('#n24OtherAuthorities')?.value?.trim() || '—',
-        signerName:          $('#n24SignerName')?.value?.trim() || '—',
-        signerRole:          $('#n24SignerRole')?.value?.trim() || '—',
-        submitDate:          $('#n24SubmitDate')?.value || '',
-        submitTime:          $('#n24SubmitTime')?.value || '',
-        notes:               $('#n24Notes')?.value?.trim() || '',
+        affectedUsers: $('#n24AffectedUsers')?.value?.trim() || '—',
+        affectedSystems2: $('#n24AffectedSystems2')?.value?.trim() || '—',
+        criticalServices: $('#n24CriticalServices')?.value?.trim() || '—',
+        crossBorder: getSelectText('#n24CrossBorder'),
+        severity: getSelectText('#n24Severity'),
+        criterion: getSelectText('#n24Criterion'),
+        operationalImpact: $('#n24OperationalImpact')?.value?.trim() || '—',
+        financialImpact: $('#n24FinancialImpact')?.value?.trim() || '',
+        thirdPartyRisk: $('#n24ThirdPartyRisk')?.value?.trim() || '—',
+        containment: $('#n24Containment')?.value?.trim() || '—',
+        recovery: $('#n24Recovery')?.value?.trim() || '—',
+        externalSupport: getSelectText('#n24ExternalSupport'),
+        backupAvailable: getSelectText('#n24BackupAvailable'),
+        otherAuthorities: $('#n24OtherAuthorities')?.value?.trim() || '—',
+        signerName: $('#n24SignerName')?.value?.trim() || '—',
+        signerRole: $('#n24SignerRole')?.value?.trim() || '—',
+        submitDate: $('#n24SubmitDate')?.value || '',
+        submitTime: $('#n24SubmitTime')?.value || '',
+        notes: $('#n24Notes')?.value?.trim() || '',
     };
 
-    const def      = buildNotif24hPdfDefinition(f);
-    const entity   = f.entity !== '—' ? f.entity.replace(/\s+/g, '_').toLowerCase() : 'entidade';
+    const def = buildNotif24hPdfDefinition(f);
+    const entity = f.entity !== '—' ? f.entity.replace(/\s+/g, '_').toLowerCase() : 'entidade';
     const datePart = new Date().toISOString().slice(0, 10);
     const filename = `cncs_notificacao_24h_${entity}_${datePart}.pdf`;
     window.pdfMake.createPdf(def).download(filename);
@@ -1066,7 +1066,7 @@ function wireLiveSync() {
     ['#cncsEntity', '#cncsPeriod'].forEach(id => {
         $(id)?.addEventListener('input', () => {
             setText('#pvEntity', $('#cncsEntity')?.value?.trim() || '—');
-            const year   = $('#cncsYear')?.value ?? '—';
+            const year = $('#cncsYear')?.value ?? '—';
             const period = $('#cncsPeriod')?.value?.trim() || '—';
             setText('#pvPeriod', `${year} · ${period}`);
         });
@@ -1081,7 +1081,7 @@ function wireLiveSync() {
     });
 
     ['#cncsReportDate', '#cncsSecurityOfficer', '#cncsSignature'].forEach(id => {
-        $(id)?.addEventListener('input',  renderSignature);
+        $(id)?.addEventListener('input', renderSignature);
         $(id)?.addEventListener('change', renderSignature);
     });
 }
@@ -1147,9 +1147,78 @@ function init() {
 
     // Tabela de conformidade
     loadComplianceTable(1);
+    setTimeout(handleIncidentAutoFill, 150);
 }
 
 // Expor para os botões de paginação inline no HTML
 window.loadComplianceTable = loadComplianceTable;
 
+// =============================================================
+// AUTO-PREENCHIMENTO VIA INCIDENTE (NIS2 / 24H)
+// =============================================================
+async function handleIncidentAutoFill() {
+    const params = new URLSearchParams(window.location.search);
+    const incidentId = params.get('from_incident');
+
+    if (!incidentId || incidentId === 'undefined') return;
+
+    // Função inteligente: Só preenche e avisa o Preview se houver realmente um valor
+    const fillField = (id, val) => {
+        const el = document.getElementById(id);
+        // O String(val) evita erros se o NIF for um número inteiro
+        if (el && val !== null && val !== undefined && String(val).trim() !== '') {
+            el.value = val;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('keyup', { bubbles: true }));
+        }
+    };
+
+    // 1. Força o clique na aba 24h
+    const tab24 = document.getElementById('tabBtn24h');
+    if (tab24) tab24.click();
+
+    // 2. BLOCO ISOLADO: Tenta carregar a Empresa (Se falhar, não afeta o resto)
+    try {
+        const cRes = await fetch('/api/incidents/company-settings');
+        if (cRes.ok) {
+            const co = await cRes.json();
+            fillField('n24Entity', co.entity_name);
+            fillField('n24Nif', co.nif);
+            fillField('n24Address', co.address);
+            fillField('n24Name', co.ciso_name);
+            fillField('n24Email', co.ciso_email);
+            fillField('n24Phone', co.ciso_phone);
+        }
+    } catch (e) {
+        console.warn("Aviso: Ignorado erro ao ler empresa.", e);
+    }
+
+    // 3. BLOCO ISOLADO: Carrega o Incidente e os seus detalhes
+    try {
+        const res = await fetch(`/api/incidents/${incidentId}`);
+        if (res.ok) {
+            const inc = await res.json();
+
+            fillField('n24Title', inc.title);
+            fillField('n24IncidentType', inc.incident_type || 'other');
+
+            const dataIncidente = inc.detected_at || inc.created_at;
+            const dataFormatada = dataIncidente ? new Date(dataIncidente).toLocaleString('pt-PT') : 'recentemente';
+            const desc = inc.description || `Incidente detetado e registado ${dataFormatada}. A aguardar apuramento de impacto.`;
+
+            fillField('n24Desc', desc);
+
+            // 4. Força o PDF Preview a atualizar-se 
+            if (typeof renderPreview24h === 'function') {
+                setTimeout(() => {
+                    renderPreview24h();
+                    console.log("✨ Preview 24h renderizado com sucesso!");
+                }, 300);
+            }
+        }
+    } catch (e) {
+        console.error("Erro ao puxar dados técnicos do incidente:", e);
+    }
+}
 document.addEventListener('DOMContentLoaded', init);

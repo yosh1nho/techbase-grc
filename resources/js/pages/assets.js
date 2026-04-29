@@ -624,7 +624,7 @@
                     os_build: a.os_build,
                     os_patch_level: a.os_patch_level,
                     domain: a.domain ?? null,
-                    createdBy: a.create_by ?? (a.source === 'acronis' ? 'Inserido automaticamente pelo Acronis' : 'Registo manual'),
+                    createdBy: a.create_by ?? (a.source === 'wazuh' ? 'Inserido automaticamente pelo Acronis' : 'Registo manual'),
                     acronis_synced_at: a.updatedat,   // usar updatedat como proxy do sync
 
                     prob: Number(a.probability ?? 3),

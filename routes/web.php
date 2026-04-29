@@ -19,6 +19,7 @@ use App\Http\Controllers\RbacController;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Controllers\AssessmentController;
+use App\Http\Controllers\IncidentController;
 // ========= Auth mock (sessão) =========
 Route::get('/', function () {
     if (session()->has('tb_user')) {
@@ -458,5 +459,37 @@ fclose($pipes[0]);
         'stderr'             => $stderr,
         'parsed_result'      => $result,
     ]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INCIDENTES - PÁGINA VISUAL
+// ─────────────────────────────────────────────────────────────────────────────
+Route::get('/incidentes', function () {
+    return view('pages.incidents');
+})->name('incidents');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INCIDENTES - ROTAS DE API (Backend)
+// ─────────────────────────────────────────────────────────────────────────────
+Route::prefix('api/incidents')->group(function () {
+    // Configurações da Empresa (CISO, NIF, etc)
+    Route::get ('/company-settings', [\App\Http\Controllers\IncidentController::class, 'companySettings']);
+    Route::put ('/company-settings', [\App\Http\Controllers\IncidentController::class, 'updateCompanySettings']);
+    
+    // Gestão do Incidente em si
+    Route::get    ('/',         [\App\Http\Controllers\IncidentController::class, 'index']);
+    Route::post   ('/',         [\App\Http\Controllers\IncidentController::class, 'store']);
+    Route::get    ('/{id}',     [\App\Http\Controllers\IncidentController::class, 'show']);
+    Route::put    ('/{id}',     [\App\Http\Controllers\IncidentController::class, 'update']);
+    Route::delete ('/{id}',     [\App\Http\Controllers\IncidentController::class, 'destroy']);
+    
+    // Ações de Estado
+    Route::post   ('/{id}/contain', [\App\Http\Controllers\IncidentController::class, 'contain']);
+    Route::post   ('/{id}/resolve', [\App\Http\Controllers\IncidentController::class, 'resolve']);
+    Route::post   ('/{id}/close',   [\App\Http\Controllers\IncidentController::class, 'close']);
+    Route::post   ('/{id}/reopen',  [\App\Http\Controllers\IncidentController::class, 'reopen']);
+    
+    // Gerar Notificação 24h
+    Route::post   ('/{id}/reports', [\App\Http\Controllers\IncidentController::class, 'createReport']);
 });
  
