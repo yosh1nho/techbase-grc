@@ -161,13 +161,18 @@ if (isset($updates['status']) && in_array($updates['status'], ['Concluído', 'Co
                 $plan = DB::table('risktreatmentplan')->where('id_plan', $planId)->first(); 
                 
                 // 🎯 Dynamic Tagging
-                $assets = DB::table('asset')->get();
+                $assets = DB::table('asset')->select('id_asset', 'hostname')->get();
                 $tags = [];
+
+                $combinedTextLower = strtolower(
+                    ($updatedTask->title ?? '') . ' ' .
+                    ($updatedTask->description ?? '') . ' ' .
+                    ($plan->description ?? '')
+                );
+
                 foreach ($assets as $asset) {
                     // 👇 ALTERADO AQUI TAMBÉM 👇
-                    if (stripos($updatedTask->title, $asset->hostname) !== false || 
-                        stripos($updatedTask->description ?? '', $asset->hostname) !== false ||
-                        ($plan && stripos($plan->description ?? '', $asset->hostname) !== false)) {
+                    if (!empty($asset->hostname) && str_contains($combinedTextLower, strtolower($asset->hostname))) {
                         $tags[] = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
                     }
                 }
