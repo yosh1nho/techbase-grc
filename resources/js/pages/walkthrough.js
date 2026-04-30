@@ -364,7 +364,381 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
         }
 
-        // 5. SE NÃO HOUVER WALKTHROUGH ESPECÍFICO PARA A PÁGINA
+        // 5. WALKTHROUGH DE TRATAMENTO
+        else if (path.includes('treatment') || path.includes('tratamento')) {
+            steps = [
+                {
+                    element: '#kpiTotal',
+                    popover: {
+                        title: 'Total de Planos',
+                        description: 'Visão geral do número total de planos de tratamento de risco.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiOverdue',
+                    popover: {
+                        title: 'Planos em Atraso',
+                        description: 'Planos que já ultrapassaram a data limite estipulada.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiDoing',
+                    popover: {
+                        title: 'Em Curso',
+                        description: 'Planos que estão atualmente a ser executados.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiTodo',
+                    popover: {
+                        title: 'Por Iniciar',
+                        description: 'Planos que ainda não começaram.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiDone',
+                    popover: {
+                        title: 'Concluídos',
+                        description: 'Planos de tratamento que já foram finalizados.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#treatSearch',
+                    popover: {
+                        title: 'Pesquisa',
+                        description: 'Pesquisa planos por nome, ativo associado ou responsável.',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 6. WALKTHROUGH DE INCIDENTES
+        else if (path.includes('incidents') || path.includes('incidentes')) {
+            steps = [
+                {
+                    element: '#btnNewIncident',
+                    popover: {
+                        title: 'Registar Incidente',
+                        description: 'Clica aqui para registar um novo incidente de segurança e iniciar o processo de resposta.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiOpen',
+                    popover: {
+                        title: 'Incidentes Abertos',
+                        description: 'Número de incidentes atualmente em aberto e que requerem atenção.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiContained',
+                    popover: {
+                        title: 'Incidentes Contidos',
+                        description: 'Incidentes que já foram isolados, mas ainda não estão totalmente resolvidos.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#incFilterStatus',
+                    popover: {
+                        title: 'Filtro por Estado',
+                        description: 'Filtra os incidentes na lista pelo seu estado atual (Aberto, Contido, Resolvido, etc).',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 7. WALKTHROUGH DE RISCOS
+        else if (path.includes('risks') || path.includes('riscos')) {
+            steps = [
+                {
+                    element: '#rkKpiTotal',
+                    popover: {
+                        title: 'Total de Riscos',
+                        description: 'Número total de riscos registados no sistema.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#rkKpiCritical',
+                    popover: {
+                        title: 'Riscos Críticos',
+                        description: 'Atenção aos riscos classificados como críticos. Estes devem ser a prioridade máxima.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#riskSearch',
+                    popover: {
+                        title: 'Pesquisa',
+                        description: 'Pesquisa riscos por título ou descrição.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#riskLevelFilter',
+                    popover: {
+                        title: 'Filtro por Nível',
+                        description: 'Filtra os riscos apresentados por nível de criticidade (Baixo, Médio, Alto, Crítico).',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 8. WALKTHROUGH DE AVALIAÇÕES
+        else if (path.includes('assessments') || path.includes('avaliacoes')) {
+            steps = [
+                {
+                    element: '#btnCompare',
+                    popover: {
+                        title: 'Comparar Avaliações',
+                        description: 'Clica aqui para comparar diferentes avaliações e analisar a evolução da maturidade ao longo do tempo.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiMaturity',
+                    popover: {
+                        title: 'Maturidade Atual',
+                        description: 'Percentagem global de maturidade baseada na avaliação mais recente.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kpiCovered',
+                    popover: {
+                        title: 'Controlos Cobertos',
+                        description: 'Número de controlos que cumprem totalmente os requisitos.',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 9. WALKTHROUGH DE AUDITORIA
+        else if (path.includes('audit') || path.includes('auditoria')) {
+            steps = [
+                {
+                    element: '#mToday',
+                    popover: {
+                        title: 'Eventos de Hoje',
+                        description: 'Total de eventos de auditoria registados no dia de hoje.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#mRisk',
+                    popover: {
+                        title: 'Eventos de Risco',
+                        description: 'Número de eventos sinalizados com risco associado.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#auditSearch',
+                    popover: {
+                        title: 'Pesquisa',
+                        description: 'Pesquisa nos logs de auditoria por utilizador, ação ou recurso.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#auditFilterAction',
+                    popover: {
+                        title: 'Filtro por Ação',
+                        description: 'Filtra os logs de auditoria por tipo de ação (Criação, Atualização, Exclusão, etc).',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#auditExportPdf',
+                    popover: {
+                        title: 'Exportar PDF',
+                        description: 'Gera um relatório em PDF com os logs de auditoria filtrados.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#auditTable',
+                    popover: {
+                        title: 'Tabela de Logs',
+                        description: 'Lista detalhada de todos os eventos de auditoria registados no sistema.',
+                        side: 'top'
+                    }
+                }
+            ];
+        }
+
+        // 10. WALKTHROUGH DE PERMISSÕES (RBAC)
+        else if (path.includes('rbac')) {
+            steps = [
+                {
+                    element: '#kpiRoleName',
+                    popover: {
+                        title: 'Papel Ativo',
+                        description: 'O papel (role) atualmente selecionado para gestão.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#panel-users',
+                    popover: {
+                        title: 'Gestão de Utilizadores',
+                        description: 'Painel para gerir utilizadores, associar papéis e ativar/desativar contas.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#panel-roles',
+                    popover: {
+                        title: 'Gestão de Papéis',
+                        description: 'Painel para criar e gerir os papéis (roles) disponíveis no sistema.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#panel-matrix',
+                    popover: {
+                        title: 'Matriz de Permissões',
+                        description: 'Configuração detalhada de quais permissões cada papel tem acesso.',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 11. WALKTHROUGH DO CHAT DE IA
+        else if (path.includes('chat')) {
+            steps = [
+                {
+                    element: '#chatThread',
+                    popover: {
+                        title: 'Janela de Chat',
+                        description: 'A tua conversa com o assistente de IA focado em GRC.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#chatInput',
+                    popover: {
+                        title: 'Escrever Mensagem',
+                        description: 'Escreve aqui a tua pergunta sobre normativos, políticas ou procedimentos.',
+                        side: 'top'
+                    }
+                },
+                {
+                    element: '#chatSend',
+                    popover: {
+                        title: 'Enviar',
+                        description: 'Clica para enviar a mensagem para análise.',
+                        side: 'top'
+                    }
+                },
+                {
+                    element: '#sourcesList',
+                    popover: {
+                        title: 'Fontes Consultadas',
+                        description: 'Os documentos e secções de normativos que a IA utilizou para gerar a resposta aparecerão aqui.',
+                        side: 'left'
+                    }
+                },
+                {
+                    element: '#auditBadge',
+                    popover: {
+                        title: 'Auditoria de Fontes',
+                        description: 'Mostra o estado da pesquisa e o número total de fontes encontradas para a tua pergunta.',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 12. WALKTHROUGH DE RELATÓRIOS (CNCS)
+        else if (path.includes('reports-cncs') || path.includes('cncs')) {
+            steps = [
+                {
+                    element: '#tabBtnAnnual',
+                    popover: {
+                        title: 'Relatório Anual',
+                        description: 'Abre o formulário para o relatório anual de conformidade e segurança.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#tabBtn24h',
+                    popover: {
+                        title: 'Notificação 24h',
+                        description: 'Abre o formulário para a notificação de incidente em 24h.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#formAnnual',
+                    popover: {
+                        title: 'Formulário',
+                        description: 'Preenche aqui os dados requeridos (entidade, ano, atividades, urgência).',
+                        side: 'right'
+                    }
+                }
+            ];
+        }
+
+        // 13. WALKTHROUGH DE QUESTIONÁRIO
+        else if (path.includes('questionnaire') || path.includes('questionario')) {
+            steps = [
+                {
+                    element: '#scorePercent',
+                    popover: {
+                        title: 'Score Atual',
+                        description: 'A tua pontuação baseada nas respostas dadas até ao momento.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#progressBar',
+                    popover: {
+                        title: 'Progresso',
+                        description: 'Acompanha o número de perguntas respondidas face ao total.',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kYes',
+                    popover: {
+                        title: 'Conforme',
+                        description: 'Número de controlos marcados como "Sim" (totalmente implementados).',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#kPartial',
+                    popover: {
+                        title: 'Parcial',
+                        description: 'Número de controlos marcados como "Parcialmente implementados".',
+                        side: 'bottom'
+                    }
+                },
+                {
+                    element: '#btnFinishQ',
+                    popover: {
+                        title: 'Finalizar',
+                        description: 'Clica aqui quando terminares de responder para submeteres o questionário.',
+                        side: 'bottom'
+                    }
+                }
+            ];
+        }
+
+        // 14. SE NÃO HOUVER WALKTHROUGH ESPECÍFICO PARA A PÁGINA
         else {
             steps = [
                 {
