@@ -673,4 +673,71 @@ public function extractText(int $id): JsonResponse
         return response()->json(['success' => false, 'message' => 'Erro ao extrair texto: ' . $e->getMessage(), 'text' => ''], 500);
     }
 }
+
+    // =========================================================================
+    // POST /api/documents/cyberplan
+    // Recebe o payload do Cyberplanner e guarda como um documento JSON.
+    // =========================================================================
+    public function storeCyberPlan(Request $request): JsonResponse
+    {
+        $request->validate([
+            'type'   => ['required', 'string'],
+            'meta'   => ['nullable', 'array'],
+            'score'  => ['nullable', 'array'],
+            'stats'  => ['nullable', 'array'],
+            'answers'=> ['nullable', 'array'],
+        ]);
+
+        $payload = $request->all();
+        $jsonContent = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        $userId = session('tb_user.id') ?? null;
+        $company = $payload['meta']['company'] ?? 'Empresa';
+        $companySlug = Str::slug($company);
+        $date = now()->format('Y-m-d_His');
+
+        $fileName = "cyberplan_{$companySlug}_{$date}.json";
+        $yearMonth = now()->format('Y/m');
+        $path = "{$yearMonth}/{$fileName}";
+
+        // Guardar no disco
+        Storage::disk('attachments')->put($path, $jsonContent);
+
+        // SHA-256 do conteúdo
+        $sha256 = hash('sha256', $jsonContent);
+
+        // Inserir Attachment
+        $attachmentId = DB::table('attachment')->insertGetId([
+            'file_name'     => $fileName,
+            'original_name' => $fileName,
+            'stored_name'   => $fileName,
+            'file_path'     => $path,
+            'mime_type'     => 'application/json',
+            'file_size'     => strlen($jsonContent),
+            'sha256'        => $sha256,
+            'uploaded_by'   => $userId,
+            'created_at'    => now(),
+        ], 'id_attachment');
+
+        // Inserir Document
+        $docId = DB::table('document')->insertGetId([
+            'id_attachment'  => $attachmentId,
+            'title'          => "Plano de Segurança: " . ($payload['meta']['company'] ?? 'S/ Nome'),
+            'type'           => 'report',
+            'status'         => 'approved', // Gerado pelo sistema
+            'version'        => '1.0',
+            'file_path'      => $path,
+            'sha256'         => $sha256,
+            'uploaded_by'    => $userId,
+            'approved_by'    => $userId,
+            'approved_at'    => now(),
+            'created_at'     => now(),
+        ], 'id_doc');
+
+        return response()->json([
+            'success' => true,
+            'doc_id'  => $docId,
+            'message' => 'Plano de segurança guardado como evidência com sucesso.',
+        ], 201);
+    }
 }

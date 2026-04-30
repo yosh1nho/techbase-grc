@@ -174,8 +174,9 @@ Route::patch('/api/assets/{id}/risk', [AssetController::class, 'patch']);
 
     // Análise Gemini — IMPORTANTE: esta rota tem de vir ANTES de {id}/xxx para não colidir
     Route::post('/api/documents/gemini-analyse',    [DocumentController::class, 'geminiAnalyse'])->middleware(CheckPermission::class.':docs.view');
-    
-    
+    Route::post('/api/documents/cyberplan',         [DocumentController::class, 'storeCyberPlan'])->middleware(CheckPermission::class.':docs.upload');
+
+
     // ── Comentários (nested sob tarefa) ──────────────────────────────────────
     // GET    /api/tasks/{taskId}/comments          → index
     // POST   /api/tasks/{taskId}/comments          → store (multipart com files[])

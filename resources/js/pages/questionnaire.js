@@ -736,7 +736,7 @@ function downloadPdf() {
 }
 
 /* ─── SEND TO DOCS ────────────────────────────────────────────────────────── */
-function sendToDocs() {
+async function sendToDocs() {
     const { actions, notes } = readEdits();
     const sc = calcScore();
     const payload = {
@@ -744,9 +744,43 @@ function sendToDocs() {
         meta, score: sc, answers, actions, notes,
         stats: { total: sc.total, yes: sc.yes, partial: sc.partial, no: sc.no, na: sc.na },
     };
-    // TODO: POST /api/documents/cyberplan
-    console.log("[Techbase] sendToDocs:", payload);
-    toast("Enviado para Evidências", "Plano guardado como evidência (mock) ✓");
+
+    const btn = document.getElementById("btnSendToDocs");
+    const originalText = btn ? btn.innerHTML : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="spinner"></i> Enviando...';
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+        const response = await fetch("/api/documents/cyberplan", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-CSRF-TOKEN": csrfToken || "",
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            toast("Enviado para Evidências", "Plano guardado como evidência com sucesso ✓");
+            console.log("[Techbase] sendToDocs success:", data);
+        } else {
+            throw new Error(data.message || "Erro ao enviar para evidências");
+        }
+    } catch (error) {
+        console.error("[Techbase] sendToDocs error:", error);
+        toast("Erro", error.message || "Erro ao guardar o plano", "err");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
 }
 
 /* ─── META MODAL ──────────────────────────────────────────────────────────── */
