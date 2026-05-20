@@ -1,7 +1,8 @@
 // resources/js/pages/reports-cncs.js
 
 const $ = (s) => document.querySelector(s);
-
+let _loadedIncidents = [];   // todos os incidentes carregados
+let _manualIncidents = [];
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
@@ -144,6 +145,290 @@ function updateNotifProgress() {
 
     const label = document.getElementById('notifProgressLabel');
     if (label) label.textContent = `${done} / 7 secções`;
+}
+
+// ── Inicializar ───────────────────────────────────────────────
+function initStep2b() {
+    document.getElementById('btnLoadIncidents')
+        ?.addEventListener('click', loadIncidentsForReport);
+
+    document.getElementById('incSelectAll')
+        ?.addEventListener('change', (e) => {
+            document.querySelectorAll('.inc-row-check')
+                .forEach(cb => { cb.checked = e.target.checked; });
+            recalcIncidentTotals();
+        });
+
+    document.getElementById('btnApplyIncidentTotals')
+        ?.addEventListener('click', applyIncidentTotalsToFields);
+
+    document.getElementById('btnAddManualIncident')
+        ?.addEventListener('click', addManualIncidentRow);
+}
+
+// ── Carregar incidentes da API ─────────────────────────────────
+async function loadIncidentsForReport() {
+    const year = document.querySelector('#cncsYear')?.value ?? new Date().getFullYear();
+    const scope = document.querySelector('#cncsIncidentScope')?.value ?? 'relevant';
+
+    const spinner = document.getElementById('incListSpinner');
+    const wrap = document.getElementById('incListWrap');
+    const btn = document.getElementById('btnLoadIncidents');
+
+    if (spinner) spinner.style.display = 'block';
+    if (wrap) wrap.style.display = 'none';
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch(`/api/cncs-reports/incidents-for-report?year=${year}&scope=${scope}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        _loadedIncidents = data.incidents ?? [];
+        renderIncidentList(_loadedIncidents);
+
+    } catch (e) {
+        console.error('Erro ao carregar incidentes:', e);
+        alert('Não foi possível carregar os incidentes: ' + e.message);
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+        if (wrap) wrap.style.display = 'block';
+        if (btn) btn.disabled = false;
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+// ── Renderizar tabela de incidentes ───────────────────────────
+function renderIncidentList(incidents) {
+    const empty = document.getElementById('incListEmpty');
+    const table = document.getElementById('incListTable');
+    const tbody = document.getElementById('incListBody');
+    const totalsBar = document.getElementById('incTotalsBar');
+
+    if (!incidents.length) {
+        if (empty) empty.style.display = 'block';
+        if (table) table.style.display = 'none';
+        if (totalsBar) totalsBar.style.display = 'none';
+        return;
+    }
+
+    if (empty) empty.style.display = 'none';
+    if (table) table.style.display = 'table';
+    if (totalsBar) totalsBar.style.display = 'block';
+    if (tbody) tbody.innerHTML = '';
+
+    const typeLabels = {
+        ransomware: 'Ransomware', malware: 'Malware', phishing: 'Phishing',
+        ddos: 'DDoS', unauthorized_access: 'Acesso indevido',
+        data_breach: 'Fuga de dados', service_disruption: 'Indisponibilidade',
+        backup_failure: 'Backup falhou', other: 'Outro',
+    };
+
+    incidents.forEach((inc, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.cssText = 'border-bottom:1px solid var(--line)';
+        tr.innerHTML = `
+            <td style="padding:7px 4px;vertical-align:top">
+                <input type="checkbox" class="inc-row-check" data-idx="${idx}"
+                    checked style="cursor:pointer;margin-top:1px"
+                    onchange="recalcIncidentTotals()">
+            </td>
+            <td style="padding:7px 4px">
+                <div style="font-weight:500;color:var(--text);line-height:1.3">${inc.title}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+                    ${inc.incident_type ? `<span>${typeLabels[inc.incident_type] ?? inc.incident_type}</span>` : ''}
+                    ${inc.severity ? `<span style="color:${inc.severity === 'critical' || inc.severity === 'high' ? '#f87171' : 'var(--muted)'}">● ${inc.severity}</span>` : ''}
+                    ${inc.detected_at ? `<span>${new Date(inc.detected_at).toLocaleDateString('pt-PT')}</span>` : ''}
+                    ${inc.is_urgent ? `<span style="color:#f59e0b;font-weight:600">⚑ Urgente</span>` : ''}
+                </div>
+            </td>
+            <td style="padding:7px 4px;text-align:center;vertical-align:top;font-family:var(--font-mono)">
+                ${inc.affected_users ?? '—'}
+            </td>
+            <td style="padding:7px 4px;text-align:center;vertical-align:top;font-family:var(--font-mono);white-space:nowrap">
+                ${inc.duration_hours !== null ? inc.duration_hours + ' h' : '—'}
+            </td>
+        `;
+        tbody?.appendChild(tr);
+    });
+
+    recalcIncidentTotals();
+}
+
+// ── Recalcular totais a partir das checkboxes ─────────────────
+function recalcIncidentTotals() {
+    const checks = document.querySelectorAll('.inc-row-check');
+    let count = 0, users = 0, hours = 0;
+
+    checks.forEach(cb => {
+        if (!cb.checked) return;
+        const inc = _loadedIncidents[parseInt(cb.dataset.idx)];
+        if (!inc) return;
+        count++;
+        if (inc.affected_users && !isNaN(parseInt(inc.affected_users))) {
+            users += parseInt(inc.affected_users);
+        }
+        if (inc.duration_hours !== null) hours += inc.duration_hours;
+    });
+
+    // Somar também as linhas manuais
+    _manualIncidents.forEach(m => {
+        count++;
+        users += m.affected_users || 0;
+        hours += m.duration_hours || 0;
+    });
+
+    const el = (id) => document.getElementById(id);
+    if (el('incTotalCount')) el('incTotalCount').textContent = count;
+    if (el('incTotalUsers')) el('incTotalUsers').textContent = users;
+    if (el('incTotalDuration')) el('incTotalDuration').textContent = Math.round(hours * 10) / 10;
+}
+
+// ── Lógica para extrair Trimestres e Datas (Tópicos 4 e 7) ─────────────
+function getCalculatedQuarters() {
+    const checks = document.querySelectorAll('.inc-row-check:checked');
+    const selectedIncs = [];
+    checks.forEach(cb => {
+        const inc = _loadedIncidents[parseInt(cb.dataset.idx)];
+        if (inc) selectedIncs.push(inc);
+    });
+
+    _manualIncidents.forEach(m => selectedIncs.push(m));
+
+    const stats = {
+        1: { total: 0, types: new Set(), users: 0 },
+        2: { total: 0, types: new Set(), users: 0 },
+        3: { total: 0, types: new Set(), users: 0 },
+        4: { total: 0, types: new Set(), users: 0 }
+    };
+    const typeLabels = { ransomware: 'Ransomware', malware: 'Malware', phishing: 'Phishing', ddos: 'DDoS', unauthorized_access: 'Acesso indevido', data_breach: 'Fuga de dados', service_disruption: 'Indisponibilidade', backup_failure: 'Backup falhou', other: 'Outro' };
+
+    selectedIncs.forEach(inc => {
+        const d = inc.detected_at ? new Date(inc.detected_at) : new Date();
+        const month = d.getMonth() + 1;
+        let q = 1;
+        if (month >= 4 && month <= 6) q = 2;
+        else if (month >= 7 && month <= 9) q = 3;
+        else if (month >= 10) q = 4;
+
+        stats[q].total++;
+        const t = inc.incident_type || 'other';
+        stats[q].types.add(typeLabels[t] || t);
+        stats[q].users += parseInt(inc.affected_users || 0);
+    });
+
+    return [1, 2, 3, 4].map(q => ({
+        q: `Q${q}`,
+        total: stats[q].total,
+        types: Array.from(stats[q].types).join(', ') || '—',
+        affected_users: stats[q].users
+    }));
+}
+
+function getIncidentDescriptions() {
+    const checks = document.querySelectorAll('.inc-row-check:checked');
+    const texts = [];
+    checks.forEach(cb => {
+        const inc = _loadedIncidents[parseInt(cb.dataset.idx)];
+        if (inc) {
+            const dateStr = inc.detected_at ? new Date(inc.detected_at).toLocaleDateString('pt-PT') : 'S/ Data';
+            texts.push(`• [${dateStr}] ${inc.title}`);
+        }
+    });
+    return texts.join('\n');
+}
+
+// ── Aplicar totais aos campos manuais da secção 5 ─────────────
+function applyIncidentTotalsToFields() {
+    const totalUsers = parseInt(document.getElementById('incTotalUsers')?.textContent ?? '0');
+    const totalHours = parseFloat(document.getElementById('incTotalDuration')?.textContent ?? '0');
+
+    const usersEl = document.querySelector('#cncsUsersAffected');
+    const durEl = document.querySelector('#cncsDuration');
+
+    if (usersEl) {
+        usersEl.value = totalUsers || '';
+        usersEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (durEl) {
+        durEl.value = totalHours || '';
+        durEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // ✅ Atualiza os Trimestres visualmente na Preview!
+    const calcQuarters = getCalculatedQuarters();
+    renderQuarterTable(calcQuarters);
+
+    // ❌ REMOVIDO: Já não injeta a lista no campo #cncsExtra (Tópico 8)
+
+    // Feedback visual breve
+    const btn = document.getElementById('btnApplyIncidentTotals');
+    if (btn) {
+        btn.textContent = '✓ Aplicado!';
+        setTimeout(() => { btn.innerHTML = '<i data-lucide="check" style="width:12px;height:12px"></i> Aplicar totais aos campos abaixo'; if (window.lucide) window.lucide.createIcons(); }, 1800);
+    }
+}
+
+// ── Adicionar linha manual ─────────────────────────────────────
+function addManualIncidentRow() {
+    const idx = _manualIncidents.length;
+    _manualIncidents.push({ title: '', affected_users: 0, duration_hours: 0 });
+
+    const empty = document.getElementById('manualIncidentsEmpty');
+    if (empty) empty.style.display = 'none';
+
+    const list = document.getElementById('manualIncidentsList');
+    if (!list) return;
+
+    const row = document.createElement('div');
+    row.dataset.manualIdx = idx;
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;align-items:center;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px';
+    row.innerHTML = `
+        <input type="text" placeholder="Descrição do incidente"
+            style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--input-bg);color:var(--text)"
+            oninput="updateManualIncident(${idx},'title',this.value)">
+        <input type="number" placeholder="Afetados" min="0"
+            style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);text-align:center"
+            oninput="updateManualIncident(${idx},'affected_users',parseInt(this.value)||0)">
+        <input type="number" placeholder="Horas" min="0" step="0.5"
+            style="font-size:12px;padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);text-align:center"
+            oninput="updateManualIncident(${idx},'duration_hours',parseFloat(this.value)||0)">
+        <button type="button" onclick="removeManualIncident(this,${idx})"
+            style="background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:4px;line-height:1"
+            title="Remover">
+            <i data-lucide="x" style="width:14px;height:14px"></i>
+        </button>
+    `;
+    list.appendChild(row);
+    if (window.lucide) window.lucide.createIcons();
+}
+
+function updateManualIncident(idx, field, value) {
+    if (_manualIncidents[idx] !== undefined) {
+        _manualIncidents[idx][field] = value;
+        recalcIncidentTotals();
+    }
+}
+
+function removeManualIncident(btn, idx) {
+    _manualIncidents.splice(idx, 1);
+    btn.closest('[data-manual-idx]')?.remove();
+    recalcIncidentTotals();
+
+    // Re-indexar os atributos data-manual-idx restantes
+    document.querySelectorAll('[data-manual-idx]').forEach((row, i) => {
+        row.dataset.manualIdx = i;
+        row.querySelectorAll('input[oninput]').forEach(inp => {
+            inp.setAttribute('oninput', inp.getAttribute('oninput').replace(/\d+/, i));
+        });
+        row.querySelector('button[onclick]')?.setAttribute('onclick',
+            row.querySelector('button[onclick]').getAttribute('onclick').replace(/\d+\)/, i + ')'));
+    });
+
+    if (_manualIncidents.length === 0) {
+        const empty = document.getElementById('manualIncidentsEmpty');
+        if (empty) empty.style.display = 'block';
+    }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -316,23 +601,48 @@ async function fetchReportData() {
 // Render helpers (relatório anual)
 // ─────────────────────────────────────────────────────────────
 
-function renderQuarterTable(rows) {
-    const body = $('#pvQuarterBody');
-    if (!body) return;
-    body.innerHTML = '';
-    if (!rows?.length) {
-        body.innerHTML = '<tr><td colspan="3" class="muted" style="font-size:12px;padding:10px 0">Sem incidentes registados.</td></tr>';
+function renderQuarterTable(quarters) {
+    const tbody = $('#pvQuarterBody');
+    if (!tbody) return;
+
+    if (!quarters?.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="muted" style="font-size:12px;padding:10px 0">Nenhum dado disponível.</td></tr>`;
         return;
     }
-    rows.forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><span class="q-label">${r.q}</span></td>
-            <td><span class="q-count">${r.total}</span></td>
-            <td><span class="q-types">${r.types}</span></td>
+
+    tbody.innerHTML = quarters.map(r => {
+        const hasData = r.total > 0;
+        return `
+            <tr style="${hasData ? '' : 'opacity:.45'}">
+                <td><span class="q-label" style="color:${hasData ? 'var(--info)' : 'var(--muted)'}">${r.q}</span></td>
+                <td style="text-align:center"><span class="q-count" style="font-weight:${hasData ? '700' : '400'}">${r.total}</span></td>
+                <td><span class="q-types">${r.types ?? '—'}</span></td>
+                <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:${(r.affected_users ?? 0) > 0 ? 'var(--text)' : 'var(--muted)'}">
+                    ${(r.affected_users ?? 0) > 0 ? r.affected_users : '—'}
+                </td>
+            </tr>
         `;
-        body.appendChild(tr);
-    });
+    }).join('');
+
+    // Linha de totais
+    const totalInc = quarters.reduce((s, r) => s + r.total, 0);
+    const totalUsers = quarters.reduce((s, r) => s + (r.affected_users ?? 0), 0);
+    if (totalInc > 0) {
+        tbody.innerHTML += `
+            <tr style="border-top:2px solid var(--line);font-weight:600">
+                <td style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Total</td>
+                <td style="text-align:center;font-family:var(--font-mono)">${totalInc}</td>
+                <td style="font-size:11px;color:var(--muted)">—</td>
+                <td style="text-align:center;font-family:var(--font-mono)">${totalUsers > 0 ? totalUsers : '—'}</td>
+            </tr>
+        `;
+        // Auto-preencher utilizadores afetados se o campo estiver vazio
+        const usersEl = $('#cncsUsersAffected');
+        if (usersEl && !usersEl.value && totalUsers > 0) {
+            usersEl.value = totalUsers;
+            usersEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
 }
 
 function renderGeo(geo) {
@@ -384,26 +694,35 @@ function renderMeasures(items) {
 }
 
 function fillManualFromAutoIfEmpty(data) {
-    const year = $('#cncsYear')?.value ?? '—';
-    const actEl = $('#cncsManualActivities');
-    const recEl = $('#cncsManualRecs');
+    // Não sobrescrever se o utilizador já editou ou se a IA já gerou
+    const actEl = document.querySelector('#cncsManualActivities');
+    const recEl = document.querySelector('#cncsManualRecs');
+    const year = document.querySelector('#cncsYear')?.value ?? '—';
 
     if (actEl && !actEl.value.trim()) {
+        const incidents = data?.kpis?.incidents_total ?? 0;
+        const risks = data?.kpis?.high_risks ?? 0;
+        const assets = data?.assets_summary?.total ?? 'N/A';
         actEl.value =
-            `No ano ${year}, foram executadas avaliações de conformidade (organizacional e por ativo), ` +
-            `com registo de evidências e revisão de controlos. Foram atualizadas políticas internas, ` +
-            `mantido histórico e rastreabilidade via auditoria. ` +
-            `Integrações de monitorização alimentaram a triagem de eventos e incidentes.`;
+            `Em ${year}, a entidade realizou atividades de gestão da segurança das redes e sistemas de informação, ` +
+            `incluindo avaliações de conformidade, monitorização de ${assets} ativo(s) registados no sistema, ` +
+            `acompanhamento de ${incidents} incidente(s) e revisão de ${risks} risco(s) com score elevado. ` +
+            `Clica em "✨ Gerar com IA" para obter texto detalhado baseado nos dados reais do sistema.`;
     }
 
     if (recEl && !recEl.value.trim()) {
+        const withoutBackup = data?.assets_summary?.without_backup ?? 0;
+        const nonCompliant = data?.compliance?.data
+            ? data.compliance.data.filter(r => r.status === 'non_compliant').length
+            : 0;
         recEl.value =
-            `Priorizar mitigação de lacunas críticas (inventário de ativos, testes de backup), ` +
-            `formalizar periodicidade e responsáveis nas evidências, reforçar monitorização e ` +
-            `resposta a incidentes, e manter auditoria contínua sobre alterações em papéis e permissões.`;
+            `Recomenda-se priorizar: ` +
+            (withoutBackup > 0 ? `ativação de backup nos ${withoutBackup} ativo(s) sem cobertura; ` : '') +
+            (nonCompliant > 0 ? `resolução dos controlos não conformes identificados; ` : '') +
+            `reforço de planos de tratamento para riscos críticos sem resposta. ` +
+            `Clica em "✨ Gerar com IA" para recomendações detalhadas.`;
     }
 }
-
 function renderTextPreviews() {
     const actText = $('#cncsManualActivities')?.value?.trim();
     const recsText = $('#cncsManualRecs')?.value?.trim();
@@ -641,6 +960,94 @@ function renderPreview24h() {
     if (window.lucide) window.lucide.createIcons();
 }
 
+
+/**
+ * Gera o bloco PDF da secção 5 enriquecida.
+ * Chamar de dentro de buildCncsPdfDefinition(), substituindo o bloco antigo.
+ */
+function buildSection5PdfBlock(form, data) {
+    const assets = data?.assets_summary;
+    const risks = data?.risk_summary;
+    const inc = data?.incidents_detail;
+    const section5Ai = window._aiSection5 || null;
+
+    const blocks = [
+        { text: '5 — Análise agregada dos incidentes de segurança', style: 'h1' },
+    ];
+
+    // Texto narrativo IA (se disponível) ou campos manuais
+    if (section5Ai) {
+        blocks.push({ text: section5Ai, style: 'p', margin: [0, 0, 0, 10] });
+    } else {
+        blocks.push({
+            columns: [
+                { text: `Utilizadores afetados: ${safe(form.usersAffected)}`, style: 'p', width: '*' },
+                { text: `Duração: ${safe(form.duration)} h`, style: 'p', width: '*' },
+            ],
+            margin: [0, 0, 0, 10],
+        });
+    }
+
+    // Tabela de ativos (se disponível)
+    if (assets?.total) {
+        const critRows = Object.entries(assets.by_criticality || {}).map(([k, v]) => [
+            { text: k, fontSize: 9 },
+            { text: String(v), alignment: 'center', fontSize: 9 },
+        ]);
+
+        blocks.push(
+            { text: '5.1 — Inventário de ativos', style: 'label', margin: [0, 6, 0, 4] },
+            {
+                table: {
+                    widths: [120, 60, '*'],
+                    body: [
+                        [
+                            { text: 'Métrica', bold: true, fontSize: 9, fillColor: '#f5f7fc' },
+                            { text: 'N.º', bold: true, alignment: 'center', fontSize: 9, fillColor: '#f5f7fc' },
+                            { text: 'Observação', bold: true, fontSize: 9, fillColor: '#f5f7fc' },
+                        ],
+                        [{ text: 'Total de ativos', fontSize: 9 }, { text: String(assets.total), alignment: 'center', fontSize: 9 }, { text: 'Ativos registados no sistema GRC', fontSize: 9, color: '#555' }],
+                        [{ text: 'Agentes offline', fontSize: 9 }, { text: String(assets.offline_agents), alignment: 'center', fontSize: 9 }, { text: assets.offline_agents > 0 ? 'Monitorização comprometida' : '—', fontSize: 9, color: '#555' }],
+                    ],
+                },
+                layout: 'lightHorizontalLines', margin: [0, 0, 0, 10],
+            }
+        );
+    }
+
+    // Tabela de riscos (se disponível)
+    if (risks?.total) {
+        const distRows = Object.entries(risks.score_distribution || {}).map(([k, v]) => [
+            { text: k, fontSize: 9 },
+            { text: String(v), alignment: 'center', fontSize: 9 },
+        ]);
+
+        blocks.push(
+            { text: '5.2 — Perfil de risco', style: 'label', margin: [0, 6, 0, 4] },
+            {
+                table: {
+                    widths: [180, 60],
+                    headerRows: 1,
+                    body: [
+                        [
+                            { text: 'Nível de risco', bold: true, fontSize: 9, fillColor: '#f5f7fc' },
+                            { text: 'Riscos', bold: true, alignment: 'center', fontSize: 9, fillColor: '#f5f7fc' },
+                        ],
+                        ...distRows,
+                        [
+                            { text: 'Tratamentos concluídos no ano', bold: true, fontSize: 9 },
+                            { text: String(risks.treated_this_year), alignment: 'center', bold: true, fontSize: 9 },
+                        ],
+                    ],
+                },
+                layout: 'lightHorizontalLines', margin: [0, 0, 0, 10],
+            }
+        );
+    }
+
+    return blocks;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Exportação PDF — Relatório Anual
 // ─────────────────────────────────────────────────────────────
@@ -658,6 +1065,42 @@ function buildCncsPdfDefinition(form, data) {
     const measures = (data?.measures || []).map(m =>
         `${m.title}\n   ${m.detail} (${m.status})`
     );
+
+    const section5Blocks = buildSection5PdfBlock(form, data);
+
+    const complianceData = data?.compliance?.data || [];
+    let complianceBlock = [];
+
+    if (complianceData.length > 0) {
+        const complianceRows = complianceData.map(c => [
+            { text: c.control_code, fontSize: 9, color: '#0b1220' },
+            { text: c.description, fontSize: 9 },
+            { text: c.status_label, fontSize: 9, color: c.status === 'compliant' ? '#16a34a' : (c.status === 'partial' ? '#ca8a04' : '#dc2626') },
+            { text: c.notes || '—', fontSize: 9, color: '#666' }
+        ]);
+
+        complianceBlock = [
+            // ✅ NOVIDADE: Agora é a Secção 10
+            { text: '10 — Anexo: Estado de Conformidade', style: 'h1', pageBreak: 'before' },
+            {
+                table: {
+                    headerRows: 1,
+                    widths: [50, '*', 60, 100],
+                    body: [
+                        [
+                            { text: 'Controlo', style: 'tableHeader' },
+                            { text: 'Descrição', style: 'tableHeader' },
+                            { text: 'Estado', style: 'tableHeader' },
+                            { text: 'Notas', style: 'tableHeader' }
+                        ],
+                        ...complianceRows
+                    ]
+                },
+                layout: 'lightHorizontalLines',
+                margin: [0, 0, 0, 10]
+            }
+        ];
+    }
 
     return {
         pageSize: 'A4',
@@ -717,9 +1160,7 @@ function buildCncsPdfDefinition(form, data) {
                 layout: 'lightHorizontalLines', fontSize: 10,
             },
 
-            { text: '5 — Análise agregada dos incidentes', style: 'h1' },
-            { text: `Utilizadores afetados: ${safe(form.usersAffected)}`, style: 'p' },
-            { text: `Duração: ${safe(form.duration)} h`, style: 'p', margin: [0, 0, 0, 10] },
+            ...section5Blocks,
 
             { text: '6 — Recomendações de melhoria', style: 'h1' },
             { text: safe(form.recsText), style: 'p' },
@@ -731,6 +1172,13 @@ function buildCncsPdfDefinition(form, data) {
 
             { text: '8 — Outra informação relevante', style: 'h1' },
             { text: safe(form.extraText), style: 'p' },
+
+            // ✅ NOVIDADE: Bloco 9 inteiramente dedicado aos Incidentes!
+            { text: '9 — Anexo: Resumo dos Incidentes', style: 'h1', pageBreak: 'before' },
+            { text: form.incidentsList, style: 'p', margin: [0, 0, 0, 10] },
+
+            // ✅ Bloco 10 (Compliance)
+            ...complianceBlock,
 
             { text: ' ', margin: [0, 16, 0, 0] },
             {
@@ -765,6 +1213,9 @@ async function exportPdfCNCS() {
     const scope = $('#cncsIncidentScope')?.value ?? 'relevant';
     const data = cachedReportData || await fetchReportData();
 
+    // Força o PDF a usar os trimestres baseados na tua seleção atual!
+    data.quarters = getCalculatedQuarters();
+
     const form = {
         year, scope,
         isUrgent: $('#cncsIsUrgent')?.checked ?? false,
@@ -775,6 +1226,8 @@ async function exportPdfCNCS() {
         activitiesText: $('#cncsManualActivities')?.value?.trim() || '—',
         recsText: $('#cncsManualRecs')?.value?.trim() || '—',
         extraText: $('#cncsExtra')?.value?.trim() || '—',
+        // ✅ NOVIDADE: Apanha a lista de incidentes aqui diretamente!
+        incidentsList: getIncidentDescriptions() || 'Nenhum incidente listado.',
         reportDate: $('#cncsReportDate')?.value || '',
         securityOfficer: $('#cncsSecurityOfficer')?.value?.trim() || '',
         signature: $('#cncsSignature')?.value?.trim() || '',
@@ -1086,6 +1539,85 @@ function wireLiveSync() {
     });
 }
 
+function initAiGenerate() {
+    const btn = document.getElementById('btnGenerateAI');
+    if (btn) btn.addEventListener('click', generateAiNarrative);
+}
+
+async function generateAiNarrative() {
+    const btn = document.getElementById('btnGenerateAI');
+    const spinner = document.getElementById('aiGenerateSpinner');
+    const status = document.getElementById('aiGenerateStatus');
+
+    const year = document.querySelector('#cncsYear')?.value ?? new Date().getFullYear();
+    const scope = document.querySelector('#cncsIncidentScope')?.value ?? 'relevant';
+    const entityName = document.querySelector('#cncsEntity')?.value?.trim() || 'Entidade';
+
+    // Estado: a gerar
+    if (btn) { btn.disabled = true; btn.textContent = 'A gerar…'; }
+    if (spinner) spinner.style.display = 'inline-block';
+    if (status) { status.textContent = 'A consultar base de dados e a gerar narrativa…'; status.style.color = 'var(--muted)'; }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+        const res = await fetch('/api/cncs-reports/generate-narrative', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({ year, scope, entity_name: entityName }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.message || 'Erro desconhecido');
+
+        const s = data.sections;
+
+        // Preencher os textareas com o texto gerado pela IA
+        if (s.section3) setTextareaValue('#cncsManualActivities', s.section3);
+        if (s.section6) setTextareaValue('#cncsManualRecs', s.section6);
+        if (s.section8) setTextareaValue('#cncsExtra', s.section8);
+
+        // Guardar a secção 5 para uso no PDF (campo oculto ou variável)
+        if (s.section5) {
+            window._aiSection5 = s.section5;
+            // Preencher campo de texto da secção 5 se existir
+            setTextareaValue('#cncsManualSection5', s.section5);
+        }
+
+        // Re-renderizar o preview
+        renderTextPreviews();
+        if (typeof renderPreview === 'function') renderPreview();
+
+        if (status) { status.textContent = '✓ Narrativa gerada com sucesso. Revê antes de exportar.'; status.style.color = 'var(--ok, #22c55e)'; }
+
+    } catch (e) {
+        console.error('Erro ao gerar narrativa IA:', e);
+        if (status) { status.textContent = `Erro: ${e.message}`; status.style.color = 'var(--bad, #ef4444)'; }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ Gerar com IA'; }
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+/**
+ * Define o valor de um textarea e dispara os eventos para sync do preview.
+ */
+function setTextareaValue(selector, value) {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // ─────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────
@@ -1094,6 +1626,8 @@ function init() {
     initTabs();
     initSteps();
     initUrgentTooltip();
+    initStep2b();
+    initAiGenerate();
     wireLiveSync();
     wireLiveSync24h();
 
@@ -1134,7 +1668,12 @@ function init() {
 
     // Re-fetch ao mudar ano ou escopo
     ['#cncsYear', '#cncsIncidentScope'].forEach(id => {
-        $(id)?.addEventListener('change', renderPreview);
+        $(id)?.addEventListener('change', () => {
+            renderPreview();
+            if (document.getElementById('incListWrap')?.style.display !== 'none') {
+                loadIncidentsForReport();
+            }
+        });
     });
 
     // Filtros da tabela de conformidade

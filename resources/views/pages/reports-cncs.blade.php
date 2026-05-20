@@ -3,7 +3,7 @@
 
 
 @section('content')
-
+<meta name="csrf-token" content="{{ csrf_token() }}">
 {{-- ═══════════════════════════════════════════
      BARRA DE ALTERNÂNCIA DE TIPO DE RELATÓRIO
 ════════════════════════════════════════════ --}}
@@ -96,86 +96,142 @@
             </div>
         </div>
 
-        {{-- Step 2B: Dados do incidente --}}
-        <div class="cncs-step" id="step2b">
-            <div class="cncs-step-head" data-toggle="step2b">
-                <span class="cncs-step-num">2b</span>
-                <span class="cncs-step-title">Dados do incidente</span>
-                <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+{{-- Step 2b: Dados do incidente — preenchido a partir de incidentes reais --}}
+<div class="cncs-step" id="step2b">
+    <div class="cncs-step-head" data-toggle="step2b">
+        <span class="cncs-step-num">2b</span>
+        <span class="cncs-step-title">Dados do incidente</span>
+        <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+    </div>
+    <div class="cncs-step-body">
+        {{-- Tipo de incidente --}}
+        <div class="field-group">
+            <label>Tipo de incidente</label>
+            <select id="cncsIncidentType">
+                <option value="">— Selecionar —</option>
+                <option value="ransomware">Ransomware</option>
+                <option value="malware">Malware</option>
+                <option value="phishing">Phishing</option>
+                <option value="ddos">DDoS</option>
+                <option value="unauthorized_access">Acesso não autorizado</option>
+                <option value="data_breach">Fuga de dados</option>
+                <option value="service_disruption">Indisponibilidade de serviço</option>
+                <option value="backup_failure">Falha de backup</option>
+                <option value="other">Outro</option>
+            </select>
+        </div>
+ 
+        {{-- ── NOVO: Lista de incidentes registados ── --}}
+        <div class="field-group" style="margin-top:6px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <label style="margin:0">Incidentes registados no ano</label>
+                <button type="button" id="btnLoadIncidents" class="btn" style="font-size:11px;padding:4px 10px;gap:5px">
+                    <i data-lucide="refresh-cw" style="width:12px;height:12px"></i>
+                    Carregar
+                </button>
             </div>
-            <div class="cncs-step-body">
-        
-                {{-- Incidente urgente com tooltip --}}
-                <div class="field-group">
-                    <label style="display:flex;align-items:center;gap:6px">
-                        Incidente grave (Art. 23.º NIS2)
-                        <span id="urgentInfoIcon" style="cursor:help;color:var(--muted);display:inline-flex">
-                            <i data-lucide="info" style="width:13px;height:13px"></i>
-                        </span>
-                    </label>
-        
-                    {{-- Tooltip --}}
-                    <div id="urgentTooltip" style="
-                        display:none;
-                        background:var(--panel);
-                        border:1px solid rgba(251,191,36,.3);
-                        border-radius:10px;
-                        padding:10px 13px;
-                        font-size:12px;
-                        line-height:1.5;
-                        color:var(--warn);
-                        margin-bottom:8px;
-                    ">
-                        <b>Incidente grave / urgente</b><br>
-                        Incidente com impacto relevante ou substancial que deve ser notificado ao
-                        CNCS nos prazos previstos (alerta inicial: 24h; notificação: 72h; relatório final: 1 mês).
-                        Ver Art. 23.º da Diretiva NIS2 (2022/2555).
-                    </div>
-        
-                    <div style="display:flex;align-items:center;gap:10px">
-                        <label style="
-                            display:flex;align-items:center;gap:8px;
-                            cursor:pointer;font-size:13px;font-weight:500;
-                            text-transform:none;letter-spacing:0;color:var(--text)
-                        ">
-                            <input type="checkbox" id="cncsIsUrgent" style="width:16px;height:16px;accent-color:var(--warn)">
-                            Marcar como incidente grave
-                        </label>
-                    </div>
-                    <div class="field-hint">Ao marcar, o relatório ficará assinalado com flag de urgência.</div>
+ 
+            {{-- Spinner de carregamento --}}
+            <div id="incListSpinner" style="display:none;font-size:12px;color:var(--muted);padding:8px 0">
+                <i data-lucide="loader" style="width:13px;height:13px"></i> A carregar incidentes…
+            </div>
+ 
+            {{-- Tabela de incidentes --}}
+            <div id="incListWrap" style="display:none">
+                <div id="incListEmpty" style="display:none;font-size:12px;color:var(--muted);padding:8px 4px">
+                    Nenhum incidente encontrado para o ano e escopo seleccionados.
                 </div>
-        
-                {{-- Tipo de incidente --}}
-                <div class="field-group">
-                    <label>Tipo de incidente</label>
-                    <select id="cncsIncidentType">
-                        <option value="">— Selecionar —</option>
-                        <option value="ransomware">Ransomware</option>
-                        <option value="malware">Malware</option>
-                        <option value="phishing">Phishing</option>
-                        <option value="ddos">DDoS</option>
-                        <option value="unauthorized_access">Acesso não autorizado</option>
-                        <option value="data_breach">Fuga de dados</option>
-                        <option value="service_disruption">Indisponibilidade de serviço</option>
-                        <option value="backup_failure">Falha de backup</option>
-                        <option value="other">Outro</option>
-                    </select>
-                </div>
-        
-                {{-- Secção 5 — dados manuais (utilizadores + duração) --}}
-                <div class="field-row">
-                    <div class="field-group">
-                        <label>Utilizadores afetados</label>
-                        <input type="number" id="cncsUsersAffected" placeholder="Ex: 1500" min="0" />
-                        <div class="field-hint">Soma dos incidentes relevantes.</div>
+                <table id="incListTable" style="display:none;width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--line)">
+                            <th style="padding:5px 4px;text-align:left;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;width:28px">
+                                <input type="checkbox" id="incSelectAll" title="Selecionar todos" style="cursor:pointer">
+                            </th>
+                            <th style="padding:5px 4px;text-align:left;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em">Incidente</th>
+                            <th style="padding:5px 4px;text-align:center;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;width:70px">Afetados</th>
+                            <th style="padding:5px 4px;text-align:center;font-weight:600;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;width:60px">Duração</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incListBody"></tbody>
+                </table>
+ 
+                {{-- Totais calculados --}}
+                <div id="incTotalsBar" style="display:none;margin-top:10px;padding:8px 10px;background:var(--panel);border-radius:8px;border:1px solid var(--line);font-size:12px">
+                    <div style="display:flex;gap:20px;flex-wrap:wrap">
+                        <span>Incidentes selecionados: <b id="incTotalCount">0</b></span>
+                        <span>Utilizadores afetados: <b id="incTotalUsers">0</b></span>
+                        <span>Duração total: <b id="incTotalDuration">0</b> h</span>
                     </div>
-                    <div class="field-group">
-                        <label>Duração total (horas)</label>
-                        <input type="number" id="cncsDuration" placeholder="Ex: 14.5" min="0" step="0.5" />
-                        <div class="field-hint">Soma das janelas de indisponibilidade.</div>
-                    </div>
+                    <button type="button" id="btnApplyIncidentTotals" class="btn" style="margin-top:8px;font-size:11px;padding:5px 12px;width:100%">
+                        <i data-lucide="check" style="width:12px;height:12px"></i>
+                        Aplicar totais aos campos abaixo
+                    </button>
                 </div>
-        
+            </div>
+        </div>
+ 
+        {{-- Campos numéricos (secção 5) — agora com botão + para linha manual --}}
+        <div class="field-row" style="margin-top:4px">
+            <div class="field-group">
+                <label>Utilizadores afetados</label>
+                <input type="number" id="cncsUsersAffected" placeholder="Auto ou manual" min="0" />
+                <div class="field-hint">Calculado a partir dos incidentes selecionados, ou edita manualmente.</div>
+            </div>
+            <div class="field-group">
+                <label>Duração total (horas)</label>
+                <input type="number" id="cncsDuration" placeholder="Auto ou manual" min="0" step="0.5" />
+                <div class="field-hint">Soma das durações dos incidentes selecionados.</div>
+            </div>
+        </div>
+ 
+        {{-- Linhas manuais adicionais --}}
+        <div style="margin-top:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Entradas manuais adicionais</span>
+                <button type="button" id="btnAddManualIncident" class="btn" style="font-size:11px;padding:4px 10px;gap:5px" title="Adicionar linha manual">
+                    <i data-lucide="plus" style="width:12px;height:12px"></i>
+                    Adicionar
+                </button>
+            </div>
+            <div id="manualIncidentsList" style="display:flex;flex-direction:column;gap:6px"></div>
+            <div id="manualIncidentsEmpty" style="font-size:12px;color:var(--muted);padding:4px 0">
+                Nenhuma entrada manual. Clica em <b>+ Adicionar</b> para incluir incidentes não registados no sistema.
+            </div>
+        </div>
+ 
+    </div>
+</div>
+
+{{-- Botão de geração com IA --}}
+<div class="cncs-step open" id="stepAI">
+    <div class="cncs-step-head" data-toggle="stepAI">
+        <span class="cncs-step-num">✨</span>
+        <span class="cncs-step-title">Gerar narrativa com IA</span>
+        <span class="cncs-step-caret"><i data-lucide="chevron-down" style="width:15px;height:15px"></i></span>
+    </div>
+    <div class="cncs-step-body">
+        <p class="field-hint">
+            A IA consulta a base de dados (ativos, riscos, incidentes, conformidade) e gera
+            texto contextualizado para as secções 3, 5, 6 e 8. Revê sempre antes de exportar.
+        </p>
+    
+                <div style="display:flex;flex-direction:column;gap:10px">
+                    <button id="btnGenerateAI" class="btn primary" style="align-self:flex-start">
+                        ✨ Gerar com IA
+                    </button>
+                    <span id="aiGenerateSpinner" style="display:none;font-size:12px;color:var(--muted)">
+                        <i data-lucide="loader" style="width:13px;height:13px;animation:spin 1s linear infinite"></i>
+                        A gerar…
+                    </span>
+                    <p id="aiGenerateStatus" class="field-hint" style="margin:0"></p>
+                </div>
+    
+                <div class="field-group" style="margin-top:14px">
+                    <label>5 — Análise agregada (texto IA)</label>
+                    <textarea id="cncsManualSection5" rows="4"
+                        placeholder="Preenchido automaticamente pela IA…"></textarea>
+                    <div class="field-hint">Complementa os campos numéricos da secção 5.</div>
+                </div>
             </div>
         </div>
 

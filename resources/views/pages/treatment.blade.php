@@ -271,27 +271,27 @@
       <div class="treat-tab-panel is-hidden" id="tabPanel_tasks">
         <div class="tasks-panel">
 
-          {{-- Barra de progresso das tasks --}}
+          {{-- Barra de progresso das tasks + botão nova tarefa --}}
           <div class="tasks-progress-bar-wrap" id="td_tasks_progress_wrap">
-            <div class="tasks-progress-label">
-              <span class="muted" style="font-size:11px">Progresso das tarefas</span>
-              <span style="font-size:11px;font-weight:700" id="td_tasks_pct">0%</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+              <div class="tasks-progress-label" style="margin-bottom:0;flex:1">
+                <span class="muted" style="font-size:11px">Progresso das tarefas</span>
+                <span style="font-size:11px;font-weight:700" id="td_tasks_pct">0%</span>
+              </div>
+              <button class="btn primary small" id="td_btn_new_task" type="button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nova tarefa
+              </button>
             </div>
             <div class="tasks-progress-track">
               <div class="tasks-progress-fill" id="td_tasks_progress_fill" style="width:0%"></div>
             </div>
           </div>
 
-          {{-- Botão nova task --}}
-          <div style="display:flex;justify-content:flex-end;padding:0 20px 12px">
-            <button class="btn primary small" id="td_btn_new_task" type="button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Nova tarefa
-            </button>
+          {{-- Lista de tasks com scroll próprio --}}
+          <div class="tasks-list-wrap">
+            <div id="td_tasks_list" class="tasks-list"></div>
           </div>
-
-          {{-- Lista de tasks --}}
-          <div id="td_tasks_list" class="tasks-list"></div>
 
         </div>
       </div>
@@ -483,6 +483,7 @@
   {{-- Toast de confirmação --}}
   <div id="treat_toast" class="treat-toast is-hidden"></div>
 @vite(['resources/css/pages/treatment_tasks.css'])
+@vite(['resources/css/pages/treatment_tab_fix.css'])
 
 @push('styles')
 @vite(['resources/css/pages/treatment.css'])

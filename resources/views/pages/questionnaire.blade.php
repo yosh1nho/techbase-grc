@@ -113,7 +113,7 @@ style="flex:1; overflow-y:auto; padding:16px; background:rgba(255,255,255,.02); 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 @vite(['resources/js/pages/questionnaire.js'])
 
 @endpush

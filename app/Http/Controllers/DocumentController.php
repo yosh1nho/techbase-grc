@@ -197,7 +197,7 @@ class DocumentController extends Controller
             'non_compliant' => $nonCompliant,
         ]);
 
-        // Ingest Pinecone
+// Ingest Pinecone
         $filePath = $doc->attach_path ?? $doc->file_path ?? null;
         $ext      = $filePath ? strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) : null;
         $ingest   = 'skipped';
@@ -206,6 +206,27 @@ class DocumentController extends Controller
             $docName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? 'documento';
             IngestDocumentJob::dispatch($id, $filePath, $docName, 'auto');
             $ingest = 'queued';
+        }
+
+        // NOVIDADE: Copiar o documento aprovado para a pasta public/mock/docs
+        if ($filePath && \Illuminate\Support\Facades\Storage::disk('attachments')->exists($filePath)) {
+            // Caminho original no storage privado
+            $sourceFullPath = \Illuminate\Support\Facades\Storage::disk('attachments')->path($filePath);
+            
+            // Caminho de destino na pasta public
+            $destDir = public_path('mock/docs');
+
+            // Garante que a pasta existe, se não, cria-a
+            if (!file_exists($destDir)) {
+                mkdir($destDir, 0755, true);
+            }
+
+            // Criar um nome limpo para o ficheiro (ex: politica-de-acessos_15.pdf)
+            $safeTitle = \Illuminate\Support\Str::slug($doc->title ?? 'documento_aprovado');
+            $destFileName = $safeTitle . '_' . $id . '.' . $ext;
+            
+            // Copiar ficheiro
+            copy($sourceFullPath, $destDir . '/' . $destFileName);
         }
 
         return response()->json([
@@ -724,13 +745,11 @@ public function extractText(int $id): JsonResponse
             'id_attachment'  => $attachmentId,
             'title'          => "Plano de Segurança: " . ($payload['meta']['company'] ?? 'S/ Nome'),
             'type'           => 'report',
-            'status'         => 'approved', // Gerado pelo sistema
+            'status'         => 'pending', // Gerado pelo sistema
             'version'        => '1.0',
             'file_path'      => $path,
             'sha256'         => $sha256,
             'uploaded_by'    => $userId,
-            'approved_by'    => $userId,
-            'approved_at'    => now(),
             'created_at'     => now(),
         ], 'id_doc');
 
@@ -740,4 +759,42 @@ public function extractText(int $id): JsonResponse
             'message' => 'Plano de segurança guardado como evidência com sucesso.',
         ], 201);
     }
+
+public function viewFile($id)
+{
+    $doc = DB::table('document as d')
+        ->leftJoin('attachment as a', 'a.id_attachment', '=', 'd.id_attachment')
+        ->select([
+            'd.id_doc', 'd.title', 'd.file_path',
+            'a.file_path as attach_path', 'a.original_name',
+            'a.file_name', 'a.mime_type',
+        ])
+        ->where('d.id_doc', $id)
+        ->whereNull('d.deleted_at')
+        ->first();
+
+    if (!$doc) {
+        abort(404, 'Documento não encontrado na base de dados.');
+    }
+
+    // Usa attach_path (tabela attachment) como fonte primária,
+    // file_path (tabela document) como fallback
+    $path        = $doc->attach_path ?? $doc->file_path;
+    $displayName = $doc->original_name ?? $doc->file_name ?? $doc->title ?? 'documento';
+    $mime        = $doc->mime_type ?? 'application/pdf';
+
+    if (!$path || !Storage::disk('attachments')->exists($path)) {
+        abort(404, 'Ficheiro físico não encontrado no disco.');
+    }
+
+    return response()->file(
+        Storage::disk('attachments')->path($path),
+        [
+            'Content-Type'        => $mime,
+            'Content-Disposition' => 'inline; filename="' . rawurlencode($displayName) . '"',
+            'Cache-Control'       => 'private, max-age=3600',
+        ]
+    );
+}
+
 }

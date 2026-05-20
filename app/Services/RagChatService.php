@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+
 class RagChatService
 {
     public function __construct(
@@ -11,117 +13,154 @@ class RagChatService
 
     public function answer(string $question, string $tenantId, array $scope = []): array
     {
-        $topK = 8;
+        $topK = 6;
 
-        // ✅ Busca semântica via Pinecone "text search" (igual ao script python)
-        $hits = $this->pinecone->searchRecordsText(
+        // 1. Busca nas FRAMEWORKS (NIS2 e QNRCS)
+        $frameworkHits = $this->pinecone->searchRecordsText(
             text: $this->normalize($question),
             topK: $topK,
             namespace: $tenantId,
             filter: $this->buildFilter($scope),
         );
 
+        // 2. Busca nas POLÍTICAS INTERNAS
+        $internalPoliciesHits = $this->pinecone->searchRecordsText(
+            text: $this->normalize($question),
+            topK: $topK,
+            namespace: 'default',
+            filter: $this->buildFilter($scope),
+        );
+
+        // 3. Fundir e re-ordenar por score
+        $allHits = array_merge($frameworkHits, $internalPoliciesHits);
+        usort($allHits, function ($a, $b) {
+            $scoreA = $a['_score'] ?? $a['score'] ?? 0;
+            $scoreB = $b['_score'] ?? $b['score'] ?? 0;
+            return $scoreB <=> $scoreA;
+        });
+        $hits = array_slice($allHits, 0, 8);
+
         $contextBlocks = [];
-        $sources = [];
+        $sources       = [];
 
-        logger()->info('RAG', ['tenant' => $tenantId, 'hits' => count($hits)]);
-        
-    foreach ($hits as $h) {
-        $fields = $h['fields'] ?? [];
+        logger()->info('RAG hits', ['tenant' => $tenantId, 'total' => count($hits)]);
 
-        $get = function (string $k) use ($h, $fields) {
-            return $h[$k] ?? $fields[$k] ?? null;
-        };
+        foreach ($hits as $h) {
+            $fields = $h['fields'] ?? [];
 
-        $text = (string)($get('text') ?? '');
-        if ($text === '') continue;
+            // Helper: procura o campo em fields primeiro, depois na raiz do hit
+            $get = function (string $k) use ($h, $fields) {
+                return $fields[$k] ?? $h[$k] ?? null;
+            };
 
-        $docId = (string)($get('doc_id') ?? '');
-        $docName = (string)($get('doc_name') ?? $get('doc_title') ?? $docId);
+            $text = (string)($get('text') ?? '');
+            if ($text === '') continue;
 
-        // id interno (não mostrar ao utilizador)
-        $chunkId = (string)($h['_id'] ?? ($docId . ':' . ($get('chunk_index') ?? '')));
+            // ─── Resolver doc_id ─────────────────────────────────────────────
+            // O Pinecone guarda nos metadados (fields) como 'doc_id'.
+            // O _id do vector tem formato "31:3" (doc_id:chunk_index).
+            // Usamos fields.doc_id como fonte primária; se vazio, extraímos do _id.
+            $rawDocId = (string)($get('doc_id') ?? '');
 
-        // campos para referência humana
-        $controlCode   = (string)($get('control_code') ?? '');
-        $controlFamily = (string)($get('control_family') ?? '');
-        $articleCode   = (string)($get('article_code') ?? '');
-        $chapter       = (string)($get('chapter') ?? '');
+            if ($rawDocId === '' && isset($h['_id'])) {
+                // _id tem formato "31:3" → extrair a parte antes dos ":"
+                $parts    = explode(':', (string)$h['_id'], 2);
+                $rawDocId = $parts[0] ?? '';
+            }
 
-        $chunkIndex = $get('chunk_index');
-        $chunkIndex = is_numeric($chunkIndex) ? (int)$chunkIndex : null;
+            // Confirma que é numérico (id_doc da BD) e não um UUID de framework
+            $isNumericDocId = $rawDocId !== '' && ctype_digit($rawDocId);
 
-        $pageNumber = $get('page_number');
-        $pageNumber = is_numeric($pageNumber) ? (int)$pageNumber : null;
+            // ─── doc_name / título ────────────────────────────────────────────
+            $docName  = (string)($get('doc_name') ?? $get('doc_title') ?? $rawDocId);
+            $docTitle = $docName;
 
-        $docTitle = $docName;
+            // ─── chunk_id legível ─────────────────────────────────────────────
+            $chunkId = (string)($h['_id'] ?? ($rawDocId . ':' . ($get('chunk_index') ?? '')));
 
+            // ─── campos de referência ─────────────────────────────────────────
+            $controlCode   = (string)($get('control_code')   ?? '');
+            $controlFamily = (string)($get('control_family') ?? '');
+            $articleCode   = (string)($get('article_code')   ?? '');
+            $chapter       = (string)($get('chapter')        ?? '');
 
-        $docUrl = null;
-        $t = mb_strtolower($docTitle);
+            $chunkIndex = $get('chunk_index');
+            $chunkIndex = is_numeric($chunkIndex) ? (int)$chunkIndex : null;
 
-        if (str_contains($t, 'nis2')) {
-            $docUrl = url('/mock/frameworks/NIS2.pdf');
-        } elseif (str_contains($t, 'qnrcs') || str_contains($t, 'cncs')) {
-            $docUrl = url('/mock/frameworks/cncs-qnrcs-2019.pdf');
+            $pageNumber = $get('page_number');
+            $pageNumber = is_numeric($pageNumber) ? (int)$pageNumber : null;
+
+            // ─── doc_url ──────────────────────────────────────────────────────
+            $docUrl = null;
+            $t      = mb_strtolower($docTitle);
+
+            if (str_contains($t, 'nis2')) {
+                // Framework NIS2 — ficheiro público
+                $docUrl = url('/mock/frameworks/NIS2.pdf');
+
+            } elseif (str_contains($t, 'qnrcs') || str_contains($t, 'cncs')) {
+                // Framework QNRCS — ficheiro público
+                $docUrl = url('/mock/frameworks/cncs-qnrcs-2019.pdf');
+
+            } elseif ($isNumericDocId) {
+                // Documento interno — servir via rota segura usando o id_doc real
+                $docUrl = url('/documents/view/' . $rawDocId);
+            }
+
+            logger()->debug('RAG source', [
+                '_id'      => $h['_id'] ?? null,
+                'doc_id'   => $rawDocId,
+                'doc_name' => $docTitle,
+                'doc_url'  => $docUrl,
+            ]);
+
+            // ─── ref humano ───────────────────────────────────────────────────
+            if ($controlCode || $controlFamily) {
+                $ref = trim(($controlFamily ? $controlFamily . ' — ' : '') . $controlCode);
+            } elseif ($articleCode || $chapter) {
+                $ref = trim(($chapter ? "Cap. {$chapter} — " : '') . $articleCode);
+            } else {
+                $ref = 'Trecho';
+            }
+
+            $refLabel = trim($docTitle . ' — ' . $ref . ($chunkIndex !== null ? " — chunk {$chunkIndex}" : ''));
+
+            $contextBlocks[] = "[{$refLabel}]\n" . $text;
+
+            $sources[] = [
+                'doc_id'        => $rawDocId  ?: null,
+                'doc_title'     => $docTitle  ?: null,
+                'doc_url'       => $docUrl,
+                'ref_label'     => $refLabel,
+                'ref'           => $ref,
+                'control_code'  => $controlCode  ?: null,
+                'control_family'=> $controlFamily ?: null,
+                'article_code'  => $articleCode  ?: null,
+                'chapter'       => $chapter      ?: null,
+                'chunk_index'   => $chunkIndex,
+                'page_number'   => $pageNumber,
+                'chunk_id'      => $chunkId      ?: null,
+                'snippet'       => mb_substr($text, 0, 240),
+                'score'         => $h['_score']  ?? null,
+            ];
         }
-
-        // ref humano
-        if ($controlCode || $controlFamily) {
-            $ref = trim(($controlFamily ? $controlFamily . ' — ' : '') . $controlCode);
-        } elseif ($articleCode || $chapter) {
-            $ref = trim(($chapter ? "Cap. {$chapter} — " : '') . $articleCode);
-        } else {
-            $ref = 'Trecho';
-        }
-
-        //label humano completo (o que aparece na resposta)
-        $refLabel = trim($docTitle . ' — ' . $ref . ($chunkIndex !== null ? " — chunk {$chunkIndex}" : ''));
-
-        // usa refLabel no contexto (para o Gemini citar bonito)
-        $contextBlocks[] = "[{$refLabel}]\n" . $text;
-
-        // retorna sources com refLabel (sem mostrar UUID na UI)
-        $sources[] = [
-            'doc_id' => $docId ?: null,
-            'doc_title' => $docTitle ?: null,
-            'doc_url' => $docUrl,
-
-            'ref_label' => $refLabel,
-            'ref' => $ref,
-
-            'control_code' => $controlCode ?: null,
-            'control_family' => $controlFamily ?: null,
-            'article_code' => $articleCode ?: null,
-            'chapter' => $chapter ?: null,
-            'chunk_index' => $chunkIndex,
-            'page_number' => $pageNumber,
-
-            // mantém interno para debug/modal se precisar
-            'chunk_id' => $chunkId ?: null,
-
-            'snippet' => mb_substr($text, 0, 240),
-            'score' => $h['_score'] ?? null,
-        ];
-    }
 
         $contextText = $contextBlocks
             ? implode("\n\n---\n\n", $contextBlocks)
             : "Nenhuma evidência relevante foi encontrada na base vetorial.";
 
-        $prompt = $this->buildPrompt($contextText, $question);
-
-        $answer = $this->gemini->generate($prompt);
+        $answer = $this->gemini->generate(
+            $this->buildPrompt($contextText, $question)
+        );
 
         return [
-            'answer' => $answer,
+            'answer'  => $answer,
             'sources' => $sources,
         ];
     }
 
     private function buildPrompt(string $context, string $question): string
     {
-        // IMPORTANT: Use nowdoc (single-quoted heredoc) to avoid PHP interpreting backticks as shell execution
         $prompt = <<<'PROMPT'
 Você é um assistente de GRC focado em NIS2 e QNRCS/CNCS.
 Regras:

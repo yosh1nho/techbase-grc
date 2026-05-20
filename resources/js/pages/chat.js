@@ -168,7 +168,8 @@
             if (!docMap.has(key)) {
                 docMap.set(key, {
                     title: key,
-                    fileUrl: s.doc_url || pdfUrlForTitle(key),
+                    fileUrl: s.doc_url || pdfUrlForTitle(key) || null,
+                    doc_id: s.doc_id ?? null,   // ← preserva para fallback no modal
                     kind: kindFromTitle(key),
                     chunks: [],
                 });
@@ -219,27 +220,29 @@
     // Estado do viewer actual
     const pdfState = {
         fileUrl: null,
-        pdfDoc: null,     // PDFDocumentProxy
+        pdfDoc: null,
         rendering: false,
-        snippet: null,    // texto do chunk activo para highlight
+        snippet: null,
+        currentPage: 1,
+        snippetTokens: [],
     };
 
     // Elementos do viewer
     function pdfEls() {
         return {
             placeholder: $("#pdfPlaceholder"),
-            loading:     $("#pdfLoading"),
-            viewerWrap:  $("#pdfViewerWrap"),
-            container:   $("#pdfContainer"),
-            pageInfo:    $("#pdfPageInfo"),
+            loading: $("#pdfLoading"),
+            viewerWrap: $("#pdfViewerWrap"),
+            container: $("#pdfContainer"),
+            pageInfo: $("#pdfPageInfo"),
         };
     }
 
     function showPdfState(state) {
         const e = pdfEls();
-        e.placeholder && (e.placeholder.style.display = state === "empty"   ? "flex"  : "none");
-        e.loading     && (e.loading.style.display     = state === "loading" ? "flex"  : "none");
-        e.viewerWrap  && (e.viewerWrap.style.display  = state === "ready"   ? "flex"  : "none");
+        e.placeholder && (e.placeholder.style.display = state === "empty" ? "flex" : "none");
+        e.loading && (e.loading.style.display = state === "loading" ? "flex" : "none");
+        e.viewerWrap && (e.viewerWrap.style.display = state === "ready" ? "flex" : "none");
     }
 
     // ─── Tokeniza snippet para matching fuzzy ─────────────────
@@ -279,7 +282,7 @@
 
         // Canvas
         const canvas = document.createElement("canvas");
-        canvas.width  = scaledViewport.width;
+        canvas.width = scaledViewport.width;
         canvas.height = scaledViewport.height;
         const ctx = canvas.getContext("2d");
 
@@ -293,7 +296,7 @@
         const textContent = await page.getTextContent();
         const textLayerDiv = document.createElement("div");
         textLayerDiv.className = "textLayer";
-        textLayerDiv.style.width  = scaledViewport.width + "px";
+        textLayerDiv.style.width = scaledViewport.width + "px";
         textLayerDiv.style.height = scaledViewport.height + "px";
         wrap.appendChild(textLayerDiv);
 
@@ -346,19 +349,15 @@
 
     // ─── Renderiza UMA página (a pedida) — sem scroll, sem delay ─
     // Estratégia: só renderiza a página exacta do chunk.
-    // Trocar de chunk limpa o container e renderiza a nova página.
+    // ─── Renderiza uma página com navegação completa ──────────
     async function renderPdfViewer(fileUrl, targetPage, snippetText) {
         if (!fileUrl) { showPdfState("empty"); return; }
 
-        // Cancela render anterior se ainda estiver a correr
         pdfState.rendering = true;
-
+        pdfState.snippetTokens = tokenize(snippetText);
         showPdfState("loading");
 
         const e = pdfEls();
-        if (e.container) e.container.innerHTML = "";
-
-        const snippetTokens = tokenize(snippetText);
         const page = Math.max(1, targetPage || 1);
 
         try {
@@ -368,19 +367,18 @@
                 pdfState.fileUrl = fileUrl;
             }
 
-            if (!pdfState.rendering) return; // foi cancelado entretanto
+            if (!pdfState.rendering) return;
 
             const pdfDoc = pdfState.pdfDoc;
+            pdfState.currentPage = Math.min(page, pdfDoc.numPages);
 
-            if (e.pageInfo) {
-                e.pageInfo.textContent = `${page} / ${pdfDoc.numPages}`;
-                e.pageInfo.style.display = "inline";
-            }
+            // Injeta barra de navegação se ainda não existir
+            ensurePdfNavBar(pdfDoc.numPages);
+
+            // Renderiza a página pedida
+            await goToPage(pdfState.currentPage);
 
             showPdfState("ready");
-
-            // Renderiza APENAS a página pedida — imediato, sem scroll
-            await renderPage(pdfDoc, page, e.container, snippetTokens);
 
         } catch (err) {
             console.error("PDF render error:", err);
@@ -392,16 +390,113 @@
         }
     }
 
+    // ─── Vai para uma página específica ──────────────────────
+    async function goToPage(page) {
+        const e = pdfEls();
+        if (!pdfState.pdfDoc) return;
+
+        const totalPages = pdfState.pdfDoc.numPages;
+        pdfState.currentPage = Math.max(1, Math.min(page, totalPages));
+
+        if (e.container) e.container.innerHTML = "";
+
+        // Actualiza contador
+        const pageInfo = $("#pdfPageInfo");
+        if (pageInfo) {
+            pageInfo.textContent = `${pdfState.currentPage} / ${totalPages}`;
+            pageInfo.style.display = "inline";
+        }
+
+        // Actualiza estado dos botões
+        const btnPrev = $("#pdfNavPrev");
+        const btnNext = $("#pdfNavNext");
+        if (btnPrev) btnPrev.disabled = pdfState.currentPage <= 1;
+        if (btnNext) btnNext.disabled = pdfState.currentPage >= totalPages;
+
+        await renderPage(
+            pdfState.pdfDoc,
+            pdfState.currentPage,
+            e.container,
+            pdfState.snippetTokens
+        );
+    }
+
+    // ─── Cria a barra de navegação (só uma vez por modal) ─────
+    function ensurePdfNavBar(totalPages) {
+        // Se já existe, só actualiza o total
+        if ($("#pdfNavBar")) {
+            const pageInfo = $("#pdfPageInfo");
+            if (pageInfo) pageInfo.textContent = `${pdfState.currentPage} / ${totalPages}`;
+            return;
+        }
+
+        const viewerWrap = $("#pdfViewerWrap");
+        if (!viewerWrap) return;
+
+        // Cria barra fixa no topo do viewer
+        const bar = document.createElement("div");
+        bar.id = "pdfNavBar";
+        bar.style.cssText = [
+            "display:flex",
+            "align-items:center",
+            "justify-content:center",
+            "gap:10px",
+            "padding:6px 12px",
+            "background:var(--c-card, #1e2433)",
+            "border-bottom:1px solid var(--c-border, rgba(255,255,255,.1))",
+            "flex-shrink:0",
+        ].join(";");
+
+        const btnStyle = [
+            "background:var(--c-surface, rgba(255,255,255,.06))",
+            "border:1px solid var(--c-border, rgba(255,255,255,.12))",
+            "color:var(--c-text, #e2e8f0)",
+            "border-radius:6px",
+            "padding:3px 10px",
+            "font-size:13px",
+            "cursor:pointer",
+            "line-height:1.6",
+            "transition:opacity .15s",
+        ].join(";");
+
+        bar.innerHTML = `
+        <button id="pdfNavPrev" style="${btnStyle}" title="Página anterior">‹</button>
+        <span id="pdfPageInfo" style="font-size:12px;color:var(--c-text-muted,#94a3b8);min-width:60px;text-align:center">
+            ${pdfState.currentPage} / ${totalPages}
+        </span>
+        <button id="pdfNavNext" style="${btnStyle}" title="Página seguinte">›</button>
+    `;
+
+        // Insere a barra ANTES do container de páginas
+        viewerWrap.prepend(bar);
+
+        // Eventos dos botões
+        $("#pdfNavPrev").addEventListener("click", () => {
+            if (pdfState.currentPage > 1) goToPage(pdfState.currentPage - 1);
+        });
+        $("#pdfNavNext").addEventListener("click", () => {
+            if (pdfState.pdfDoc && pdfState.currentPage < pdfState.pdfDoc.numPages) {
+                goToPage(pdfState.currentPage + 1);
+            }
+        });
+    }
+
     // ─── Source modal: chunks + pdf.js viewer ────────────────
     // doc: { title, fileUrl, chunks: [source objects from API] }
     function openSourceModal(doc) {
+        // Se o doc_url for nulo, mas tivermos um doc_id, criamos o link para a nossa rota segura
+        if (!doc.fileUrl && (doc.doc_id || doc.id)) {
+            const id = doc.doc_id || doc.id;
+            doc.fileUrl = `/documents/view/${id}`;
+            console.log("Forçando URL seguro para doc interno:", doc.fileUrl);
+        }
+
         // Title
         const titleEl = $("#sourceModalTitle");
         if (titleEl) titleEl.textContent = doc.title || "Documento";
-
         // Chunks list
         const chunksList = $("#sourceChunksList");
-        const fullText   = $("#chunkFullText");
+        const fullText = $("#chunkFullText");
         const countBadge = $("#chunkCountBadge");
 
         if (!chunksList) return;
@@ -425,8 +520,8 @@
                     || `Trecho ${idx + 1}`;
 
                 const snippet = chunk.snippet || "";
-                const score   = chunk.score != null ? (parseFloat(chunk.score) * 100).toFixed(1) : null;
-                const page    = chunk.page_number ?? null;
+                const score = chunk.score != null ? (parseFloat(chunk.score) * 100).toFixed(1) : null;
+                const page = chunk.page_number ?? null;
 
                 row.innerHTML = `
                     <div class="chunk-row-header">
@@ -476,7 +571,7 @@
         }
     }
 
-        // ─── Status badge ─────────────────────────────────────────
+    // ─── Status badge ─────────────────────────────────────────
     function setAuditStatus(ok) {
         const chip = $("#chatAuditChip");
         const badge = $("#auditBadge");
@@ -571,11 +666,15 @@
         // Modal close
         $("#sourceModalClose")?.addEventListener("click", () => {
             closeModal("sourceModal");
-            // Limpa estado do PDF ao fechar (liberta memória)
             pdfState.pdfDoc = null;
             pdfState.fileUrl = null;
+            pdfState.currentPage = 1;
+            pdfState.snippetTokens = [];
             const c = $("#pdfContainer");
             if (c) c.innerHTML = "";
+            // Remove a navbar para recriar limpa na próxima abertura
+            const nav = $("#pdfNavBar");
+            if (nav) nav.remove();
         });
         $("#sourceModal")?.addEventListener("click", (e) => {
             if (e.target?.id === "sourceModal") closeModal("sourceModal");

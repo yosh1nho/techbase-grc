@@ -171,7 +171,6 @@ if (isset($updates['status']) && in_array($updates['status'], ['Concluído', 'Co
                 );
 
                 foreach ($assets as $asset) {
-                    // 👇 ALTERADO AQUI TAMBÉM 👇
                     if (!empty($asset->hostname) && str_contains($combinedTextLower, strtolower($asset->hostname))) {
                         $tags[] = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
                     }
@@ -179,8 +178,6 @@ if (isset($updates['status']) && in_array($updates['status'], ['Concluído', 'Co
                 
                 $tagString = empty($tags) ? "[GERAL_SOC]" : implode(" ", $tags);
                 $userName = DB::table('User')->where('id_user', session('tb_user.id'))->value('name') ?? 'Analista SOC';
-                
-                // 👇 ALTERADO AQUI TAMBÉM 👇
                 $planTitle = $plan ? "TP-" . $plan->id_plan : 'Sem plano';
                 
                 $textoParaGravar = "{$tagString} | DATA DO TRATAMENTO: " . now()->format('Y-m-d') . " | "

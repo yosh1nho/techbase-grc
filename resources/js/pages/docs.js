@@ -1826,27 +1826,154 @@
     }
   }
 
+  // ── Tooltip flutuante para sugestões ────────────────────────────────────────
+  let _suggTooltip = null;
+  function getSuggTooltip() {
+    if (_suggTooltip) return _suggTooltip;
+    _suggTooltip = document.createElement("div");
+    _suggTooltip.id = "suggTooltipFloating";
+    _suggTooltip.style.cssText = [
+      "position:fixed",
+      "z-index:99999",
+      "max-width:320px",
+      "min-width:180px",
+      "padding:10px 13px",
+      "border-radius:10px",
+      "background:var(--card,#1e2433)",
+      "border:1px solid var(--border,rgba(255,255,255,.12))",
+      "box-shadow:0 8px 32px rgba(0,0,0,.45)",
+      "font-size:13px",
+      "line-height:1.6",
+      "color:var(--fg,#e2e8f0)",
+      "pointer-events:none",
+      "opacity:0",
+      "transition:opacity .15s ease",
+      "white-space:normal",
+      "word-break:break-word",
+    ].join(";");
+    document.body.appendChild(_suggTooltip);
+    return _suggTooltip;
+  }
+  function showSuggTooltip(text, anchorEl) {
+    const tip = getSuggTooltip();
+    tip.textContent = text;
+    tip.style.opacity = "0";
+    tip.style.display = "block";
+    const rect = anchorEl.getBoundingClientRect();
+    const panel = anchorEl.closest("#vwSuggestionsPanel");
+    const panelRect = panel ? panel.getBoundingClientRect() : { left: 0, right: window.innerWidth };
+    // prefer left of panel, or right, whichever fits
+    const tipW = 320;
+    let left = panelRect.left - tipW - 8;
+    if (left < 4) left = panelRect.right + 8;
+    if (left + tipW > window.innerWidth - 4) left = Math.max(4, window.innerWidth - tipW - 8);
+    let top = rect.top;
+    if (top + 200 > window.innerHeight) top = window.innerHeight - 210;
+    tip.style.left = left + "px";
+    tip.style.top = Math.max(8, top) + "px";
+    requestAnimationFrame(() => { tip.style.opacity = "1"; });
+  }
+  function hideSuggTooltip() {
+    const tip = _suggTooltip;
+    if (!tip) return;
+    tip.style.opacity = "0";
+    setTimeout(() => { if (tip.style.opacity === "0") tip.style.display = "none"; }, 160);
+  }
+
   function renderSuggestions(suggestions, container) {
     if (!suggestions.length) {
       container.innerHTML = '<div class="muted" style="font-size:12px;padding:8px 0">Nenhum controlo identificado com confiança suficiente.</div>';
       return;
     }
+
     const cvg = { high: { cls: "ok", label: "Alta" }, medium: { cls: "warn", label: "Média" }, low: { cls: "", label: "Baixa" } };
+    const PREVIEW_CHARS = 120; // Aumentei um pouco para caber o título da Norma Oficial
+
+    // 🌟 FUNÇÃO MÁGICA: Embeleza o texto que vem do Backend!
+    const formatJustification = (txt) => {
+      if (!txt) return "—";
+      return txt
+        // Destaca os títulos que enviámos do Laravel a negrito
+        .replace(/(Norma Oficial:)/g, '<b style="color:var(--text)">$1</b>')
+        .replace(/(Trecho Encontrado no Doc:)/g, '<b style="color:var(--text)">$1</b>')
+        // Transforma os \n invisíveis do backend em quebras de linha reais do HTML
+        .replace(/\n/g, '<br>');
+    };
+
     container.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr>
         <th style="text-align:left;padding:0 8px 8px 0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Controlo</th>
         <th style="text-align:left;padding:0 8px 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Score</th>
         <th style="text-align:left;padding:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border)">Justificação</th>
       </tr></thead>
-      <tbody>${suggestions.map(s => {
+      <tbody>${suggestions.map((s, idx) => {
       const c = cvg[s.coverage] || cvg.low;
       const fw = s.framework ? `<span style="font-size:10px;color:var(--muted);margin-left:4px">${s.framework}</span>` : "";
-      const just = s.justification || (s.top_snippet ? s.top_snippet.substring(0, 100) + "…" : "—");
+
+      // 1. Tratamos os cortes de texto ainda em modo "RAW" (para não cortar tags HTML a meio)
+      const rawFullText = s.justification || s.top_snippet || "—";
+      const needsExpand = rawFullText.length > PREVIEW_CHARS;
+      const rawPreview = needsExpand ? rawFullText.slice(0, PREVIEW_CHARS).trimEnd() + "..." : rawFullText;
+
+      // 2. Aplicamos a formatação HTML às duas versões do texto
+      const htmlFull = formatJustification(rawFullText);
+      const htmlPreview = formatJustification(rawPreview);
+
+      const rowId = `sug-just-${idx}`;
+
       return `<tr>
-          <td style="padding:10px 8px 10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top"><b>${s.control_code}</b>${fw}<div style="font-size:11px;color:var(--muted)">${s.control_family || ""}</div></td>
-          <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap"><span class="tag ${c.cls}" style="font-size:11px"><span class="s"></span>${s.score.toFixed(2)}</span><div style="font-size:10px;color:var(--muted);margin-top:3px">${c.label}</div></td>
-          <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;color:var(--muted);font-size:12px;line-height:1.4">${just}</td>
+          <td style="padding:10px 8px 10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top">
+            <b>${s.control_code}</b>${fw}
+            <div style="font-size:11px;color:var(--muted)">${s.control_family || ""}</div>
+          </td>
+          <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;white-space:nowrap">
+            <span class="tag ${c.cls}" style="font-size:11px"><span class="s"></span>${s.score.toFixed(2)}</span>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">${c.label}</div>
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top">
+            <!-- Usamos atributos data-html-X para o Expand/Collapse e data-raw para o Tooltip -->
+            <div id="${rowId}"
+                 data-html-full="${htmlFull.replace(/"/g, '&quot;')}"
+                 data-html-preview="${htmlPreview.replace(/"/g, '&quot;')}"
+                 data-raw-full="${rawFullText.replace(/"/g, '&quot;')}"
+                 data-expanded="0"
+                 style="font-size:12px;line-height:1.6;color:var(--muted)">${htmlPreview}</div>
+            
+            ${needsExpand ? `<button data-expand="${rowId}" style="margin-top:6px;background:none;border:none;padding:0;font-size:11px;color:var(--info);font-weight:600;cursor:pointer;opacity:.9">ver mais ↓</button>` : ""}
+          </td>
         </tr>`;
     }).join("")}</tbody></table>`;
+
+    // ── expand/collapse ──────────────────────────────────────────────────────
+    container.querySelectorAll("[data-expand]").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        const el = document.getElementById(btn.dataset.expand);
+        if (!el) return;
+
+        const expanded = el.dataset.expanded === "1";
+        if (expanded) {
+          el.innerHTML = el.dataset.htmlPreview; // 🔥 Substituí textContent por innerHTML!
+          el.dataset.expanded = "0";
+          btn.textContent = "ver mais ↓";
+        } else {
+          el.innerHTML = el.dataset.htmlFull;    // 🔥 Substituí textContent por innerHTML!
+          el.dataset.expanded = "1";
+          btn.textContent = "ver menos ↑";
+        }
+      });
+    });
+
+    // ── tooltip ao hover ─────────────────────────────────────────────────────
+    container.querySelectorAll("[data-raw-full]").forEach(el => {
+      el.addEventListener("mouseenter", () => {
+        // Só mostra tooltip se o texto não estiver expandido e for longo
+        if (el.dataset.expanded !== "1" && el.dataset.htmlFull !== el.dataset.htmlPreview) {
+          // Usamos o texto RAW para não mostrar as tags <br> e <b> feias no tooltip
+          showSuggTooltip(el.dataset.rawFull, el);
+        }
+      });
+      el.addEventListener("mouseleave", hideSuggTooltip);
+    });
   }
 })();

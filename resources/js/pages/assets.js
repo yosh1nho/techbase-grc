@@ -822,7 +822,7 @@
         // ── Protection ──
         const protGrid = $("#mProtectionGrid");
         if (protGrid) {
-            if (asset.source === 'acronis') {
+            if (asset.source === 'wazuh') {
                 const items = [
                     { lbl: 'Backup', val: asset.backup_enabled },
                     { lbl: 'Antimalware', val: asset.antimalware_enabled },

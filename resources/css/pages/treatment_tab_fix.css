@@ -1,0 +1,199 @@
+/* ═══════════════════════════════════════════════════════════════
+   TECHBASE GRC — Tab Fix + Tasks Panel Visual Improvements
+   Adicionar APÓS os imports existentes de treatment_tasks.css
+   e treatment.css (este ficheiro sobrescreve apenas o necessário)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Modal principal: garantir altura mínima e flex correcto ── */
+.treat-detail-modal {
+    max-height: 92vh;
+    min-height: 560px;
+    /* evita que fique esmagado */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── 2. Tab panel: era overflow:hidden, agora scroll interno ───── */
+.treat-tab-panel {
+    flex: 1 1 0;
+    overflow: hidden;
+    /* mantém contenção do modal */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* ← chave para flex scroll funcionar */
+}
+
+.treat-tab-panel.is-hidden {
+    display: none !important;
+}
+
+/* ── 3. Panel de detalhes: scroll interno correcto ─────────────── */
+#tabPanel_details .treat-modal-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* ── 4. Tasks panel: ocupa todo o espaço disponível ───────────── */
+.tasks-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* scroll acontece no interior */
+}
+
+/* ── 5. Lista de tarefas: scroll próprio ───────────────────────── */
+.tasks-list-wrap {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+#td_tasks_list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* ── 6. Cabeçalho da aba Tarefas: barra de progresso + botão ───── */
+.tasks-panel-header {
+    flex-shrink: 0;
+    padding: 14px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--modal-border);
+    padding-bottom: 14px;
+}
+
+.tasks-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+/* ── 7. Barra de progresso: visual melhorado ───────────────────── */
+.tasks-progress-bar-wrap {
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--modal-border);
+    flex-shrink: 0;
+}
+
+.tasks-progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.tasks-progress-track {
+    height: 7px;
+    border-radius: 99px;
+    background: var(--border);
+    overflow: hidden;
+}
+
+.tasks-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #34d399 0%, #60a5fa 100%);
+    transition: width .4s ease;
+}
+
+/* ── 8. Botão "Nova tarefa": alinhado com a barra de progresso ──── */
+.tasks-panel>div[style*="justify-content:flex-end"] {
+    flex-shrink: 0;
+}
+
+/* ── 9. Cada task row: mais respiração e hover mais claro ──────── */
+.task-row {
+    padding: 13px 20px;
+    gap: 12px;
+    transition: background .12s;
+}
+
+.task-row:hover {
+    background: var(--input-bg);
+}
+
+/* ── 10. Dot de status com anel subtil ─────────────────────────── */
+.task-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3px currentColor;
+}
+
+.task-status-dot.task-status-todo {
+    color: #94a3b8;
+    background: #94a3b8;
+}
+
+.task-status-dot.task-status-doing {
+    color: #60a5fa;
+    background: #60a5fa;
+}
+
+.task-status-dot.task-status-done {
+    color: #34d399;
+    background: #34d399;
+}
+
+/* ── 11. Título da tarefa: itálico quando concluída ────────────── */
+.task-row.is-done .task-row-title {
+    text-decoration: line-through;
+    opacity: .55;
+}
+
+/* ── 12. Empty state: mais generoso ───────────────────────────── */
+.tasks-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 56px 20px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.tasks-empty svg {
+    opacity: .3;
+}
+
+/* ── 13. Botão + Nova tarefa: estilo pill com ícone ───────────── */
+#td_btn_new_task {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 16px;
+    border-radius: 99px;
+}
+
+/* ── 14. Responsive: modal mais alto em ecrãs pequenos ──────────  */
+@media (max-height: 700px) {
+    .treat-detail-modal {
+        max-height: 98vh;
+        min-height: unset;
+    }
+}
+
+@media (max-width: 600px) {
+    .tasks-panel-header {
+        padding: 12px 14px;
+    }
+
+    .task-row {
+        padding: 11px 14px;
+    }
+}

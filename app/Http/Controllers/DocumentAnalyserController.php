@@ -12,7 +12,7 @@ class DocumentAnalyserController extends Controller
     // =========================================================================
     // POST /api/documents/{id}/analyse
     // Analisa o documento e devolve sugestões de controlos cobertos.
-    // Pode ser chamado após upload (automático) ou manualmente pelo utilizador.
+    // Agora cruza com a BD para injetar a descrição oficial do controlo!
     // =========================================================================
     public function analyse(int $id, DocumentAnalyserService $svc): JsonResponse
     {
@@ -48,16 +48,59 @@ class DocumentAnalyserController extends Controller
         $tenantId = (string) ($tbUser['tenant'] ?? $tbUser['tenant_id'] ?? '102');
 
         try {
+            // 1. CHAMA O PINECONE (via Serviço)
             $result = $svc->analyse(
                 filePath: $filePath,
                 tenantId: $tenantId,
                 mimeType: $mime,
             );
 
+            // 2. INTERCETA AS SUGESTÕES
+            $suggestions = $result['suggestions'] ?? [];
+
+            if (!empty($suggestions)) {
+                // Pega em todos os control_codes devolvidos pelo Pinecone (ex: 'ID.AO-5')
+                $controlCodes = array_column($suggestions, 'control_code');
+
+                // Faz um JOIN na base de dados para buscar os textos originais
+                $dbControls = DB::table('grc.framework_control as fc')
+                    ->join('grc.framework_group as fg', 'fg.id_group', '=', 'fc.id_group')
+                    ->join('grc.framework as f',        'f.id_framework', '=', 'fg.id_framework')
+                    ->whereIn('fc.control_code', $controlCodes)
+                    ->select(
+                        'fc.control_code',
+                        'fc.description',
+                        'fc.guidance',
+                        'fg.name  as group_name',
+                        'f.name   as framework_name'
+                    )
+                    ->get()
+                    ->keyBy('control_code'); // Fica indexado pelo código para ser rápido a procurar
+
+                // Reconstrói o array de sugestões
+                $suggestions = array_map(function ($hit) use ($dbControls) {
+                    $code  = $hit['control_code'];
+                    $dbRow = $dbControls->get($code); // Tenta encontrar na BD
+
+                    return [
+                        'control_code'   => $code,
+                        'control_family' => $dbRow?->group_name   ?? $hit['control_family'] ?? null,
+                        'framework'      => $dbRow?->framework_name ?? $hit['framework']    ?? null,
+                        'score'          => (float) $hit['score'],
+                        'coverage'       => $hit['coverage'] ?? 'low',
+                        
+                        // Formatação rica: Oficial + Snippet do ficheiro
+                        'justification'  => $dbRow 
+                            ? "Norma Oficial: " . $dbRow->description . "\n\nTrecho Encontrado no Doc: " . ($hit['top_snippet'] ?? '')
+                            : ($hit['justification'] ?? $hit['top_snippet'] ?? '—')
+                    ];
+                }, $suggestions);
+            }
+
             return response()->json([
                 'success'     => true,
                 'doc_id'      => $id,
-                'suggestions' => $result['suggestions'] ?? [],
+                'suggestions' => $suggestions, // Array reconstruído!
                 'meta' => [
                     'text_length' => $result['text_length'] ?? 0,
                     'chunks_sent' => $result['chunks_sent'] ?? 0,

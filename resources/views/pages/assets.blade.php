@@ -149,9 +149,10 @@
         {{-- TABS --}}
         <div class="am-tabs">
             <button class="am-tab active" data-tab="overview">Visão Geral</button>
+            <!--
             @permission('risk.view')
             <button class="am-tab" data-tab="risk">Risco &amp; Tratamento</button>
-            @endpermission
+            @endpermission-->
             <button class="am-tab" data-tab="ai">
                 Análise de Postura
                 <span class="tab-badge tab-badge-ai" style="display:inline-flex; align-items:center; gap:4px; margin-left:4px;">
@@ -261,7 +262,7 @@
 
                 {{-- Coluna Direita --}}
                 <div class="ov-col">
-
+<!--
                     <div class="info-section">
                         <div class="info-section-title">Agente Acronis</div>
                         <div class="info-grid">
@@ -279,14 +280,16 @@
                             </div>
                         </div>
                     </div>
+-->
 
+<!--
                     <div class="info-section">
                         <div class="info-section-title">Protecção</div>
                         <div class="protection-grid" id="mProtectionGrid">
                             {{-- rendered by JS --}}
                         </div>
                     </div>
-
+-->
                     <div class="info-section risk-intrinsic-card">
 
                         <div class="info-section-title">Risco Intrínseco</div>
@@ -353,6 +356,7 @@
         </div>{{-- /tab-overview --}}
 
 {{-- TAB: RISK --}}
+<!--
         <div class="am-tab-panel" id="tab-risk">
             <div class="tab-panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <div>
@@ -370,7 +374,7 @@
             </div>
             <div id="assetRiskTreatList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
-
+-->
         {{-- TAB: AI POSTURE ANALYSIS --}}
         <div class="am-tab-panel" id="tab-ai">
             <div class="tab-panel-header" style="display:flex; justify-content:space-between; align-items:flex-start;">

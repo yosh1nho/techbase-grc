@@ -1260,19 +1260,19 @@
 
         // 👇 Adicionámos a coluna 'perm' com a permissão exigida para cada menu
         $navItems = [
-            ['route' => 'dashboard', 'label' => 'Dashboard', 'badge' => 'RF18', 'perm' => null], // Sem restrição
-            ['route' => 'assets', 'label' => 'Ativos', 'badge' => 'RF1', 'perm' => 'assets.view'],
-            ['route' => 'compliance', 'label' => 'Compliance', 'badge' => 'RF4', 'perm' => 'compliance.view'],
-            ['route' => 'docs', 'label' => 'Documentos & Evidências', 'badge' => 'RF2–RF3', 'perm' => 'docs.view'],
-            ['route' => 'assessments', 'label' => 'Avaliações', 'badge' => 'RF5–RF6', 'perm' => 'assessments.view'],
-            ['route' => 'risks', 'label' => 'Riscos', 'badge' => 'RF7–RF9', 'perm' => 'risk.view'],
-            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'badge' => 'RF10–RF11', 'perm' => 'treatment.view'],
-            ['route' => 'questionnaire', 'label' => 'Questionário', 'badge' => 'RF13', 'perm' => 'questionnaire.view'],
-            ['route' => 'chat', 'label' => 'Chat de Governação', 'badge' => 'RF14–RF15', 'perm' => 'chat.use'],
-            ['route' => 'audit', 'label' => 'Auditoria', 'badge' => 'RNF5', 'perm' => 'audit.view'],
-            ['route' => 'rbac', 'label' => 'RBAC', 'badge' => 'RF19', 'perm' => 'rbac.manage'],
-            ['route' => 'incidents','label' => 'Incidentes','perm'  => 'compliance.view','badge' => ''],
-            ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'badge' => 'RF20', 'perm' => 'compliance.view'],
+            ['route' => 'dashboard', 'label' => 'Dashboard', 'perm' => null], // Sem restrição
+            ['route' => 'assets', 'label' => 'Ativos', 'perm' => 'assets.view'],
+            ['route' => 'compliance', 'label' => 'Compliance', 'perm' => 'compliance.view'],
+            ['route' => 'docs', 'label' => 'Documentos & Evidências', 'perm' => 'docs.view'],
+            ['route' => 'assessments', 'label' => 'Avaliações', 'perm' => 'assessments.view'],
+            ['route' => 'risks', 'label' => 'Riscos', 'perm' => 'risk.view'],
+            ['route' => 'treatment', 'label' => 'Planos de Tratamento', 'perm' => 'treatment.view'],
+            ['route' => 'questionnaire', 'label' => 'Questionário', 'perm' => 'questionnaire.view'],
+            ['route' => 'chat', 'label' => 'Chat de Governação', 'perm' => 'chat.use'],
+            ['route' => 'audit', 'label' => 'Auditoria', 'perm' => 'audit.view'],
+            ['route' => 'rbac', 'label' => 'RBAC', 'perm' => 'rbac.manage'],
+            ['route' => 'incidents','label' => 'Incidentes','perm'  => 'compliance.view'],
+            ['route' => 'relatorios-cncs', 'label' => 'Relatórios CNCS', 'perm' => 'compliance.view'],
         ];
     @endphp
 
@@ -1331,7 +1331,6 @@
                         </span>
                         <span class="nav-label">{{ $item['label'] }}</span>
                     </span>
-                    <span class="badge nav-badge">{{ $item['badge'] }}</span>
                 </a>
             @endforeach
             </nav>
@@ -1358,8 +1357,12 @@
             </div>
 
             <div class="actions" style="display: flex; align-items: center; gap: 8px;">
-                <button class="btn ok" type="button">+ Nova avaliação</button>
-                <button class="btn primary" type="button">Upload documento</button>
+                <button class="btn ok" type="button" onclick="window.location.href='{{ route('assessments') }}'">
+                    + Nova avaliação
+                </button>
+                <button class="btn primary" type="button" onclick="window.location.href='{{ route('docs') }}?open_upload=true'">
+                    Upload documento
+                </button>
                 <button class="btn" type="button">Perfil</button>
                 <form method="POST" action="{{ route('logout') }}" style="margin:0;">
                     @csrf

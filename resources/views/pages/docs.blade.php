@@ -808,7 +808,27 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    @push('scripts')
+<script>
+    // DOMContentLoaded é suficiente — o docs.js também usa DOMContentLoaded,
+    // por isso basta um micro-tick (0ms) para garantir que os listeners já foram registados.
+    // Usar window.load causava atraso porque esperava pelo pdf.js (~1.3MB) e outras CDNs.
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (urlParams.get('open_upload') === 'true') {
+            // Remove o parâmetro da barra de endereços imediatamente
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            // Micro-tick para garantir que o docs.js já registou os seus event listeners
+            setTimeout(() => {
+                const btnUpload = document.getElementById('btnOpenUploadDoc');
+                if (btnUpload) btnUpload.click();
+            }, 0);
+        }
+    });
+</script>
+
+@push('scripts')
         @vite(['resources/js/pages/docs.js'])
     @endpush
 

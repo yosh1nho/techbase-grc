@@ -737,37 +737,59 @@ function downloadPdf() {
 
 /* ─── SEND TO DOCS ────────────────────────────────────────────────────────── */
 async function sendToDocs() {
-    const { actions, notes } = readEdits();
-    const sc = calcScore();
-    const payload = {
-        type: "security_plan", created_at: new Date().toISOString(),
-        meta, score: sc, answers, actions, notes,
-        stats: { total: sc.total, yes: sc.yes, partial: sc.partial, no: sc.no, na: sc.na },
-    };
+    // Garante que as edições do modal (acções editadas inline) são lidas antes de gerar o PDF
+    saveAnswers();
 
     const btn = document.getElementById("btnSendToDocs");
     const originalText = btn ? btn.innerHTML : null;
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="spinner"></i> Enviando...';
+        btn.innerHTML = '<i class="spinner"></i> A gerar PDF e enviar...';
     }
 
     try {
+        // 1. GERAR O PDF COMPLETO — reutiliza exatamente a mesma definição que o botão
+        //    "Exportar PDF" usa (pdfmake): capa + plano de ação + anexo completo.
+        if (!window.pdfMake?.createPdf) {
+            throw new Error("pdfmake ainda não carregou. Aguarda 2s e tenta novamente.");
+        }
+
+        const def = buildPdfDefinition();
+        const metaData = typeof meta !== 'undefined' ? meta : { company: 'Empresa' };
+        const companySlug = (metaData.company || "empresa").toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const fileName = `cyberplan_${companySlug}_${new Date().getTime()}.pdf`;
+
+        // pdfmake não expõe diretamente um método getBlob síncrono — usamos a callback
+        const pdfBlob = await new Promise((resolve, reject) => {
+            try {
+                window.pdfMake.createPdf(def).getBlob(blob => resolve(blob));
+            } catch (e) {
+                reject(e);
+            }
+        });
+
+        // 2. ENVIAR O BLOB PARA O ENDPOINT DE UPLOAD DE DOCUMENTOS
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-        const response = await fetch("/api/documents/cyberplan", {
+
+        const fd = new FormData();
+        fd.append("title", `Plano de Segurança: ${metaData.company || 'S/ Nome'}`);
+        fd.append("type", "report");
+        fd.append("version", "1.0");
+        fd.append("file", pdfBlob, fileName);
+
+        const response = await fetch("/api/documents/upload", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
                 "Accept": "application/json",
                 "X-CSRF-TOKEN": csrfToken || "",
             },
-            body: JSON.stringify(payload),
+            body: fd,
         });
 
         const data = await response.json();
 
         if (response.ok) {
-            toast("Enviado para Evidências", "Plano guardado como evidência com sucesso ✓");
+            toast("Enviado para Evidências", "Plano completo guardado em PDF com sucesso ✓");
             console.log("[Techbase] sendToDocs success:", data);
         } else {
             throw new Error(data.message || "Erro ao enviar para evidências");

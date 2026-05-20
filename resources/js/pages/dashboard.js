@@ -20,61 +20,129 @@ let ALERTS = [];   // formato normalizado usado por renderAlertCardBreakdown, bu
 // Variáveis globais (Agora com as datas)
 window.alertFilters = { page: 1, q: '', severity: 'all', dateFrom: '', dateTo: '' };
 
-window.loadWazuhAlerts = async function (page = 1) {
-    window.alertFilters.page = page;
-    const { q, severity, dateFrom, dateTo } = window.alertFilters;
+// =========================================================================
+// RENDERIZAÇÃO DOS DETALHES DO ALERTA (Painel Direito)
+// =========================================================================
+window.renderAlertDetails = function (alertId) {
+    const detailContent = document.getElementById('alertDetailContent');
+    const detailEmpty = document.getElementById('alertDetailEmpty');
+
+    // Encontra o alerta no array mapeado
+    const alert = ALERTS.find(a => a.id === alertId);
+
+    if (!alert) return;
+
+    detailEmpty.style.display = 'none';
+    detailContent.style.display = 'block';
+
+    // Helper para as cores das tags
+    const sevClass = alert.sev === 'critical' ? 'bad' : (alert.sev === 'medium' ? 'warn' : 'ok');
+
+    // 1. ESCAPAR AS PLICAS E ASPAS PARA O ONCLICK NÃO REBENTAR
+    // Usamos o alert.raw porque ele contém a descrição original e os logs completos
+    const safeTitle = (alert.raw.rule_description || alert.msg || 'Alerta do SIEM').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const safeDesc = (alert.raw.full_log || alert.msg || 'Sem detalhes no log.').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const safeSev = alert.sev;
+
+    // 2. CONSTRUIR O HTML
+    detailContent.innerHTML = `
+        <h3 style="margin-top:0; font-size: 16px;">${alert.msg}</h3>
+        
+        <div class="am-detail-section" style="margin-top: 15px;">
+            <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Nível de Severidade</span>
+            <div style="margin-top:4px;"><span class="tag ${sevClass}"><span class="s"></span> Nível ${alert.level} (${alert.sev})</span></div>
+        </div>
+
+        <div class="am-detail-section" style="margin-top: 15px;">
+            <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Agente</span>
+            <div style="margin-top:4px;">${alert.asset || 'Desconhecido'}</div>
+        </div>
+
+        <div class="am-detail-section" style="margin-top: 15px;">
+            <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Data e Hora</span>
+            <div style="margin-top:4px;">${alert.ts}</div>
+        </div>
+
+        <div class="am-detail-section" style="margin-top: 15px;">
+            <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Log Original</span>
+            <pre style="margin-top:4px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: pre-wrap; word-wrap: break-word;">${alert.raw.full_log || 'N/A'}</pre>
+        </div>
+
+        <!-- BOTÕES DE AÇÃO -->
+        <div class="am-detail-actions" style="margin-top: 25px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; gap: 10px; flex-wrap: wrap;">
+            
+            <button class="btn ok small" onclick="gerarPlanoAcaoIA(${alert.id})" title="Gerar plano de ação com Gemini">
+                ✦ Analisar com IA
+            </button>
+
+            <button class="btn warn small" 
+                onclick="promoteToIncident('${safeTitle}', '${safeDesc}', '${safeSev}', 'Wazuh SIEM')">
+                <i data-lucide="siren"></i> Promover a Incidente
+            </button>
+            
+        </div>
+    `;
+
+    // Renderizar os ícones do Lucide no novo HTML
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+}
+
+
+// =========================================================================
+// FUNÇÃO PARA PROMOVER AO BACKEND
+// =========================================================================
+window.promoteToIncident = async function (title, description, severity, source) {
+    if (!confirm('Deseja promover este alerta a um Incidente Oficial?\nEle aparecerá na aba de Incidentes como rascunho.')) {
+        return;
+    }
+
+    const btnId = event.currentTarget;
+    const originalHtml = btnId.innerHTML;
+    btnId.innerHTML = '<i class="spinner"></i> A promover...';
+    btnId.disabled = true;
 
     try {
-        const listWrap = document.getElementById('alertsTableBody');
-        if (listWrap) listWrap.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px"><span class="am-spinner"></span> A pesquisar no SIEM...</td></tr>`;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
-        // URL atualizado com as datas!
-        const res = await fetch(`/api/dashboard/wazuh-alerts?page=${page}&q=${encodeURIComponent(q)}&severity=${severity}&dateFrom=${dateFrom}&dateTo=${dateTo}`); if (!res.ok) return;
+        const response = await fetch('/api/incidents/from-alert', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken || ''
+            },
+            body: JSON.stringify({
+                title: title,
+                description: description,
+                severity: severity,
+                source: source
+            })
+        });
 
-        const result = await res.json();
-        const WAZUH_DATA = result.data || [];
+        const data = await response.json();
 
-        // 1. CORREÇÃO: Guardar os dados brutos para a tabela usar
-        WAZUH_ALERTS = WAZUH_DATA;
+        if (response.ok && data.success) {
+            // Sucesso!
+            if (typeof showToast === 'function') {
+                showToast('ok', data.message);
+            } else {
+                alert('✓ ' + data.message);
+            }
 
-        // 2. Mapeamento
-        ALERTS = WAZUH_DATA.map(a => ({
-            id: a.id,
-            ts: a.timestamp ? new Date(a.timestamp).toLocaleString() : '—',
-            sev: a.level >= 10 ? 'critical' : a.level >= 5 ? 'medium' : 'low',
-            level: a.level,
-            asset: a.agent,
-            cat: a.rule_id ? `Regra ${a.rule_id}` : 'Geral',
-            msg: a.description,
-            raw: a
-        }));
-
-        // 3. Atualizar KPIs do Dashboard Principal
-        if (q === '' && severity === 'all') {
-            const countEl = document.getElementById('alertCount');
-            if (countEl) countEl.textContent = result.total;
-            const subEl = document.getElementById('alertSub');
-            if (subEl) subEl.textContent = "Eventos totais no SIEM";
+            btnId.className = "btn ok small";
+            btnId.innerHTML = "Promovido com Sucesso";
+        } else {
+            throw new Error(data.message || 'Erro ao promover.');
         }
-
-        // 4. Atualizar KPIs dentro do Modal (Nesta Página)
-        const cCrit = ALERTS.filter(a => a.sev === 'critical').length;
-        const cMed = ALERTS.filter(a => a.sev === 'medium').length;
-        const cLow = ALERTS.filter(a => a.sev === 'low').length;
-
-        if (document.getElementById('akpiTotal')) document.getElementById('akpiTotal').textContent = result.total;
-        if (document.getElementById('akpiCritical')) document.getElementById('akpiCritical').textContent = cCrit;
-        if (document.getElementById('akpiMedium')) document.getElementById('akpiMedium').textContent = cMed;
-        if (document.getElementById('akpiLow')) document.getElementById('akpiLow').textContent = cLow;
-        if (document.getElementById('alertResultCount')) document.getElementById('alertResultCount').textContent = `${WAZUH_ALERTS.length} nesta página`;
-
-        if (typeof renderAlertsTable === 'function') renderAlertsTable();
-        window.renderAlertPagination(result.current_page, result.last_page, result.total);
-
-    } catch (e) {
-        console.error("Erro Alertas:", e);
+    } catch (error) {
+        console.error('[Techbase] Erro ao promover incidente:', error);
+        alert('Erro: ' + error.message);
+        btnId.innerHTML = originalHtml;
+        btnId.disabled = false;
     }
-};
+}
 
 window.renderAlertPagination = function (current, last, total) {
     const wrap = document.getElementById('alertsPagination');
@@ -311,6 +379,8 @@ window.analyzeAlert = async function (safeId, forceRegenerate = false) {
         btn.disabled = false;
     }
 };
+
+
 
 // ================== API DASHBOARD ==================
 async function loadDashboardData() {
@@ -810,14 +880,84 @@ function updateAlertModalKpis() {
     set('akpiLow', low);
 }
 
+// =========================================================================
+// FETCH: CARREGAR ALERTAS DO WAZUH (SIEM)
+// =========================================================================
+window.loadWazuhAlerts = async function (page = 1) {
+    window.alertFilters.page = page;
+    const f = window.alertFilters;
+
+    const tbody = document.getElementById('alertsTableBody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="5" class="am-loading-cell"><span class="spinner" style="width:16px;height:16px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 1s linear infinite;"></span> A carregar alertas do SIEM...</td></tr>';
+    }
+
+    try {
+        // 1. Construir os parâmetros para o URL (Pesquisa, datas, severidade, página)
+        const params = new URLSearchParams({
+            page: f.page,
+            q: f.q,
+            severity: f.severity,
+            dateFrom: f.dateFrom,
+            dateTo: f.dateTo
+        });
+
+        // 2. Fazer o pedido ao Laravel
+        const url = (ROUTES.wazuhAlerts || '/api/dashboard/wazuh-alerts') + '?' + params.toString();
+        const response = await fetch(url);
+
+        if (!response.ok) throw new Error('Erro ao ligar à API do Wazuh');
+
+        const data = await response.json();
+
+        // 3. Guardar os dados brutos na global
+        WAZUH_ALERTS = data.data || [];
+
+        // 4. Mapear para o formato interno ALERTS (usado pelos cartões e Next Actions)
+        ALERTS = WAZUH_ALERTS.map(a => ({
+            id: a.id,
+            sev: a.level >= 10 ? 'critical' : (a.level >= 5 ? 'medium' : 'low'),
+            cat: a.rule_id, // Usado para agrupar nas Next Actions
+            asset: a.agent,
+            msg: a.description,
+            ts: new Date(a.timestamp).toLocaleString('pt-PT'),
+            level: a.level,
+            raw: a // Guarda o original para os detalhes
+        }));
+
+        // 5. Renderizar a Interface
+        renderAlertsTable();
+
+        if (typeof renderAlertPagination === 'function') {
+            renderAlertPagination(data.current_page, data.last_page, data.total);
+        }
+        if (typeof updateAlertModalKpis === 'function') {
+            updateAlertModalKpis();
+        }
+        if (typeof renderAlertCardBreakdown === 'function') {
+            renderAlertCardBreakdown(); // Atualiza os mini-gráficos do dashboard
+        }
+        if (typeof renderNextActions === 'function') {
+            renderNextActions(); // Re-calcula as Próximas Ações com base nos novos alertas
+        }
+
+    } catch (error) {
+        console.error("[Techbase] Erro no loadWazuhAlerts:", error);
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" class="am-loading-cell" style="color:#f87171;">Erro ao carregar os alertas. Verifica a ligação ao SIEM.</td></tr>';
+        }
+    }
+};
+
 
 // ================== INIT ==================
 function init() {
     // 1. Carregar dados básicos do Dashboard (KPIs de risco, compliance, etc)
+    console.log("1. A iniciar o Dashboard...");
     loadDashboardData();
 
     // 2. Carregar os alertas reais do Wazuh
-    loadWazuhAlerts();
+    loadWazuhAlerts(1);
 
     // 3. Configurar abertura do Modal
     const openAlerts = $('[data-open-alerts]');

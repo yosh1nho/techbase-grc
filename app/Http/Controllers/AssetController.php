@@ -235,8 +235,7 @@ class AssetController extends Controller
 
             $agents = $agentsResponse->json('data.affected_items') ?? [];
 
-            // 3. Atualizar a Base de Dados
-            $upsertData = [];
+// 3. Atualizar a Base de Dados
             $now = now();
 
             foreach ($agents as $agent) {
@@ -245,35 +244,22 @@ class AssetController extends Controller
 
                 $osName = $agent['os']['name'] ?? '';
 
-                $upsertData[] = [
-                    'id_acronis'     => $agent['id'],
-                    'source'         => 'wazuh',
-                    'display_name'   => $agent['name'] ?? null,
-                    'hostname'       => $agent['name'] ?? null,
-                    'ip'             => $agent['ip'] ?? $agent['registerIP'] ?? null,
-                    'type'           => str_contains(strtolower($osName), 'windows') ? 'Endpoint' : 'Servidor',
-                    'os_name'        => $osName,
-                    'os_version'     => $agent['os']['version'] ?? null,
-                    'os_arch'        => $agent['os']['arch'] ?? null,
-                    'agent_status'   => $agent['status'] ?? null,
-                    'agent_version'  => $agent['version'] ?? null,
-                    'updatedat'      => $now,
-                ];
-            }
-
-            if (!empty($upsertData)) {
-                $chunks = array_chunk($upsertData, 500);
-                foreach ($chunks as $chunk) {
-                    DB::table('asset')->upsert(
-                        $chunk,
-                        ['id_acronis'], // unique column
-                        [
-                            'source', 'display_name', 'hostname', 'ip', 'type',
-                            'os_name', 'os_version', 'os_arch', 'agent_status',
-                            'agent_version', 'updatedat'
-                        ] // columns to update
-                    );
-                }
+                DB::table('asset')->updateOrInsert(
+                    ['id_acronis' => $agent['id']],
+                    [
+                        'source'         => 'wazuh',
+                        'display_name'   => $agent['name'] ?? null,
+                        'hostname'       => $agent['name'] ?? null,
+                        'ip'             => $agent['ip'] ?? $agent['registerIP'] ?? null,
+                        'type'           => str_contains(strtolower($osName), 'windows') ? 'Endpoint' : 'Servidor',
+                        'os_name'        => $osName,
+                        'os_version'     => $agent['os']['version'] ?? null,
+                        'os_arch'        => $agent['os']['arch'] ?? null,
+                        'agent_status'   => $agent['status'] ?? null,
+                        'agent_version'  => $agent['version'] ?? null,
+                        'updatedat'      => $now,
+                    ]
+                );
             }
 
             return response()->json(['message' => 'Sync completed', 'synced_count' => count($agents)]);

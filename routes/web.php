@@ -171,7 +171,7 @@ Route::patch('/api/assets/{id}/risk', [AssetController::class, 'patch']);
     Route::post('/api/document-generator/generate',  [DocumentGeneratorController::class, 'generate'])->middleware(CheckPermission::class.':docs.view');
     // Extração de texto para análise Gemini
     Route::get('/api/documents/{id}/extract-text',  [DocumentController::class, 'extractText'])->middleware(CheckPermission::class.':docs.view');
-
+    Route::get('/documents/view/{id}', [\App\Http\Controllers\DocumentController::class, 'viewFile'])->name('documents.view');
     // Análise Gemini — IMPORTANTE: esta rota tem de vir ANTES de {id}/xxx para não colidir
     Route::post('/api/documents/gemini-analyse',    [DocumentController::class, 'geminiAnalyse'])->middleware(CheckPermission::class.':docs.view');
     Route::post('/api/documents/cyberplan',         [DocumentController::class, 'storeCyberPlan'])->middleware(CheckPermission::class.':docs.upload');
@@ -265,16 +265,18 @@ Route::patch('/api/assets/{id}/risk', [AssetController::class, 'patch']);
  
 
     // Relatórios ─────────────────────────────────────────────────────────────
-    // Listagem e CRUD de relatórios
-    Route::get('/api/cncs-reports',               [CncsReportController::class, 'index']);
-    Route::post('/api/cncs-reports',              [CncsReportController::class, 'store']);
-    Route::get('/api/cncs-reports/report-data',   [CncsReportController::class, 'reportData']);
-    Route::get('/api/cncs-reports/compliance-table', [CncsReportController::class, 'complianceTable']);
-    Route::get('/api/cncs-reports/{id}',          [CncsReportController::class, 'show']);
-    Route::put('/api/cncs-reports/{id}',          [CncsReportController::class, 'update']);
-    Route::post('/api/cncs-reports/{id}/submit',  [CncsReportController::class, 'submit']);
-    Route::delete('/api/cncs-reports/{id}',       [CncsReportController::class, 'destroy']);
-
+    // IMPORTANTE: rotas estáticas ANTES das rotas com {id}
+    Route::get('/api/cncs-reports',                        [CncsReportController::class, 'index']);
+    Route::post('/api/cncs-reports',                       [CncsReportController::class, 'store']);
+    Route::get('/api/cncs-reports/report-data',            [CncsReportController::class, 'reportData']);
+    Route::get('/api/cncs-reports/compliance-table',       [CncsReportController::class, 'complianceTable']);
+    Route::post('/api/cncs-reports/generate-narrative',    [CncsReportController::class, 'generateNarrative']);
+    Route::get('/api/cncs-reports/incidents-for-report', [CncsReportController::class, 'incidentsForReport']);
+    Route::get('/api/cncs-reports/{id}',                   [CncsReportController::class, 'show']);
+    Route::put('/api/cncs-reports/{id}',                   [CncsReportController::class, 'update']);
+    Route::post('/api/cncs-reports/{id}/submit',           [CncsReportController::class, 'submit']);
+    Route::delete('/api/cncs-reports/{id}',                [CncsReportController::class, 'destroy']);
+    
     // ── Users (rota provisória) ───────────────────────────────────────────────
     Route::get('/api/users', function () {
         return DB::table('User')->select('id_user', 'name', 'email')->get();
@@ -492,5 +494,9 @@ Route::prefix('api/incidents')->group(function () {
     
     // Gerar Notificação 24h
     Route::post   ('/{id}/reports', [\App\Http\Controllers\IncidentController::class, 'createReport']);
+
+
+    // Promover Alerta a Incidente
+    Route::post('/from-alert', [\App\Http\Controllers\IncidentController::class, 'storeFromAlert']);
 });
  
