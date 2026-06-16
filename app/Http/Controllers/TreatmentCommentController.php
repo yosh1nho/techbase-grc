@@ -170,13 +170,18 @@ class TreatmentCommentController extends Controller
         try {
             $plan = DB::table('risktreatmentplan')->where('id_plan', $task->id_plan)->first();
             
-            $assets = DB::table('asset')->get();
+            $assets = DB::table('asset')
+                ->select('id_asset', 'hostname')
+                ->whereNotNull('hostname')
+                ->where('hostname', '!=', '')
+                ->get();
+
             $tags = [];
+            $combinedText = $request->content . ' ' . $task->title . ' ' . ($plan->description ?? '');
+
             foreach ($assets as $asset) {
                 // 👇 ALTERADO AQUI: Agora procura na description do plano em vez de no title 👇
-                if (stripos($request->content, $asset->hostname) !== false || 
-                    stripos($task->title, $asset->hostname) !== false ||
-                    ($plan && stripos($plan->description ?? '', $asset->hostname) !== false)) {
+                if (stripos($combinedText, $asset->hostname) !== false) {
                     $tags[] = "[ASSET_ID: {$asset->id_asset}] [HOSTNAME: {$asset->hostname}]";
                 }
             }
